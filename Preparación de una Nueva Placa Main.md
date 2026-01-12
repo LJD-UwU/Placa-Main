@@ -1,8 +1,6 @@
-###### Preparación de una Nueva Placa Main
+# Preparación de una Nueva Placa Main
 
-###### 
-
-###### 1\. Obtención del código interno
+## 1\. Obtención del código interno
 
 ###### \- Localizar y registrar el \*\*código interno asignado\*\* a la nueva placa Main.
 

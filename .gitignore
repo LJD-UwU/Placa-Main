@@ -1,0 +1,5 @@
+*__pycache__
+*.venv
+
+P.py
+SAP_BOM_Automator.spec

@@ -4,10 +4,10 @@ from backend.utils.sap_utils import (
     ejecutar_busqueda,
     esperar_cs11_completo,
     pausar,
-    ejecutar_cs03_corregir_material,
     tiene_parentesis_numericos,
     validar_planta
 )
+from backend.modules.cs03_auto import ejecutar_cs03_corregir_material
 
 def ejecutar_cs11(session, material, componente="1TE*", uso="PP01", plantas=None, pausa_entre_acciones=0.5):
     if plantas is None:

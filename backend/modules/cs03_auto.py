@@ -1,4 +1,4 @@
-from backend.utils.sap_utils import escribir_campo, ejecutar_busqueda, pausar, validar_planta
+from backend.utils.sap_utils import escribir_campo, ejecutar_busqueda, pausar
 
 def ejecutar_cs03_corregir_material(session, material, componente="1TE*", planta="2000", uso="PP01", pausa_entre_acciones=0.5):
     """

@@ -2,6 +2,7 @@ import pandas as pd
 import time
 from backend.utils.sap_utils import conectar_sap, tiene_parentesis_numericos
 from backend.scripts.ejecutar_cs11 import ejecutar_cs11
+from backend.utils.sap_utils import exportar_bom_a_excel
 
 # Configuración
 RUTA_EXCEL = r"C:\Users\admin\Documents\Practicante Archivos Main\Automatizacion\modelos.xlsx"
@@ -41,6 +42,10 @@ def procesar_modelos():
 
             if grid:
                 print(f"[INFO] Modelo {modelo} procesado exitosamente.")
+                
+                ruta_excel_exportado = exportar_bom_a_excel(session, nombre_archivo=f"{modelo}_BOM.xlsx")
+                if ruta_excel_exportado:
+                        print(f"[INFO] BOM del modelo {modelo} guardado en {ruta_excel_exportado}")
             else:
                 # Si el material tiene paréntesis y CS11 no funcionó, se reporta
                 if tiene_parentesis_numericos(modelo):

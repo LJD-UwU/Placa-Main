@@ -2,4 +2,5 @@
 *.venv
 
 P.py
-SAP_BOM_Automator.spec
+sap_config.py
+temp1.py

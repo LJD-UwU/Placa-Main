@@ -167,3 +167,45 @@ def validar_planta(session, planta, intentos=3, delay=1):
     print(f"[ERROR] No se pudo validar la planta: {planta}")
     return False
 
+def mensaje_sap_contiene(session, texto):
+    """
+    Revisa si la barra de estado de SAP contiene cierto texto
+    """
+    try:
+        status = session.findById("wnd[0]/sbar").Text
+        return texto in status
+    except Exception:
+        return False
+    
+def acceso_bom_exitoso(session):
+    """
+    Verifica si realmente se accedió al BOM en CS11
+    """
+    try:
+        # ❌ Mensaje de BOM inexistente
+        try:
+            status = session.findById("wnd[0]/sbar").Text
+            if "没有可用的 BOM" in status:
+                return False
+        except:
+            pass
+
+        # ✅ Grid real con filas
+        posibles_grids = [
+            "wnd[0]/usr/cntlGRID1/shellcont/shell",
+            "wnd[0]/usr/cntlGRID1/shellcont/shell/shellcont[1]/shell"
+        ]
+
+        for gid in posibles_grids:
+            try:
+                grid = session.findById(gid)
+                if grid.RowCount > 0:
+                    return True
+            except:
+                pass
+
+        return False
+    except:
+        return False
+
+

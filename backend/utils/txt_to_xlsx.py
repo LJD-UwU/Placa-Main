@@ -1,90 +1,102 @@
 import os
+import time
+import re
 import xlwings as xw
 import pandas as pd
 from backend.config.sap_config import EXPORT_FINAL_PATH
 
-# --- Carpetas para los archivos ---
-XLS_FOLDER = os.path.join(EXPORT_FINAL_PATH, "XLS")
-XLSX_FOLDER = os.path.join(EXPORT_FINAL_PATH, "XLSX")
+# ============================================================
+# CARPETAS
+# ============================================================
+MODEL_FILES_FOLDER = os.path.join(EXPORT_FINAL_PATH, "MODEL_FILES")
+MAINBOARD_FILES_FOLDER = os.path.join(EXPORT_FINAL_PATH, "MAINBOARD_FILES")
 
-os.makedirs(XLS_FOLDER, exist_ok=True)
-os.makedirs(XLSX_FOLDER, exist_ok=True)
+os.makedirs(MODEL_FILES_FOLDER, exist_ok=True)
+os.makedirs(MAINBOARD_FILES_FOLDER, exist_ok=True)
 
-
-import os
-import xlwings as xw
-
-import os
-import xlwings as xw
-import pandas as pd
-
+# ============================================================
+# CONVERSIÓN XLS (CP936) → CSV → XLSX (UNICODE)
+# ============================================================
 def convertir_xls_a_xlsx(ruta_xls: str, ruta_xlsx: str):
     """
-    Conversión segura SAP:
-    XLS (CodePage 936) → CSV (Excel) → XLSX (Unicode)
-    SIN perder caracteres chinos.
-    """
-    try:
-        if not os.path.exists(ruta_xls):
-            print(f"[ERROR] No existe el archivo XLS: {ruta_xls}")
-            return None
+    Conversión estable SAP:
+    XLS (CP936 / chino simplificado)
+    → CSV (Excel)
+    → XLSX (Unicode real)
 
+    Limpia automáticamente el CSV temporal.
+    """
+    if not os.path.exists(ruta_xls):
+        print(f"[ERROR] No existe el archivo XLS: {ruta_xls}")
+        return None
+
+    ruta_csv = None
+    app = None
+
+    try:
         carpeta = os.path.dirname(ruta_xls)
         base = os.path.splitext(os.path.basename(ruta_xls))[0]
         ruta_csv = os.path.join(carpeta, f"{base}.csv")
 
-        # 🧠 1) Abrir XLS con Excel
+        # 1️⃣ Abrir Excel invisible
         app = xw.App(visible=False)
         app.display_alerts = False
         app.screen_updating = False
 
         wb = app.books.open(ruta_xls)
 
-        # 🔥 2) Guardar como CSV desde Excel (mantiene 936)
-        wb.api.SaveAs(ruta_csv, FileFormat=6)  # 6 = xlCSV
+        # 2️⃣ Guardar como CSV (CP936)
+        wb.api.SaveAs(ruta_csv, FileFormat=6)  # xlCSV
         wb.close()
         app.quit()
 
-        # 🧠 3) Leer CSV con encoding chino
+        # 3️⃣ Leer CSV con encoding chino
         df = pd.read_csv(ruta_csv, encoding="gb2312")
 
-        # 🧠 4) Exportar a XLSX (Unicode real)
+        # 4️⃣ Guardar como XLSX Unicode
         df.to_excel(ruta_xlsx, index=False, engine="openpyxl")
 
-        print(f"[OK] Conversión correcta XLS → XLSX (GB2312 preservado): {ruta_xlsx}")
+        print(f"[OK] XLS → XLSX (CP936 preservado): {ruta_xlsx}")
         return ruta_xlsx
 
     except Exception as e:
         print(f"[ERROR] Falló conversión XLS → XLSX: {e}")
         try:
-            app.quit()
+            if app:
+                app.quit()
         except:
             pass
         return None
 
+    finally:
+        # 🧹 LIMPIEZA DEL CSV TEMPORAL
+        if ruta_csv and os.path.exists(ruta_csv):
+            try:
+                os.remove(ruta_csv)
+            except:
+                pass
 
-def exportar_bom_a_xls(session, modelo):
+# ============================================================
+# EXPORTAR BOM DESDE SAP
+# ============================================================
+def exportar_bom_a_xls(session, material, mainboard=False):
     """
-    Exporta el BOM de CS11 a XLS (CodePage 936).
+    Exporta el BOM de CS11 a XLS (CP936).
+    Guarda en carpeta de MODELOS o MAINBOARD.
     """
-    import re
-    import time
-
-    nombre_limpio = re.sub(r'[\\/*?:"<>|]', "_", modelo)
+    nombre_limpio = re.sub(r'[\\/*?:"<>|]', "_", material)
     xls_name = f"{nombre_limpio}.XLS"
-    ruta_xls_tmp = os.path.join(EXPORT_FINAL_PATH, xls_name)
-    ruta_xls_final = os.path.join(XLS_FOLDER, xls_name)
+
+    carpeta_destino = MAINBOARD_FILES_FOLDER if mainboard else MODEL_FILES_FOLDER
+    ruta_xls_final = os.path.join(carpeta_destino, xls_name)
 
     try:
         session.findById("wnd[0]").maximize()
-
-        # 📤 Exportar lista
         session.findById("wnd[0]/tbar[1]/btn[45]").press()
         time.sleep(1)
 
-        # 🧠 SAP puede mostrar diferentes pantallas
+        # Opción Spreadsheet si aparece
         try:
-            # Opción "Spreadsheet"
             session.findById(
                 "wnd[1]/usr/sub:SAPLSPO5:0101/radSPOPLI-SELFLAG[1,0]"
             ).select()
@@ -94,35 +106,28 @@ def exportar_bom_a_xls(session, modelo):
         session.findById("wnd[1]/tbar[0]/btn[0]").press()
         time.sleep(1)
 
-        # 📁 Nombre y ruta
         session.findById("wnd[1]/usr/ctxtDY_FILENAME").text = xls_name
-        session.findById("wnd[1]/usr/ctxtDY_PATH").text = EXPORT_FINAL_PATH
+        session.findById("wnd[1]/usr/ctxtDY_PATH").text = carpeta_destino
         session.findById("wnd[1]/tbar[0]/btn[0]").press()
 
-        # ⏳ Esperar archivo
-        if not esperar_archivo(ruta_xls_tmp, timeout=60):
+        if not esperar_archivo(ruta_xls_final, timeout=60):
             raise RuntimeError("SAP no generó el archivo XLS")
 
-        # 📦 Mover a carpeta XLS
-        os.replace(ruta_xls_tmp, ruta_xls_final)
         print(f"[OK] XLS exportado correctamente: {ruta_xls_final}")
-
         return ruta_xls_final
 
     except Exception as e:
-        print(f"[ERROR] Exportación SAP falló ({modelo}): {e}")
+        print(f"[ERROR] Exportación SAP falló ({material}): {e}")
         return None
 
-
+# ============================================================
+# ESPERA DE ARCHIVO
+# ============================================================
 def esperar_archivo(path, timeout=60):
-    """
-    Espera hasta que el archivo exista y tenga contenido.
-    """
-    import time
     inicio = time.time()
     while time.time() - inicio < timeout:
         if os.path.exists(path) and os.path.getsize(path) > 0:
-            time.sleep(1)  # buffer extra
+            time.sleep(1)
             return True
         time.sleep(1)
     return False

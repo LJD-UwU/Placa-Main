@@ -2,24 +2,33 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, scrolledtext
 import pandas as pd
 import os
+import re
 
 from backend.config.sap_login import abrir_sap_y_login
 from backend.modules.cs11 import ejecutar_cs11
 from backend.utils.txt_to_xlsx import (
     exportar_bom_a_xls,
     convertir_xls_a_xlsx,
-    XLSX_FOLDER
+    MAINBOARD_FILES_FOLDER,
+    MODEL_FILES_FOLDER
 )
-from backend.scripts.extract_mainboard import extract_descripcion_numbers
+
+from backend.modules.extract_mainboard import extract_descripcion_numbers
+from backend.modules.procesar_mainboard import procesar_number
+
+# 🔹 NUEVO: módulo de limpieza de Excel mainboard
+from backend.utils.clean_excel import limpiar_excel_mainboard
 
 
 # ============================================================
-# CONFIGURACIÓN DE BÚSQUEDA
-# SOLO se buscará la mainboard por caracteres chinos
+# CONFIGURACIÓN
 # ============================================================
 DESCRIPCIONES_BUSCAR = ["主板大组件\\", "主板总成\\", "主板组件\\"]
 
 
+# ============================================================
+# UI
+# ============================================================
 class SAPApp:
     def __init__(self, root):
         self.root = root
@@ -51,13 +60,16 @@ class SAPApp:
         self.log.grid(row=5, column=0, columnspan=3, padx=10)
         self.log.config(state="disabled")
 
-        # ---------- Data ----------
+        # ---------- DATA ----------
         self.modelos = []
         self.idx = 0
         self.session = None
         self.df_todos = pd.DataFrame(columns=["Modelo", "Planta", "Number", "Descripcion"])
 
-    # ---------- Helpers ----------
+
+    # ============================================================
+    # HELPERS
+    # ============================================================
     def log_msg(self, msg):
         self.log.config(state="normal")
         self.log.insert(tk.END, msg + "\n")
@@ -70,13 +82,17 @@ class SAPApp:
         if f:
             self.excel_path.set(f)
 
-    # ---------- Flujo ----------
+
+    # ============================================================
+    # FLUJO PRINCIPAL
+    # ============================================================
     def iniciar(self):
         if not self.excel_path.get():
             messagebox.showwarning("Atención", "Selecciona un archivo Excel primero")
             return
+
         self.btn_procesar.config(state="disabled")
-        self.log_msg("[INFO] Iniciando proceso...")
+        self.log_msg("[INFO] Automatización iniciada...")
         self.root.after(100, self.cargar_excel)
 
     def cargar_excel(self):
@@ -92,22 +108,24 @@ class SAPApp:
         self.log_msg("[INFO] Conectando a SAP...")
         self.session = abrir_sap_y_login()
         if not self.session:
-            messagebox.showerror("Error", "No se pudo conectar a SAP")
+            messagebox.showerror("Error", "Conexión a SAP fallida")
             self.btn_procesar.config(state="normal")
             return
 
         self.idx = 0
         self.root.after(300, self.procesar_modelo)
 
+
     def procesar_modelo(self):
         if self.idx >= len(self.modelos):
             self.guardar_excel_final()
-            self.log_msg("\n[FIN] Proceso completado ✅")
+            self.log_msg("\n[FIN] Procesamiento de modelos completado ✅")
             self.btn_procesar.config(state="normal")
             return
 
         modelo = self.modelos[self.idx]
         plantas = [p.strip() for p in self.plantas_var.get().split(",") if p.strip()]
+
         self.log_msg(f"\n===== {self.idx + 1}/{len(self.modelos)} → {modelo} =====")
 
         try:
@@ -119,44 +137,27 @@ class SAPApp:
                 plantas=plantas
             )
 
-            if not resultados:
-                self.log_msg("[WARNING] Sin BOM")
-            else:
+            if resultados:
                 for planta, _ in resultados:
-                    ruta_xls = exportar_bom_a_xls(self.session, modelo)
+                    ruta_xls = exportar_bom_a_xls(self.session, modelo, mainboard=False)
                     if not ruta_xls:
-                        self.log_msg(f"[ERROR] No se pudo exportar XLS para {modelo} en planta {planta}")
                         continue
 
-                    base = os.path.basename(ruta_xls).replace(".XLS", "")
-                    ruta_xlsx = os.path.join(XLSX_FOLDER, f"{base}.xlsx")
-
+                    base = re.sub(r'[\\/*?:"<>|]', "_", os.path.basename(ruta_xls).replace(".XLS", ""))
+                    ruta_xlsx = os.path.join(MODEL_FILES_FOLDER, f"{base}.xlsx")
                     convertir_xls_a_xlsx(ruta_xls, ruta_xlsx)
 
                     df_modelo = extract_descripcion_numbers(
-                    input_xlsx=ruta_xlsx,
-                    modelo=modelo,  # Modelo interno del Excel
-                    descripcion_a_buscar=DESCRIPCIONES_BUSCAR )
+                        input_xlsx=ruta_xlsx,
+                        modelo=modelo,
+                        descripcion_a_buscar=DESCRIPCIONES_BUSCAR
+                    )
 
-
-                    if df_modelo.empty:
-                        self.log_msg(
-                            f"[INFO] {modelo} | Planta {planta} → ❌ SIN MAINBOARD (no se encontró texto chino)"
-                        )
-                    else:
+                    if not df_modelo.empty:
+                        df_modelo = df_modelo.dropna(subset=["Number"])
                         df_modelo["Modelo"] = modelo
                         df_modelo["Planta"] = planta
-                        df_modelo = df_modelo.drop_duplicates(
-                            subset=["Modelo", "Number", "Descripcion"]
-                        )
-                        self.df_todos = pd.concat(
-                            [self.df_todos, df_modelo], ignore_index=True
-                        )
-
-                        for _, r in df_modelo.iterrows():
-                            self.log_msg(
-                                f"{r['Modelo']} | {r['Planta']} | {r['Number']} | {r['Descripcion']}"
-                            )
+                        self.df_todos = pd.concat([self.df_todos, df_modelo], ignore_index=True)
 
         except Exception as e:
             self.log_msg(f"[ERROR] {e}")
@@ -164,21 +165,54 @@ class SAPApp:
         self.idx += 1
         self.root.after(500, self.procesar_modelo)
 
+
+    # ============================================================
+    # PROCESAR MAINBOARD + LIMPIEZA
+    # ============================================================
     def guardar_excel_final(self):
         if self.df_todos.empty:
             self.log_msg("[INFO] No se generaron datos")
             return
 
-        ruta = os.path.join(XLSX_FOLDER, "resultado_todos_modelos_mainboard.xlsx")
-        try:
-            with pd.ExcelWriter(ruta, engine="openpyxl") as writer:
-                self.df_todos.to_excel(writer, index=False)
-            self.log_msg(f"\n[INFO] Excel final guardado:\n{ruta}")
-        except Exception as e:
-            self.log_msg(f"[ERROR] No se pudo guardar el Excel final: {e}")
+        self.log_msg("\n[INFO] Procesando ensamble de mainboard...")
+
+        for _, row in self.df_todos.iterrows():
+            number = str(row["Number"]).strip()
+
+            # ---- Evitar reprocesar ----
+            if any(number in f for f in os.listdir(MAINBOARD_FILES_FOLDER)):
+                self.log_msg(f"[SKIP] {number} ya fue procesado")
+                continue
+
+            for planta in ["2000", "2900", "2000"]:
+                try:
+                    ruta_xls = procesar_number(
+                        session=self.session,
+                        number=number,
+                        planta=planta,
+                        capid=self.uso_var.get()
+                    )
+
+                    base = re.sub(r'[\\/*?:"<>|]', "_", os.path.basename(ruta_xls).replace(".XLS", ""))
+                    ruta_xlsx = os.path.join(MAINBOARD_FILES_FOLDER, f"{base}.xlsx")
+
+                    convertir_xls_a_xlsx(ruta_xls, ruta_xlsx)
+
+                    # ✅ LIMPIEZA AUTOMÁTICA DEL EXCEL MAINBOARD
+                    limpiar_excel_mainboard(ruta_xlsx)
+
+                    self.log_msg(f"[OK] {number} procesado y limpiado en planta {planta}")
+                    break
+
+                except Exception as e:
+                    self.log_msg(f"[WARN] {number} falló en planta {planta}")
+
+        self.log_msg("\n[FIN] Mainboards procesadas y limpiadas ✅")
 
 
-# ---------- MAIN ----------
+# ============================================================
+# MAIN
+# ============================================================
 if __name__ == "__main__":
     root = tk.Tk()
     app = SAPApp(root)

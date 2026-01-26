@@ -28,12 +28,26 @@ def esperar_id(session, id_control, timeout=15):
             time.sleep(0.2)
     raise Exception(f"Control no encontrado: {id_control}")
 
-def escribir_campo(session, id_campo, texto):
-    """Escribe texto en un campo SAP"""
+def escribir_campo(session, id_campo, texto, limpiar=True):
+    """
+    Escribe texto en un campo SAP asegurando que no queden residuos.
+    """
     campo = esperar_id(session, id_campo)
+
+    try:
+        campo.setFocus()
+        if limpiar:
+            campo.text = ""
+            campo.sendVKey(4)   # Ctrl + A
+            campo.sendVKey(2)   # Delete
+            time.sleep(0.1)
+    except:
+        pass
+
     campo.text = texto
     campo.caretPosition = len(texto)
     return campo
+
 
 def ejecutar_busqueda(session):
     """Presiona el botón de búsqueda (F8)"""
@@ -130,3 +144,26 @@ def exportar_bom_a_excel(session, nombre_archivo="BOM.xlsx", ruta_carpeta=os.get
     except Exception as e:
         print(f"[ERROR] No se pudo exportar BOM: {e}")
         return None
+
+def validar_planta(session, planta, intentos=3, delay=1):
+    control_id = "wnd[0]/usr/ctxtRC29L-WERKS"
+    
+    for intento in range(1, intentos+1):
+        try:
+            campo = session.findById(control_id)
+            if campo.text.strip() == planta:
+                return True
+            else:
+                # Si no coincide, intentamos setearlo nuevamente
+                campo.text = planta
+                campo.caretPosition = len(planta)
+                time.sleep(delay)
+                if campo.text.strip() == planta:
+                    return True
+        except Exception as e:
+            print(f"[WARNING] Intento {intento}/{intentos} falló para {control_id}: {e}")
+            time.sleep(delay)
+
+    print(f"[ERROR] No se pudo validar la planta: {planta}")
+    return False
+

@@ -9,10 +9,13 @@ from backend.config.sap_config import EXPORT_FINAL_PATH
 # CARPETAS
 # ============================================================
 MODEL_FILES_FOLDER = os.path.join(EXPORT_FINAL_PATH, "MODEL_FILES")
-MAINBOARD_FILES_FOLDER = os.path.join(EXPORT_FINAL_PATH, "MAINBOARD_FILES")
+MAINBOARD_1_FILES_FOLDER = os.path.join(EXPORT_FINAL_PATH, "MAINBOARD_1_FILES")
+MAINBOARD_2_FILES_FOLDER = os.path.join(EXPORT_FINAL_PATH, "MAINBOARD_2_FILES")
+
 
 os.makedirs(MODEL_FILES_FOLDER, exist_ok=True)
-os.makedirs(MAINBOARD_FILES_FOLDER, exist_ok=True)
+os.makedirs(MAINBOARD_1_FILES_FOLDER, exist_ok=True)
+os.makedirs(MAINBOARD_2_FILES_FOLDER, exist_ok=True)
 
 # ============================================================
 # CONVERSIÓN XLS (CP936) → CSV → XLSX (UNICODE)
@@ -87,7 +90,7 @@ def exportar_bom_a_xls(session, material, mainboard=False):
     nombre_limpio = re.sub(r'[\\/*?:"<>|]', "_", material)
     xls_name = f"{nombre_limpio}.XLS"
 
-    carpeta_destino = MAINBOARD_FILES_FOLDER if mainboard else MODEL_FILES_FOLDER
+    carpeta_destino = MAINBOARD_1_FILES_FOLDER if mainboard else MODEL_FILES_FOLDER
     ruta_xls_final = os.path.join(carpeta_destino, xls_name)
 
     try:

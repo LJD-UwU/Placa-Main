@@ -1,7 +1,7 @@
 import os
 import openpyxl
 import time
-from backend.utils.txt_to_xlsx import MAINBOARD_FILES_FOLDER
+from backend.utils.txt_to_xlsx import MAINBOARD_1_FILES_FOLDER
 
 
 def mover_columnas_completas(ws, columnas_originales, nueva_pos):
@@ -61,9 +61,9 @@ def limpiar_excel_mainboard(ruta_xlsx: str):
 
 
 def limpiar_todos_los_mainboard():
-    for archivo in os.listdir(MAINBOARD_FILES_FOLDER):
+    for archivo in os.listdir(MAINBOARD_1_FILES_FOLDER):
         if archivo.lower().endswith(".xlsx"):
-            ruta = os.path.join(MAINBOARD_FILES_FOLDER, archivo)
+            ruta = os.path.join(MAINBOARD_1_FILES_FOLDER, archivo)
 
             try:
                 limpiar_excel_mainboard(ruta)

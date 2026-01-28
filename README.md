@@ -6,11 +6,12 @@ Practicante-Placa-Main/
 │   │   └── sap_login.py
 │   ├── modules/
 │   │   ├── cs03.py
-│   │   └── cs11.py
-│   ├── scripts/
-│   │   ├── ejecutar_cs11.py
-│   │   └── extract_mainboard.py
+│   │   ├── cs11_ejecuter.py
+│   │   ├── cs11.py
+│   │   ├── extract_mainboard.py
+│   │   └── procesar_mainboard.py
 │   └── utils/
+│       ├── clean_excel.py
 │       ├── sap_utils.py
 │       └── txt_to_xlsx.py
 ├── .gitignore

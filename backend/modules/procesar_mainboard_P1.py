@@ -1,7 +1,7 @@
 import os
 import time
 import pandas as pd
-from backend.utils.txt_to_xlsx import exportar_bom_a_xls, convertir_xls_a_xlsx, MAINBOARD_FILES_FOLDER
+from backend.utils.txt_to_xlsx import exportar_bom_a_xls, convertir_xls_a_xlsx
 from backend.utils.sap_utils import acceso_bom_exitoso
 
 MENSAJE_SIN_BOM = "没有可用的 BOM"

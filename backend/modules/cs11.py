@@ -3,8 +3,7 @@ from backend.utils.sap_utils import (
     ejecutar_busqueda,
     esperar_cs11_completo,
     pausar,
-    tiene_parentesis_numericos,
-    validar_planta
+    tiene_parentesis_numericos
 )
 from backend.modules.cs03 import ejecutar_cs03_corregir_material
 
@@ -34,7 +33,7 @@ def ejecutar_cs11(session, material, componente="1TE*", uso="PP01", plantas=None
         session,
         "wnd[1]/usr/tabsG_SELONETABSTRIP/tabpTAB001/ssubSUBSCR_PRESEL:SAPLSDH4:0220/"
         "sub:SAPLSDH4:0220/txtG_SELFLD_TAB-LOW[0,24]",
-        f"*{material}*"
+        f"*.{material}.*"
     )
     pausar(pausa_entre_acciones)
 

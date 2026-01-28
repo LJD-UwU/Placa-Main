@@ -6,19 +6,21 @@ import os
 # UTILIDADES GENERALES SAP
 # ==============================
 
-def pausar(segundos=1):
+timeout=15
+
+def pausar(segundos=3):
     """Pausa la ejecución"""
     time.sleep(segundos)
 
-def esperar_sap(session, timeout=15):
-    """Espera a que SAP no esté ocupado"""
-    for _ in range(timeout * 10):
+def esperar_sap(session, timeout_local=None):
+    t = timeout_local if timeout_local else timeout
+    for _ in range(t * 10):
         if not session.Busy:
             return
         time.sleep(0.1)
     raise Exception("SAP no respondió a tiempo")
 
-def esperar_id(session, id_control, timeout=15):
+def esperar_id(session, id_control):
     """Espera hasta que un control exista en SAP"""
     inicio = time.time()
     while time.time() - inicio < timeout:
@@ -76,7 +78,7 @@ def tiene_parentesis_numericos(material: str) -> bool:
 
 def esperar_cs11_completo(session, timeout=30):
     """Espera a que el grid de CS11 cargue con datos"""
-    esperar_sap(session, timeout)
+    esperar_sap(session)
     posibles_grids = [
         "wnd[0]/usr/cntlGRID1/shellcont/shell",
         "wnd[0]/usr/cntlGRID1/shellcont/shell/shellcont[1]/shell"
@@ -92,6 +94,7 @@ def esperar_cs11_completo(session, timeout=30):
                 pass
         time.sleep(0.5)
     raise Exception("CS11 no terminó de cargar el grid")
+
 
 # ==============================
 # CONEXIÓN Y EXPORTACIÓN

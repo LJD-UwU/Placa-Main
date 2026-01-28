@@ -2,64 +2,126 @@ import os
 import time
 import pandas as pd
 from backend.utils.txt_to_xlsx import exportar_bom_a_xls, convertir_xls_a_xlsx, MAINBOARD_FILES_FOLDER
-import time
-from backend.utils.txt_to_xlsx import exportar_bom_a_xls
 from backend.utils.sap_utils import acceso_bom_exitoso
-# ==============================
-# FUNCION PRINCIPAL PARA UN NUMBER
-# ==============================
-def procesar_number(session, number, planta, capid):
-    session.findById("wnd[0]/tbar[0]/okcd").text = "/NCS11"
-    session.findById("wnd[0]").sendVKey(0)
 
-    session.findById("wnd[0]/usr/ctxtRC29L-MATNR").text = number
-    session.findById("wnd[0]/usr/ctxtRC29L-WERKS").text = planta
-    session.findById("wnd[0]/usr/ctxtRC29L-CAPID").text = capid
-    session.findById("wnd[0]/tbar[1]/btn[8]").press()
-
-    time.sleep(0.8)
-
-    # 🔎 VALIDACIÓN REAL
-    if not acceso_bom_exitoso(session):
-        raise Exception("No se pudo acceder al BOM")
-
-    ruta_xls = exportar_bom_a_xls(session, number, mainboard=True)
-    if not ruta_xls:
-        raise Exception("Falló exportación XLS")
-
-    return ruta_xls
 MENSAJE_SIN_BOM = "没有可用的 BOM"
 
+# ==============================
+# FUNCION PARA MODELOS INTERNOS
+# ==============================
+def procesar_number(session, number, planta, capid):
+    """
+    Procesa un Number en SAP para un modelo interno.
+    Retorna la ruta del XLS exportado.
+    """
+    try:
+        session.findById("wnd[0]/tbar[0]/okcd").text = "/NCS11"
+        session.findById("wnd[0]").sendVKey(0)
+
+        session.findById("wnd[0]/usr/ctxtRC29L-MATNR").text = number
+        session.findById("wnd[0]/usr/ctxtRC29L-WERKS").text = planta
+        session.findById("wnd[0]/usr/ctxtRC29L-CAPID").text = capid
+        session.findById("wnd[0]/tbar[1]/btn[8]").press()
+        time.sleep(0.8)
+
+        if not acceso_bom_exitoso(session):
+            print(f"[INFO] No se accedió al BOM para {number} en planta {planta}")
+            return None
+
+        ruta_xls = exportar_bom_a_xls(session, number, mainboard=True)
+        if not ruta_xls or not os.path.exists(ruta_xls):
+            print(f"[WARNING] Falló exportación XLS para {number} en planta {planta}")
+            return None
+
+        return ruta_xls
+    except Exception as e:
+        print(f"[ERROR] Error procesando {number} en planta {planta}: {e}")
+        return None
+
+# ==============================
+# FUNCION PARA MAINBOARD CON BLOQUE DINAMICO
+# ==============================
 def procesar_number_mainboard(session, number, capid):
-    plantas = ["2000", "2900"]
-    secuencia = ["2000", "2900", "2000"]  # 🔁 como pediste
+    """
+    Procesa un Number para obtener su Mainboard en SAP.
+    Incluye bloque adicional dinámico para seleccionar fila y presionar botones.
+    """
+    secuencia = ["2000", "2900", "2000"]  # plantas a intentar
 
     for planta in secuencia:
         try:
             print(f"[INFO] Intentando {number} en planta {planta}")
 
+            # Abrir CS11
             session.findById("wnd[0]").maximize()
             session.findById("wnd[0]/tbar[0]/okcd").text = "/NCS11"
             session.findById("wnd[0]").sendVKey(0)
 
+            # Ingresar datos
             session.findById("wnd[0]/usr/ctxtRC29L-MATNR").text = number
             session.findById("wnd[0]/usr/ctxtRC29L-WERKS").text = planta
             session.findById("wnd[0]/usr/ctxtRC29L-CAPID").text = capid
             session.findById("wnd[0]/tbar[1]/btn[8]").press()
-
             time.sleep(0.8)
 
-            # 🔎 VALIDACIÓN REAL
+            # Validación BOM
             if not acceso_bom_exitoso(session):
                 print(f"[INFO] No se accedió al BOM en planta {planta}")
-                continue  # 🔁 cambiar planta
+                continue
 
-            # ✅ BOM REALMENTE CARGADO
+            # Exportar BOM
             ruta_xls = exportar_bom_a_xls(session, number, mainboard=True)
+            if not ruta_xls or not os.path.exists(ruta_xls):
+                print(f"[WARNING] No se generó XLS para {number} en planta {planta}")
+                continue
+
             ruta_xlsx = ruta_xls.replace(".XLS", ".xlsx")
             convertir_xls_a_xlsx(ruta_xls, ruta_xlsx)
 
-            print(f"[OK] BOM obtenido para {number} en planta {planta}")
+            # ==== BLOQUE ADICIONAL SAP GUI ====
+            try:
+                # 1️⃣ Presionar botón para abrir el popup
+                session.findById("wnd[0]/tbar[1]/btn[33]").press()
+                time.sleep(1)  # esperar que cargue el popup
+
+                # 2️⃣ Acceder al grid
+                grid = session.findById(
+                    "wnd[1]/usr/ssubD0500_SUBSCREEN:SAPLSLVC_DIALOG:0501/"
+                    "cntlG51_CONTAINER/shellcont/shell"
+                )
+
+                # 3️⃣ Seleccionar fila 81 si existe, si no seleccionar última fila
+                fila_objetivo = 81
+                if grid.RowCount > fila_objetivo:
+                    fila = fila_objetivo
+                else:
+                    fila = grid.RowCount - 1
+                    print(f"[WARNING] La fila 81 no existe, seleccionando última fila {fila}")
+
+                # Seleccionar celda
+                grid.currentCellRow = fila
+                grid.currentCellColumn = 0  # primera columna, ajustar si es otra columna
+                grid.selectedRows = str(fila)
+                grid.clickCurrentCell()
+                time.sleep(0.5)
+
+                # 4️⃣ Presionar botón siguiente
+                session.findById("wnd[0]/tbar[1]/btn[45]").press()
+                time.sleep(0.5)
+
+                # 5️⃣ Seleccionar radio button y presionar OK
+                radio = session.findById("wnd[1]/usr/sub:SAPLSPO5:0101/radSPOPLI-SELFLAG[1,0]")
+                radio.select()
+                radio.setFocus()
+                session.findById("wnd[1]/tbar[0]/btn[0]").press()
+
+                print("[OK] Bloque adicional ejecutado correctamente")
+
+            except Exception as e:
+                print(f"[ERROR] No se pudo ejecutar el bloque adicional: {e}")
+
+
+            # Retornar XLSX
             return ruta_xlsx
 
         except Exception as e:
@@ -73,8 +135,8 @@ def procesar_number_mainboard(session, number, capid):
 def procesar_numbers_desde_excel(session, excel_input, excel_output, plantas=["2000","2900"], capid="PP01"):
     """
     Procesa todos los Numbers de un Excel:
-    1. Procesa modelos internos primero
-    2. Al final de cada Number, genera Mainboard XLS/XLSX
+    - Primero modelos internos
+    - Luego Mainboard
     """
     if not os.path.exists(excel_input):
         print(f"[ERROR] No existe el Excel: {excel_input}")
@@ -92,25 +154,21 @@ def procesar_numbers_desde_excel(session, excel_input, excel_output, plantas=["2
         number = str(row["Number"]).strip()
         descripcion = row["Descripcion"]
 
-        # --- Primero procesar todos los modelos internos ---
+        # --- Modelos internos ---
         exito = False
         for planta in plantas:
             if procesar_number(session, number, planta, capid):
                 exito = True
-
         if not exito:
             print(f"[WARNING] No se procesó ningún modelo interno para {number}")
             continue
 
-        # --- Al final, exportar Mainboard una sola vez ---
+        # --- Mainboard ---
         try:
-            ruta_xls = exportar_bom_a_xls(session, number, mainboard=True)
-            if not ruta_xls or not os.path.exists(ruta_xls):
-                print(f"[WARNING] No se generó XLS de Mainboard para {number}")
+            ruta_xlsx = procesar_number_mainboard(session, number, capid)
+            if not ruta_xlsx or not os.path.exists(ruta_xlsx):
+                print(f"[WARNING] No se generó Mainboard para {number}")
                 continue
-
-            ruta_xlsx = os.path.join(MAINBOARD_FILES_FOLDER, os.path.basename(ruta_xls).replace(".XLS", ".xlsx"))
-            convertir_xls_a_xlsx(ruta_xls, ruta_xlsx)
 
             df_final = pd.concat([df_final, pd.DataFrame([{
                 "Number": number,
@@ -124,30 +182,32 @@ def procesar_numbers_desde_excel(session, excel_input, excel_output, plantas=["2
         except Exception as e:
             print(f"[ERROR] No se pudo generar Mainboard para {number}: {e}")
 
-    # --- Guardar Excel final ---
+    # Guardar Excel final
     if not df_final.empty:
         df_final.to_excel(excel_output, index=False, engine="openpyxl")
         print(f"\n[INFO] Procesamiento completado ✅\nExcel final guardado en: {excel_output}")
-        
+
+# ==============================
+# FUNCION PARA VALIDAR BOM
+# ==============================
 def acceso_bom_exitoso(session):
     """
     Determina si realmente se accedió al BOM en CS11
     """
     try:
-        # 1️⃣ No debe existir mensaje de BOM inexistente
+        # Mensaje de BOM inexistente
         try:
             status = session.findById("wnd[0]/sbar").Text
-            if "没有可用的 BOM" in status:
+            if MENSAJE_SIN_BOM in status:
                 return False
         except:
             pass
 
-        # 2️⃣ Debe existir grid con filas
+        # Grid con filas
         posibles_grids = [
             "wnd[0]/usr/cntlGRID1/shellcont/shell",
             "wnd[0]/usr/cntlGRID1/shellcont/shell/shellcont[1]/shell"
         ]
-
         for gid in posibles_grids:
             try:
                 grid = session.findById(gid)
@@ -159,4 +219,4 @@ def acceso_bom_exitoso(session):
         return False
     except Exception:
         return False
-
+ 

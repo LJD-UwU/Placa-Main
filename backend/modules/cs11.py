@@ -58,7 +58,7 @@ def ejecutar_cs11(session, material, componente="1TE*", uso="PP01", plantas=None
 
     for planta in plantas:
         if bom_obtenido:
-            print(f"[INFO] BOM ya obtenido, saltando planta {planta}")
+            print(f"[INFO] BOM ya obtenido, saltar planta {planta}")
             break
 
         try:

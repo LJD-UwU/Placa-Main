@@ -3,7 +3,9 @@ from tkinter import filedialog, messagebox, scrolledtext
 import pandas as pd
 import os
 import re
-
+from backend.modules.extract_mainboard import extract_descripcion_numbers
+from backend.utils.clean_excel import limpiar_excel_mainboard
+from backend.modules.procesar_mainboard import procesar_number
 from backend.config.sap_login import abrir_sap_y_login
 from backend.modules.cs11 import ejecutar_cs11
 from backend.utils.txt_to_xlsx import (
@@ -13,11 +15,8 @@ from backend.utils.txt_to_xlsx import (
     MODEL_FILES_FOLDER
 )
 
-from backend.modules.extract_mainboard import extract_descripcion_numbers
-from backend.modules.procesar_mainboard import procesar_number
 
-# 🔹 NUEVO: módulo de limpieza de Excel mainboard
-from backend.utils.clean_excel import limpiar_excel_mainboard
+
 
 
 # ============================================================
@@ -198,7 +197,7 @@ class SAPApp:
 
                     convertir_xls_a_xlsx(ruta_xls, ruta_xlsx)
 
-                    # ✅ LIMPIEZA AUTOMÁTICA DEL EXCEL MAINBOARD
+                    #✅ LIMPIEZA AUTOMÁTICA DEL EXCEL MAINBOARD
                     limpiar_excel_mainboard(ruta_xlsx)
 
                     self.log_msg(f"[OK] {number} procesado y limpiado en planta {planta}")

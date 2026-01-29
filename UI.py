@@ -11,7 +11,7 @@ from backend.config.sap_login import abrir_sap_y_login
 from backend.modules.cs11 import ejecutar_cs11
 from backend.utils.txt_to_xlsx import (
     exportar_bom_a_xls,
-    convertir_xls_a_xlsx,
+    convertir_xls_a_xlsx, 
     MODEL_FILES_FOLDER,
     MAINBOARD_1_FILES_FOLDER,
     MAINBOARD_2_FILES_FOLDER
@@ -151,11 +151,11 @@ class SAPApp:
             self.excel_path.set(f)
 
     def abrir_resultados(self):
-        path = os.path.abspath(MODEL_FILES_FOLDER)
+        path = os.path.abspath(MAINBOARD_2_FILES_FOLDER)
         if os.path.exists(path):
             os.startfile(path)
 
-    # ================= FLUJO REAL =================
+    # ================= FLUJO  =================
     def iniciar(self):
         if not self.excel_path.get():
             messagebox.showwarning("Atención", "Selecciona un Excel")
@@ -199,7 +199,7 @@ class SAPApp:
         total = len(self.modelos)
 
         if self.idx >= total:
-            self.log_msg("[INFO] Iniciando procesamiento de mainboards", "INFO")
+            self.log_msg("\n[INFO] Iniciando procesamiento de mainboards y limpieza", "INFO")
             self.guardar_excel_final()
             self.set_status("Finalizado ✅")
             self.progress["value"] = 100

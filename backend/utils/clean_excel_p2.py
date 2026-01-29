@@ -1,10 +1,10 @@
 import os
 import openpyxl
 import time
-from backend.utils.txt_to_xlsx import MAINBOARD_1_FILES_FOLDER
+from backend.utils.txt_to_xlsx import MAINBOARD_2_FILES_FOLDER
 
 
-def mover_columnas_completas(ws, columnas_originales, nueva_pos):
+def mover_columnas_completas_2(ws, columnas_originales, nueva_pos):
     n = len(columnas_originales)
 
     # Guardar todos los datos de las columnas
@@ -24,7 +24,7 @@ def mover_columnas_completas(ws, columnas_originales, nueva_pos):
             ws.cell(row=r, column=nueva_pos + i).value = col_data[r - 1]
 
 
-def limpiar_excel_mainboard(ruta_xlsx: str):
+def limpiar_excel_mainboard_2(ruta_xlsx: str):
     wb = openpyxl.load_workbook(ruta_xlsx)
     ws = wb.active
 
@@ -49,12 +49,12 @@ def limpiar_excel_mainboard(ruta_xlsx: str):
     wb.save(ruta_xlsx)
 
 def limpiar_todos_los_mainboard():
-    for archivo in os.listdir(MAINBOARD_1_FILES_FOLDER):
+    for archivo in os.listdir(MAINBOARD_2_FILES_FOLDER):
         if archivo.lower().endswith(".xlsx"):
-            ruta = os.path.join(MAINBOARD_1_FILES_FOLDER, archivo)
+            ruta = os.path.join(MAINBOARD_2_FILES_FOLDER, archivo)
 
             try:
-                limpiar_excel_mainboard(ruta)
+                limpiar_excel_mainboard_2(ruta)
                 print(f"[OK] Limpio: {archivo}\n")
                 time.sleep(1)  # espera entre archivos
             except Exception as e:

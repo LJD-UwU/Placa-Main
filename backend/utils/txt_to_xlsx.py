@@ -12,9 +12,7 @@ MAINBOARD_2_FILES_FOLDER = os.path.join(EXPORT_FINAL_PATH, "MAINBOARD_FINAL_BOM"
 
 os.makedirs(MODEL_FILES_FOLDER, exist_ok=True)
 os.makedirs(MAINBOARD_1_FILES_FOLDER, exist_ok=True)
-os.makedirs(MAINBOARD_2_FILES_FOLDER, exist_ok=True) 
-
-# CONVERSIÓN XLS (CP936) → CSV → XLSX
+os.makedirs(MAINBOARD_2_FILES_FOLDER, exist_ok=True)
 
 def convertir_xls_a_xlsx(ruta_xls: str, ruta_xlsx: str):
     if not os.path.exists(ruta_xls):
@@ -29,24 +27,20 @@ def convertir_xls_a_xlsx(ruta_xls: str, ruta_xlsx: str):
         base = os.path.splitext(os.path.basename(ruta_xls))[0]
         ruta_csv = os.path.join(carpeta, f"{base}.csv")
 
-        # 1️⃣ Abrir Excel invisible
         app = xw.App(visible=False)
         app.display_alerts = False
         app.screen_updating = False
 
         wb = app.books.open(ruta_xls)
-
-        # 2️⃣ Guardar como CSV (CP936)
-        wb.api.SaveAs(ruta_csv, FileFormat=6)  # xlCSV
+        wb.api.SaveAs(ruta_csv, FileFormat=6)  # Guardar como CSV
         wb.close()
         app.quit()
 
-        # 3️⃣ Leer CSV en chino
+        # Leer CSV en chino
         df = pd.read_csv(ruta_csv, encoding="gb2312")
 
-        # 4️⃣ Guardar como XLSX 
+        # Guardar como XLSX
         df.to_excel(ruta_xlsx, index=False, engine="openpyxl")
-
         print(f"[OK] XLS → XLSX (CP936 preservado): {ruta_xlsx}")
         return ruta_xlsx
 
@@ -60,22 +54,20 @@ def convertir_xls_a_xlsx(ruta_xls: str, ruta_xlsx: str):
         return None
 
     finally:
-        # 🧹 LIMPIEZA DEL CSV TEMPORAL
-        if ruta_csv and ruta_xls and os.path.exists(ruta_csv) and os.path.exists(ruta_xls):
+        # Limpiar CSV temporal
+        if ruta_csv and os.path.exists(ruta_csv):
             try:
                 os.remove(ruta_csv)
-                os.remove(ruta_xls)
             except:
                 pass
-            
 
-
-# EXPORTAR BOM DESDE SAP
-
+# ------------------------------
+# Función: Exportar BOM desde SAP
+# ------------------------------
 def exportar_bom_a_xls(session, material, mainboard=False):
     """
-    Exporta el BOM de CS11 a XLS (CP936).
-    Guarda en carpeta de MODELOS o MAINBOARD.
+    Exporta el BOM de CS11 a XLS.
+    Guarda automáticamente en la carpeta correspondiente.
     """
     nombre_limpio = re.sub(r'[\\/*?:"<>|]', "_", material)
     xls_name = f"{nombre_limpio}.XLS"
@@ -113,9 +105,9 @@ def exportar_bom_a_xls(session, material, mainboard=False):
         print(f"[ERROR] Exportación SAP falló ({material}): {e}")
         return None
 
-
-# ESPERA DE ARCHIVO
-
+# ------------------------------
+# Espera de archivo
+# ------------------------------
 def esperar_archivo(path, timeout=60):
     inicio = time.time()
     while time.time() - inicio < timeout:

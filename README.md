@@ -8,8 +8,9 @@ Practicante-Placa-Main/
 │   │   ├── cs03.py
 │   │   ├── cs11_ejecuter.py
 │   │   ├── cs11.py
-│   │   ├── extract_mainboard.py
-│   │   └── procesar_mainboard.py
+│   │   ├── extract_mainboard.py                       
+│   │   ├── procesar_mainboard_P1.py
+│   │   └── procesar_mainboard_P2.py
 │   └── utils/
 │       ├── clean_excel.py
 │       ├── sap_utils.py
@@ -17,4 +18,4 @@ Practicante-Placa-Main/
 ├── .gitignore
 ├── README.md
 ├── LICENSE
-└── VRFINAL.py
+└── UI.py

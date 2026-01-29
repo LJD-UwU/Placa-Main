@@ -5,30 +5,18 @@ import xlwings as xw
 import pandas as pd
 from backend.config.sap_config import EXPORT_FINAL_PATH
 
-# ============================================================
 # CARPETAS
-# ============================================================
-MODEL_FILES_FOLDER = os.path.join(EXPORT_FINAL_PATH, "MODEL_FILES")
-MAINBOARD_1_FILES_FOLDER = os.path.join(EXPORT_FINAL_PATH, "MAINBOARD_1_FILES")
-MAINBOARD_2_FILES_FOLDER = os.path.join(EXPORT_FINAL_PATH, "MAINBOARD_2_FILES")
-
+MODEL_FILES_FOLDER = os.path.join(EXPORT_FINAL_PATH, "MODEL_BOM")
+MAINBOARD_1_FILES_FOLDER = os.path.join(EXPORT_FINAL_PATH, "MOTHERBOARD__BOM")
+MAINBOARD_2_FILES_FOLDER = os.path.join(EXPORT_FINAL_PATH, "MAINBOARD_FINAL_BOM")
 
 os.makedirs(MODEL_FILES_FOLDER, exist_ok=True)
 os.makedirs(MAINBOARD_1_FILES_FOLDER, exist_ok=True)
-os.makedirs(MAINBOARD_2_FILES_FOLDER, exist_ok=True)
+os.makedirs(MAINBOARD_2_FILES_FOLDER, exist_ok=True) 
 
-# ============================================================
-# CONVERSIÓN XLS (CP936) → CSV → XLSX (UNICODE)
-# ============================================================
+# CONVERSIÓN XLS (CP936) → CSV → XLSX
+
 def convertir_xls_a_xlsx(ruta_xls: str, ruta_xlsx: str):
-    """
-    Conversión estable SAP:
-    XLS (CP936 / chino simplificado)
-    → CSV (Excel)
-    → XLSX (Unicode real)
-
-    Limpia automáticamente el CSV temporal.
-    """
     if not os.path.exists(ruta_xls):
         print(f"[ERROR] No existe el archivo XLS: {ruta_xls}")
         return None
@@ -53,10 +41,10 @@ def convertir_xls_a_xlsx(ruta_xls: str, ruta_xlsx: str):
         wb.close()
         app.quit()
 
-        # 3️⃣ Leer CSV con encoding chino
+        # 3️⃣ Leer CSV en chino
         df = pd.read_csv(ruta_csv, encoding="gb2312")
 
-        # 4️⃣ Guardar como XLSX Unicode
+        # 4️⃣ Guardar como XLSX 
         df.to_excel(ruta_xlsx, index=False, engine="openpyxl")
 
         print(f"[OK] XLS → XLSX (CP936 preservado): {ruta_xlsx}")
@@ -73,15 +61,17 @@ def convertir_xls_a_xlsx(ruta_xls: str, ruta_xlsx: str):
 
     finally:
         # 🧹 LIMPIEZA DEL CSV TEMPORAL
-        if ruta_csv and os.path.exists(ruta_csv):
+        if ruta_csv and ruta_xls and os.path.exists(ruta_csv) and os.path.exists(ruta_xls):
             try:
                 os.remove(ruta_csv)
+                os.remove(ruta_xls)
             except:
                 pass
+            
 
-# ============================================================
+
 # EXPORTAR BOM DESDE SAP
-# ============================================================
+
 def exportar_bom_a_xls(session, material, mainboard=False):
     """
     Exporta el BOM de CS11 a XLS (CP936).
@@ -123,9 +113,9 @@ def exportar_bom_a_xls(session, material, mainboard=False):
         print(f"[ERROR] Exportación SAP falló ({material}): {e}")
         return None
 
-# ============================================================
+
 # ESPERA DE ARCHIVO
-# ============================================================
+
 def esperar_archivo(path, timeout=60):
     inicio = time.time()
     while time.time() - inicio < timeout:

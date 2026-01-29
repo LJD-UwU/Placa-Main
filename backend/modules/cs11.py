@@ -8,11 +8,7 @@ from backend.utils.sap_utils import (
 from backend.modules.cs03 import ejecutar_cs03_corregir_material
 
 def ejecutar_cs11(session, material, componente="1TE*", uso="PP01", plantas=None, pausa_entre_acciones=0.5):
-    """
-    Ejecuta CS11 para un material en varias plantas y maneja automáticamente CS03
-    si el material tiene paréntesis numéricos.
-    Retorna una lista de tuples: [(planta, grid), ...]
-    """
+    
     if plantas is None:
         plantas = ["2000", "2900"]
 
@@ -25,7 +21,7 @@ def ejecutar_cs11(session, material, componente="1TE*", uso="PP01", plantas=None
     pausar(pausa_entre_acciones)
     session.findById("wnd[0]").sendVKey(0)
     pausar(pausa_entre_acciones)
-    session.findById("wnd[0]").sendVKey(4)  # Selección múltiple
+    session.findById("wnd[0]").sendVKey(4)  
     pausar(pausa_entre_acciones)
 
     # Escribir material y componente
@@ -61,7 +57,6 @@ def ejecutar_cs11(session, material, componente="1TE*", uso="PP01", plantas=None
             break
 
         try:
-            # Intentar setear control de planta de manera segura
             set_werks(session, planta)
             set_capid(session, uso)
 
@@ -98,7 +93,7 @@ def ejecutar_cs11(session, material, componente="1TE*", uso="PP01", plantas=None
     return resultados
 
 
-# ----------------- FUNCIONES AUXILIARES SEGURAS -----------------
+# FUNCIONES AUXILIARES
 
 def set_werks(session, planta, intentos=3, pausa=0.5):
     """Intenta setear el campo de planta varias veces si falla"""

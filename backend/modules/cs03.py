@@ -1,10 +1,7 @@
 from backend.utils.sap_utils import escribir_campo, ejecutar_busqueda, pausar
 
 def ejecutar_cs03_corregir_material(session, material, componente="1TE*", planta="2000", uso="PP01", pausa_entre_acciones=0.5):
-    """
-    Ejecuta CS03 solo si el material tiene paréntesis numéricos.
-    Devuelve material corregido.
-    """
+    
     print(f"[INFO] Ejecutando CS03 para {material} en planta {planta}")
     session.findById("wnd[0]").maximize()
     pausar(pausa_entre_acciones)
@@ -13,7 +10,7 @@ def ejecutar_cs03_corregir_material(session, material, componente="1TE*", planta
     pausar(pausa_entre_acciones)
     session.findById("wnd[0]").sendVKey(0)
     pausar(pausa_entre_acciones)
-    session.findById("wnd[0]").sendVKey(4)  # selección múltiple
+    session.findById("wnd[0]").sendVKey(4)  
     pausar(pausa_entre_acciones)
 
     escribir_campo(
@@ -36,7 +33,6 @@ def ejecutar_cs03_corregir_material(session, material, componente="1TE*", planta
     session.findById("wnd[1]").sendVKey(2)
     pausar(pausa_entre_acciones)
 
-    # Campos de planta y uso seguros
     from backend.modules.cs11 import set_werks, set_capid
     set_werks(session, planta)
     set_capid(session, uso)
@@ -44,7 +40,6 @@ def ejecutar_cs03_corregir_material(session, material, componente="1TE*", planta
     ejecutar_busqueda(session)
     pausar(pausa_entre_acciones)
 
-    # Corregir material quitando paréntesis
     material_corregido = material
     if "(" in material and ")" in material:
         material_corregido = material.split("(")[0]

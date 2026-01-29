@@ -9,10 +9,7 @@ from backend.utils.sap_utils import (
 from backend.modules.cs03 import ejecutar_cs03_corregir_material
 
 def ejecutar_cs11(session, material, componente="1TE*", uso="PP01", plantas=None, pausa_entre_acciones=0.5):
-    """
-    Ejecuta CS11 para un material en una o varias plantas.
-    Retorna el primer grid válido encontrado y la planta correspondiente.
-    """
+  
     if plantas is None:
         plantas = ["2000", "2900"]
 
@@ -26,10 +23,10 @@ def ejecutar_cs11(session, material, componente="1TE*", uso="PP01", plantas=None
     pausar(pausa_entre_acciones)
     session.findById("wnd[0]").sendVKey(0)
     pausar(pausa_entre_acciones)
-    session.findById("wnd[0]").sendVKey(4)  # selección múltiple
+    session.findById("wnd[0]").sendVKey(4) 
     pausar(pausa_entre_acciones)
 
-    # Selección múltiple: poner el material dentro de **
+    # Colocar el material dentro de **
     escribir_campo(session,
         "wnd[1]/usr/tabsG_SELONETABSTRIP/tabpTAB001/"
         "ssubSUBSCR_PRESEL:SAPLSDH4:0220/sub:SAPLSDH4:0220/"
@@ -52,7 +49,7 @@ def ejecutar_cs11(session, material, componente="1TE*", uso="PP01", plantas=None
     material_original = material
 
     for planta in plantas:
-        # Validar y setear planta
+        # Validar planta
         if not validar_planta(session, planta):
             print(f"[WARNING] Planta {planta} no válida, se omite")
             continue

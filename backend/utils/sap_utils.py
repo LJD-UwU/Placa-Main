@@ -2,9 +2,7 @@ import time
 import re
 import os
 
-# ==============================
 # UTILIDADES GENERALES SAP
-# ==============================
 
 timeout=15
 
@@ -60,9 +58,7 @@ def ejecutar_busqueda(session):
         session.findById("wnd[0]").sendVKey(8)
     esperar_sap(session)
 
-# ==============================
 # UTILIDADES CS11 / VALIDACIONES
-# ==============================
 
 def validar_planta(session, planta):
     """Valida si la planta actual coincide"""
@@ -95,10 +91,7 @@ def esperar_cs11_completo(session, timeout=30):
         time.sleep(0.5)
     raise Exception("CS11 no terminó de cargar el grid")
 
-
-# ==============================
 # CONEXIÓN Y EXPORTACIÓN
-# ==============================
 
 def conectar_sap():
     """
@@ -134,14 +127,8 @@ def exportar_bom_a_excel(session, nombre_archivo="BOM.xlsx", ruta_carpeta=os.get
         try:
             session.findById("wnd[0]/mbar/menu[0]/menu[3]/menu[1]").select()
         except:
-            pass  # O usar alternativa según versión SAP
+            pass  
 
-        # Guardar archivo (esto depende de tu SAP, aquí se deja ejemplo genérico)
-        # session.findById("wnd[1]/usr/ctxtDY_PATH").text = ruta_carpeta
-        # session.findById("wnd[1]/usr/ctxtDY_FILENAME").text = nombre_archivo
-        # session.findById("wnd[1]/tbar[0]/btn[11]").press()
-
-        # Para este ejemplo, asumimos que SAP ya guardó el archivo
         print(f"[INFO] Exportado a Excel: {ruta_excel}")
         return ruta_excel
     except Exception as e:

@@ -5,20 +5,6 @@ from backend.utils.sap_utils import acceso_bom_exitoso
 from backend.utils.clean_excel import limpiar_excel_mainboard  # 🔹 Importar limpieza
 
 def procesar_material_desde_mainboard(session, ruta_mainboard_xlsx, uso):
-    """
-    Procesa el segundo nivel de material desde un mainboard ya generado (nivel 1).
-    
-    Parámetros:
-    - session: sesión de SAP abierta
-    - ruta_mainboard_xlsx: ruta completa del archivo XLSX del mainboard nivel 1
-    - uso: CAPID (uso del material en SAP)
-    
-    Flujo:
-    1️⃣ Leer el primer material del archivo mainboard nivel 1
-    2️⃣ Abrir CS11 en SAP con ese material
-    3️⃣ Exportar BOM a MAINBOARD_2_FILES
-    4️⃣ Limpiar automáticamente el Excel resultante
-    """
 
     if not os.path.exists(ruta_mainboard_xlsx):
         raise FileNotFoundError(f"No existe el archivo mainboard: {ruta_mainboard_xlsx}")

@@ -9,7 +9,7 @@ def mover_columnas_completas(ws, columnas_originales, nueva_pos):
 
     # Guardar todos los datos de las columnas
     datos = [[ws.cell(row=r, column=c).value for r in range(1, ws.max_row + 1)]
-             for c in columnas_originales]
+    for c in columnas_originales]
 
     # Eliminar columnas originales (de mayor a menor para no desordenar)
     for c in sorted(columnas_originales, reverse=True):

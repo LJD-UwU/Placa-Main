@@ -6,9 +6,8 @@ from backend.utils.sap_utils import acceso_bom_exitoso
 
 MENSAJE_SIN_BOM = "没有可用的 BOM"
 
-# ==============================
 # FUNCION PARA MODELOS INTERNOS
-# ==============================
+
 def procesar_number(session, number, planta, capid):
     """
     Procesa un Number en SAP para un modelo interno.
@@ -38,9 +37,9 @@ def procesar_number(session, number, planta, capid):
         print(f"[ERROR] Error procesando {number} en planta {planta}: {e}")
         return None
 
-# ==============================
+
 # FUNCION PARA MAINBOARD CON BLOQUE DINAMICO
-# ==============================
+
 def procesar_number_mainboard(session, number, capid):
     """
     Procesa un Number para obtener su Mainboard en SAP.
@@ -80,17 +79,17 @@ def procesar_number_mainboard(session, number, capid):
 
             # ==== BLOQUE ADICIONAL SAP GUI ====
             try:
-                # 1️⃣ Presionar botón para abrir el popup
-                session.findById("wnd[0]/tbar[1]/btn[33]").press()
-                time.sleep(1)  # esperar que cargue el popup
 
-                # 2️⃣ Acceder al grid
+                session.findById("wnd[0]/tbar[1]/btn[33]").press()
+                time.sleep(1)  
+
+                #  Acceder al grid
                 grid = session.findById(
                     "wnd[1]/usr/ssubD0500_SUBSCREEN:SAPLSLVC_DIALOG:0501/"
                     "cntlG51_CONTAINER/shellcont/shell"
                 )
 
-                # 3️⃣ Seleccionar fila 81 si existe, si no seleccionar última fila
+                # Seleccionar fila 81 si existe, si no seleccionar última fila
                 fila_objetivo = 81
                 if grid.RowCount > fila_objetivo:
                     fila = fila_objetivo
@@ -105,11 +104,11 @@ def procesar_number_mainboard(session, number, capid):
                 grid.clickCurrentCell()
                 time.sleep(0.5)
 
-                # 4️⃣ Presionar botón siguiente
+                #  Presionar botón siguiente
                 session.findById("wnd[0]/tbar[1]/btn[45]").press()
                 time.sleep(0.5)
 
-                # 5️⃣ Seleccionar radio button y presionar OK
+                #  Seleccionar radio button y presionar OK
                 radio = session.findById("wnd[1]/usr/sub:SAPLSPO5:0101/radSPOPLI-SELFLAG[1,0]")
                 radio.select()
                 radio.setFocus()
@@ -129,9 +128,9 @@ def procesar_number_mainboard(session, number, capid):
 
     raise Exception(f"No se pudo acceder al BOM de {number} en ninguna planta")
 
-# ==============================
+
 # FUNCION PARA PROCESAR EXCEL COMPLETO
-# ==============================
+
 def procesar_numbers_desde_excel(session, excel_input, excel_output, plantas=["2000","2900"], capid="PP01"):
     """
     Procesa todos los Numbers de un Excel:
@@ -187,9 +186,9 @@ def procesar_numbers_desde_excel(session, excel_input, excel_output, plantas=["2
         df_final.to_excel(excel_output, index=False, engine="openpyxl")
         print(f"\n[INFO] Procesamiento completado ✅\nExcel final guardado en: {excel_output}")
 
-# ==============================
+
 # FUNCION PARA VALIDAR BOM
-# ==============================
+
 def acceso_bom_exitoso(session):
     """
     Determina si realmente se accedió al BOM en CS11

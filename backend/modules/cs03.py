@@ -1,6 +1,12 @@
 from backend.utils.sap_utils import escribir_campo, ejecutar_busqueda, pausar
+from backend.config.sap_config import (
+    FILTRO_SAP,
+    PLANTA1,
+    FILTRO,
+    PAUSA
+)
 
-def ejecutar_cs03_corregir_material(session, material, componente="1TE*", planta="2000", uso="PP01", pausa_entre_acciones=0.5):
+def ejecutar_cs03_corregir_material(session, material, componente= FILTRO_SAP, planta=PLANTA1, uso=FILTRO, pausa_entre_acciones=PAUSA):
     
     print(f"[INFO] Ejecutando CS03 para {material} en planta {planta}")
     session.findById("wnd[0]").maximize()

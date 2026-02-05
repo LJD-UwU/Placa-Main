@@ -7,12 +7,9 @@ import pandas as pd
 import openpyxl
 from backend.utils.txt_to_xlsx import MAINBOARD_2_FILES_FOLDER
 
-# ======================================================
 # CONFIG
-# ======================================================
 EXTRAER_ARCHIVO = r"Z:\IE-SAP\1) BOM files\e) Submaterial Usage"
 
-# ======================================================
 # BLOQUE 1: LIMPIEZA BASE EXCEL
 # ======================================================
 def mover_columnas_completas_2(ws, columnas_originales, nueva_pos):

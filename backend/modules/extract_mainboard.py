@@ -1,5 +1,8 @@
 import pandas as pd
 import re
+from backend.config.sap_config import (
+    RESULT_COLUMNS,
+)
 
 def extract_descripcion_numbers(input_xlsx, modelo, descripcion_a_buscar, skiprows=0):
     # Aceptar string o lista
@@ -11,7 +14,7 @@ def extract_descripcion_numbers(input_xlsx, modelo, descripcion_a_buscar, skipro
         df = pd.read_excel(input_xlsx, header=None, skiprows=skiprows)
     except Exception as e:
         print(f"[ERROR] No se pudo abrir {input_xlsx}: {e}")
-        return pd.DataFrame(columns=["Number", "Descripcion"])
+        return pd.DataFrame(columns=RESULT_COLUMNS)
 
     resultados = []
 
@@ -32,5 +35,5 @@ def extract_descripcion_numbers(input_xlsx, modelo, descripcion_a_buscar, skipro
                             number = match.group()
                 resultados.append([number, cell_str])
 
-    df_result = pd.DataFrame(resultados, columns=["Number", "Descripcion"])
+    df_result = pd.DataFrame(resultados, columns=RESULT_COLUMNS)
     return df_result

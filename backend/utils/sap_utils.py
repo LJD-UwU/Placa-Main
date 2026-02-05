@@ -1,7 +1,9 @@
 import time
 import re
 import os
-
+from backend.config.sap_config import (
+    PAUSA
+)
 # UTILIDADES GENERALES SAP
 
 timeout=15
@@ -88,7 +90,7 @@ def esperar_cs11_completo(session, timeout=30):
                     return grid
             except:
                 pass
-        time.sleep(0.5)
+        time.sleep(PAUSA)
     raise Exception("CS11 no terminó de cargar el grid")
 
 # CONEXIÓN Y EXPORTACIÓN

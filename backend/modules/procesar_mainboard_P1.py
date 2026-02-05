@@ -3,8 +3,15 @@ import time
 import pandas as pd
 from backend.utils.txt_to_xlsx import exportar_bom_a_xls, convertir_xls_a_xlsx
 from backend.utils.sap_utils import acceso_bom_exitoso
+from backend.config.sap_config import (
+MENSAJE_SIN_BOM,
+RESULT_COLUMNS,
+PLANTAS,
+FILTRO,
+TRANSACCION,
+PAUSA
+)
 
-MENSAJE_SIN_BOM = "没有可用的 BOM"
 
 # FUNCION PARA MODELOS INTERNOS
 
@@ -14,7 +21,7 @@ def procesar_number(session, number, planta, capid):
     Retorna la ruta del XLS exportado.
     """
     try:
-        session.findById("wnd[0]/tbar[0]/okcd").text = "/NCS11"
+        session.findById("wnd[0]/tbar[0]/okcd").text = TRANSACCION
         session.findById("wnd[0]").sendVKey(0)
 
         session.findById("wnd[0]/usr/ctxtRC29L-MATNR").text = number
@@ -53,7 +60,7 @@ def procesar_number_mainboard(session, number, capid):
 
             # Abrir CS11
             session.findById("wnd[0]").maximize()
-            session.findById("wnd[0]/tbar[0]/okcd").text = "/NCS11"
+            session.findById("wnd[0]/tbar[0]/okcd").text = TRANSACCION
             session.findById("wnd[0]").sendVKey(0)
 
             # Ingresar datos
@@ -102,11 +109,11 @@ def procesar_number_mainboard(session, number, capid):
                 grid.currentCellColumn = 0  # primera columna, ajustar si es otra columna
                 grid.selectedRows = str(fila)
                 grid.clickCurrentCell()
-                time.sleep(0.5)
+                time.sleep(PAUSA)
 
                 #  Presionar botón siguiente
                 session.findById("wnd[0]/tbar[1]/btn[45]").press()
-                time.sleep(0.5)
+                time.sleep(PAUSA)
 
                 #  Seleccionar radio button y presionar OK
                 radio = session.findById("wnd[1]/usr/sub:SAPLSPO5:0101/radSPOPLI-SELFLAG[1,0]")
@@ -131,7 +138,7 @@ def procesar_number_mainboard(session, number, capid):
 
 # FUNCION PARA PROCESAR EXCEL COMPLETO
 
-def procesar_numbers_desde_excel(session, excel_input, excel_output, plantas=["2000","2900"], capid="PP01"):
+def procesar_numbers_desde_excel(session, excel_input, excel_output, plantas=PLANTAS, capid=FILTRO):
     """
     Procesa todos los Numbers de un Excel:
     - Primero modelos internos
@@ -142,7 +149,7 @@ def procesar_numbers_desde_excel(session, excel_input, excel_output, plantas=["2
         return
 
     df = pd.read_excel(excel_input)
-    df = df.dropna(subset=["Number", "Descripcion"])
+    df = df.dropna(subset=RESULT_COLUMNS)
     if df.empty:
         print("[INFO] No hay Numbers para procesar")
         return

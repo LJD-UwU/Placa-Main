@@ -4,6 +4,7 @@ import pandas as pd
 import os, re, time
 
 from backend.modules.extract_mainboard import extract_descripcion_numbers
+from backend.utils.historial import registrar_historial_excel
 from backend.utils.clean_excel import limpiar_excel_mainboard
 from backend.modules.procesar_mainboard_P1 import procesar_number
 from backend.modules.prosesar_mainboard_P2 import procesar_material_desde_mainboard
@@ -11,18 +12,17 @@ from backend.config.sap_login import abrir_sap_y_login
 from backend.modules.cs11 import ejecutar_cs11
 from backend.utils.txt_to_xlsx import (
     exportar_bom_a_xls,
-    convertir_xls_a_xlsx, 
+    convertir_xls_a_xlsx,
     MODEL_FILES_FOLDER,
     MAINBOARD_1_FILES_FOLDER,
     MAINBOARD_2_FILES_FOLDER
 )
-
-# ================= CONFIG =================
-DESCRIPCIONES_BUSCAR = ["主板大组件\\", "主板总成\\", "主板组件\\"]
-PLANTAS = ["2000", "2900"]
-COMPONENTE = "1TE*"
-USO = "PP01"
-
+from backend.config.sap_config import (
+    DESCRIPCIONES,
+    PLANTAS,
+    FILTRO_SAP,
+    FILTRO
+)
 
 class SAPApp:
     def __init__(self, root):
@@ -31,83 +31,53 @@ class SAPApp:
         self.root.geometry("460x420")
         self.root.resizable(False, False)
 
-        # ---- estado ----
         self.animando = False
         self.anim_dots = 0
         self.start_time = None
 
-        # ---- estilo ----
         style = ttk.Style()
         style.theme_use("clam")
         style.configure("Title.TLabel", font=("Segoe UI", 14, "bold"))
         style.configure("TProgressbar", thickness=10)
 
-        # ---- título ----
         ttk.Label(root, text="Automatización SAP", style="Title.TLabel").pack(pady=(8, 0))
-        ttk.Label(
-            root,
-            text="Procesamiento automático de modelos y mainboards",
-            foreground="gray"
-        ).pack(pady=(0, 6))
+        ttk.Label(root, text="Procesamiento automático de modelos y mainboards", foreground="gray").pack(pady=(0, 6))
 
         main = ttk.Frame(root, padding=6)
         main.pack(fill="both", expand=True)
 
-        # ---- archivo ----
         fila_file = ttk.Frame(main)
         fila_file.pack(fill="x", pady=4)
-
         self.excel_path = tk.StringVar()
-        ttk.Entry(fila_file, textvariable=self.excel_path)\
-            .pack(side="left", fill="x", expand=True)
+        ttk.Entry(fila_file, textvariable=self.excel_path).pack(side="left", fill="x", expand=True)
+        ttk.Button(fila_file, text="📂", width=3, command=self.seleccionar_excel).pack(side="left", padx=4)
 
-        ttk.Button(fila_file, text="📂", width=3,
-        command=self.seleccionar_excel).pack(side="left", padx=4)
-
-        # ---- progreso ----
         self.progress = ttk.Progressbar(main, mode="determinate")
         self.progress.pack(fill="x", pady=6)
 
-        # ---- botones ----
         fila_btn = ttk.Frame(main)
         fila_btn.pack(pady=4)
-
         self.btn_procesar = ttk.Button(fila_btn, text="▶ Procesar", command=self.iniciar)
         self.btn_procesar.pack(side="left", padx=4)
-
-        self.btn_open = ttk.Button(
-            fila_btn, text="📁 Resultados",
-            command=self.abrir_resultados,
-            state="disabled"
-        )
+        self.btn_open = ttk.Button(fila_btn, text="📁 Resultados", command=self.abrir_resultados, state="disabled")
         self.btn_open.pack(side="left", padx=4)
 
-        # ---- log ----
-        frame_log = ttk.LabelFrame(main, text="Log")
+        frame_log = ttk.LabelFrame(main, text="CONSOLA")
         frame_log.pack(fill="both", expand=True, pady=(6, 0))
-
-        self.log = scrolledtext.ScrolledText(
-            frame_log, height=9, font=("Consolas", 9)
-        )
+        self.log = scrolledtext.ScrolledText(frame_log, height=9, font=("Consolas", 9))
         self.log.pack(fill="both", expand=True, padx=5, pady=5)
         self.log.config(state="disabled")
-
         self.log.tag_config("INFO", foreground="blue")
         self.log.tag_config("OK", foreground="green")
         self.log.tag_config("ERROR", foreground="red")
 
-        # ---- estado ----
         self.status = tk.StringVar(value="Estado: Listo")
-        ttk.Label(root, textvariable=self.status, anchor="w")\
-            .pack(fill="x", side="bottom", padx=6, pady=4)
+        ttk.Label(root, textvariable=self.status, anchor="w").pack(fill="x", side="bottom", padx=6, pady=4)
 
-        # ---- data ----
         self.modelos = []
         self.idx = 0
         self.session = None
-        self.df_todos = pd.DataFrame(
-            columns=["Modelo", "Planta", "Number", "Descripcion"]
-        )
+        self.df_todos = pd.DataFrame(columns=["Modelo", "Planta", "Number", "Descripcion"])
 
     # ================= LOG =================
     def log_msg(self, msg, tag="INFO"):
@@ -155,7 +125,7 @@ class SAPApp:
         if os.path.exists(path):
             os.startfile(path)
 
-    # ================= FLUJO  =================
+    # ================= FLUJO =================
     def iniciar(self):
         if not self.excel_path.get():
             messagebox.showwarning("Atención", "Selecciona un Excel")
@@ -197,7 +167,6 @@ class SAPApp:
 
     def procesar_modelo(self):
         total = len(self.modelos)
-
         if self.idx >= total:
             self.log_msg("\n[INFO] Iniciando procesamiento de mainboards y limpieza", "INFO")
             self.guardar_excel_final()
@@ -210,7 +179,6 @@ class SAPApp:
 
         modelo = self.modelos[self.idx]
         self.progress["value"] = int(((self.idx + 1) / total) * 100)
-
         self.set_status(f"Modelo {self.idx + 1}/{total}")
         self.log_msg(f"\n▶ Modelo {self.idx + 1}/{total}: {modelo}", "INFO")
 
@@ -219,76 +187,120 @@ class SAPApp:
             resultados = ejecutar_cs11(
                 self.session,
                 material=modelo,
-                componente=COMPONENTE,
-                uso=USO,
+                componente=FILTRO_SAP,
+                uso=FILTRO,
                 plantas=PLANTAS
             )
 
-            if not resultados:
-                self.log_msg("  ⚠ Sin resultados CS11", "INFO")
+            registrar_historial_excel(
+                archivo=modelo,
+                proceso="Modelo",
+                paso="CS11",
+                estado="OK" if resultados else "INFO",
+                detalle=f"Plantas encontradas: {len(resultados)}" if resultados else "Sin resultados"
+            )
 
             for planta, _ in resultados:
                 self.log_msg(f"  • Planta {planta}: exportando BOM", "INFO")
-
                 ruta_xls = exportar_bom_a_xls(self.session, modelo, mainboard=False)
                 self.log_msg("    ✓ BOM exportado", "OK")
-
-                base = re.sub(r'[\\/*?:"<>|]', "_",
-                    os.path.basename(ruta_xls).replace(".XLS", ""))
-                ruta_xlsx = os.path.join(MODEL_FILES_FOLDER, f"{base}.xlsx")
-
-                convertir_xls_a_xlsx(ruta_xls, ruta_xlsx)
-                self.log_msg("    ✓ Convertido a XLSX", "OK")
-
-                self.log_msg("    • Analizando descripciones", "INFO")
-                df_modelo = extract_descripcion_numbers(
-                    input_xlsx=ruta_xlsx,
-                    modelo=modelo,
-                    descripcion_a_buscar=DESCRIPCIONES_BUSCAR
+                registrar_historial_excel(
+                    archivo=os.path.basename(ruta_xls),
+                    proceso="Modelo",
+                    paso="Exportar BOM",
+                    estado="OK",
+                    detalle=f"Planta {planta}"
                 )
 
-                if df_modelo.empty:
-                    self.log_msg("    ⚠ Sin mainboards encontrados", "INFO")
-                else:
-                    self.log_msg(f"    ✓ {len(df_modelo)} mainboards encontrados", "OK")
+                ruta_xlsx = os.path.join(MODEL_FILES_FOLDER, re.sub(r'[\\/*?:"<>|]', "_", os.path.basename(ruta_xls).replace(".XLS","")) + ".xlsx")
+                convertir_xls_a_xlsx(ruta_xls, ruta_xlsx)
+                self.log_msg("    ✓ Convertido a XLSX", "OK")
+                registrar_historial_excel(
+                    archivo=os.path.basename(ruta_xlsx),
+                    proceso="Modelo",
+                    paso="Conversión XLSX",
+                    estado="OK",
+                    detalle="Codificación preservada"
+                )
+
+                self.log_msg("    • Analizando descripciones", "INFO")
+                df_modelo = extract_descripcion_numbers(ruta_xlsx, modelo, DESCRIPCIONES)
+                if not df_modelo.empty:
                     df_modelo["Modelo"] = modelo
                     df_modelo["Planta"] = planta
-                    self.df_todos = pd.concat(
-                        [self.df_todos, df_modelo], ignore_index=True
+                    self.df_todos = pd.concat([self.df_todos, df_modelo], ignore_index=True)
+                    registrar_historial_excel(
+                        archivo=modelo,
+                        proceso="Modelo",
+                        paso="Buscar Mainboards",
+                        estado="OK",
+                        detalle=f"Mainboards encontrados: {len(df_modelo)}"
                     )
 
         except Exception as e:
             self.log_msg(f"[ERROR] {e}", "ERROR")
+            registrar_historial_excel(
+                archivo=modelo,
+                proceso="Modelo",
+                paso="Error general",
+                estado="ERROR",
+                detalle=str(e)
+            )
 
         self.idx += 1
         self.root.after(200, self.procesar_modelo)
 
-
     def guardar_excel_final(self):
         self.set_status("Procesando mainboards")
-
-        for folder in [MODEL_FILES_FOLDER,
-            MAINBOARD_1_FILES_FOLDER,
-            MAINBOARD_2_FILES_FOLDER]:
+        for folder in [MODEL_FILES_FOLDER, MAINBOARD_1_FILES_FOLDER, MAINBOARD_2_FILES_FOLDER]:
             os.makedirs(folder, exist_ok=True)
 
         for _, row in self.df_todos.iterrows():
             number = str(row["Number"]).strip()
             if any(number in f for f in os.listdir(MAINBOARD_1_FILES_FOLDER)):
                 continue
-
             try:
-                ruta_xls = procesar_number(self.session, number, "2000", USO)
-                base = re.sub(r'[\\/*?:"<>|]', "_",
-                os.path.basename(ruta_xls).replace(".XLS", ""))
-                ruta_xlsx = os.path.join(MAINBOARD_1_FILES_FOLDER, f"{base}.xlsx")
+                ruta_xls = procesar_number(self.session, number, "2000", FILTRO)
+                ruta_xlsx = os.path.join(MAINBOARD_1_FILES_FOLDER, re.sub(r'[\\/*?:"<>|]', "_", os.path.basename(ruta_xls).replace(".XLS","")) + ".xlsx")
                 convertir_xls_a_xlsx(ruta_xls, ruta_xlsx)
                 limpiar_excel_mainboard(ruta_xlsx)
-                procesar_material_desde_mainboard(self.session, ruta_xlsx, USO)
+
+                materiales_detectados = procesar_material_desde_mainboard(self.session, ruta_xlsx, FILTRO)
+                if materiales_detectados:
+                    registrar_historial_excel(
+                        archivo=number,
+                        proceso="Mainboard",
+                        paso="Material detectado",
+                        estado="OK",
+                        detalle=f"Materiales: {', '.join(materiales_detectados)}"
+                    )
+
+                registrar_historial_excel(
+                    archivo=number,
+                    proceso="Mainboard",
+                    paso="Procesamiento completo",
+                    estado="OK",
+                    detalle="Mainboard exportado y analizado"
+                )
+
+                # Registrar el Excel final generado
+                registrar_historial_excel(
+                    archivo=os.path.basename(ruta_xlsx),
+                    proceso="Exportación final SAP",
+                    paso="Exportación XLSX",
+                    estado="OK",
+                    detalle="Archivo final generado desde SAP"
+                )
 
             except Exception as e:
                 self.log_msg(f"[ERROR] Mainboard {number}: {e}", "ERROR")
-
+                registrar_historial_excel(
+                    archivo=number,
+                    proceso="Mainboard",
+                    paso="Error",
+                    estado="ERROR",
+                    detalle=str(e)
+                )
 
 if __name__ == "__main__":
     root = tk.Tk()

@@ -7,8 +7,14 @@ from backend.utils.sap_utils import (
     validar_planta
 )
 from backend.modules.cs03 import ejecutar_cs03_corregir_material
+from backend.config.sap_config import (
+    TRANSACCION,
+    FILTRO_SAP,
+    FILTRO,
+    PAUSA
+)
 
-def ejecutar_cs11(session, material, componente="1TE*", uso="PP01", plantas=None, pausa_entre_acciones=0.5):
+def ejecutar_cs11(session, material, componente=FILTRO_SAP, uso=FILTRO, plantas=None, pausa_entre_acciones=PAUSA):
   
     if plantas is None:
         plantas = ["2000", "2900"]
@@ -19,7 +25,7 @@ def ejecutar_cs11(session, material, componente="1TE*", uso="PP01", plantas=None
     session.findById("wnd[0]").maximize()
     pausar(pausa_entre_acciones)
 
-    session.findById("wnd[0]/tbar[0]/okcd").text = "/nCS11"
+    session.findById("wnd[0]/tbar[0]/okcd").text = TRANSACCION
     pausar(pausa_entre_acciones)
     session.findById("wnd[0]").sendVKey(0)
     pausar(pausa_entre_acciones)

@@ -11,10 +11,12 @@ from backend.utils.clean_excel_p2 import (
     limpiar_excel_mainboard_2,
     procesar_archivo_principal_mainboard_2
 )
+from backend.config.sap_config import (
+    TRANSACCION,
+    PLANTA1
+)
 
-# ============================================================
 # PROCESAR MATERIAL DESDE MAINBOARD (NIVEL 2)
-# ============================================================
 def procesar_material_desde_mainboard(session, ruta_mainboard_xlsx, uso):
     """
     Flujo completo:
@@ -32,9 +34,7 @@ def procesar_material_desde_mainboard(session, ruta_mainboard_xlsx, uso):
     if not os.path.exists(ruta_mainboard_xlsx):
         raise FileNotFoundError(f"No existe el archivo mainboard: {ruta_mainboard_xlsx}")
 
-    # --------------------------------------------------------
     # DETECTAR MATERIAL DESDE MAINBOARD
-    # --------------------------------------------------------
     df = pd.read_excel(ruta_mainboard_xlsx)
 
     if df.empty:
@@ -59,23 +59,20 @@ def procesar_material_desde_mainboard(session, ruta_mainboard_xlsx, uso):
 
     print(f"[INFO] Material detectado desde mainboard: {material}")
 
-    # --------------------------------------------------------
+
     # ACCESO SAP CS11
-    # --------------------------------------------------------
-    session.findById("wnd[0]/tbar[0]/okcd").text = "/NCS11"
+    session.findById("wnd[0]/tbar[0]/okcd").text = TRANSACCION
     session.findById("wnd[0]").sendVKey(0)
 
     session.findById("wnd[0]/usr/ctxtRC29L-MATNR").text = material
-    session.findById("wnd[0]/usr/ctxtRC29L-WERKS").text = "2000"
+    session.findById("wnd[0]/usr/ctxtRC29L-WERKS").text = PLANTA1
     session.findById("wnd[0]/usr/ctxtRC29L-CAPID").text = uso
     session.findById("wnd[0]/tbar[1]/btn[8]").press()
 
     if not acceso_bom_exitoso(session):
         raise Exception(f"No se pudo acceder al BOM de {material}")
 
-    # --------------------------------------------------------
     # EXPORTAR BOM NIVEL 2
-    # --------------------------------------------------------
     ruta_xls = exportar_bom_a_xls(
         session=session,
         material=material,
@@ -85,9 +82,7 @@ def procesar_material_desde_mainboard(session, ruta_mainboard_xlsx, uso):
     if not ruta_xls:
         raise Exception("Falló la exportación del BOM desde SAP")
 
-    # --------------------------------------------------------
     # CONVERTIR A XLSX
-    # --------------------------------------------------------
     ruta_xlsx = os.path.join(
         MAINBOARD_2_FILES_FOLDER,
         f"{material}.xlsx"
@@ -95,15 +90,11 @@ def procesar_material_desde_mainboard(session, ruta_mainboard_xlsx, uso):
 
     convertir_xls_a_xlsx(str(ruta_xls), str(ruta_xlsx))
 
-    # --------------------------------------------------------
     # LIMPIEZA BASE (HEADERS / COLUMNAS)
-    # --------------------------------------------------------
     limpiar_excel_mainboard_2(str(ruta_xlsx))
 
-    # --------------------------------------------------------
     # PROCESAMIENTO FINAL + SUBMATERIALES
     # (usa BOM automáticamente desde clean_excel_p2.py)
-    # --------------------------------------------------------
     procesar_archivo_principal_mainboard_2(
         ruta_excel_principal=str(ruta_xlsx),
         ruta_salida_principal=str(ruta_xlsx)

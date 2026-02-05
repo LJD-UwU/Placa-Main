@@ -6,18 +6,25 @@ from backend.utils.sap_utils import (
     tiene_parentesis_numericos
 )
 from backend.modules.cs03 import ejecutar_cs03_corregir_material
+from backend.config.sap_config import(
+    PLANTAS,
+    TRANSACCION,
+    FILTRO_SAP,
+    FILTRO,
+    PAUSA
+)
 
-def ejecutar_cs11(session, material, componente="1TE*", uso="PP01", plantas=None, pausa_entre_acciones=0.5):
+def ejecutar_cs11(session, material, componente=FILTRO_SAP, uso=FILTRO, plantas=None, pausa_entre_acciones=PAUSA):
     
     if plantas is None:
-        plantas = ["2000", "2900"]
+        plantas = PLANTAS
 
     print(f"[INFO] Iniciando CS11 para: {material}")
     session.findById("wnd[0]").maximize()
     pausar(pausa_entre_acciones)
 
     # Ir a CS11
-    session.findById("wnd[0]/tbar[0]/okcd").text = "/NCS11"
+    session.findById("wnd[0]/tbar[0]/okcd").text = TRANSACCION
     pausar(pausa_entre_acciones)
     session.findById("wnd[0]").sendVKey(0)
     pausar(pausa_entre_acciones)
@@ -95,7 +102,7 @@ def ejecutar_cs11(session, material, componente="1TE*", uso="PP01", plantas=None
 
 # FUNCIONES AUXILIARES
 
-def set_werks(session, planta, intentos=3, pausa=0.5):
+def set_werks(session, planta, intentos=3, pausa=PAUSA):
     """Intenta setear el campo de planta varias veces si falla"""
     for i in range(intentos):
         try:
@@ -106,7 +113,7 @@ def set_werks(session, planta, intentos=3, pausa=0.5):
             pausar(pausa)
     raise Exception("No se pudo setear la planta en SAP")
 
-def set_capid(session, uso, intentos=3, pausa=0.5):
+def set_capid(session, uso, intentos=3, pausa=PAUSA):
     """Intenta setear el campo de uso varias veces si falla"""
     for i in range(intentos):
         try:

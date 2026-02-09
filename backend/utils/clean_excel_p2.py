@@ -6,12 +6,11 @@ from glob import glob
 import pandas as pd
 import openpyxl
 from backend.utils.txt_to_xlsx import MAINBOARD_2_FILES_FOLDER
+from backend.config.sap_config import EXTRAER_ARCHIVO
 
 # CONFIG
-EXTRAER_ARCHIVO = r"Z:\IE-SAP\1) BOM files\e) Submaterial Usage"
 
 # BLOQUE 1: LIMPIEZA BASE EXCEL
-# ======================================================
 def mover_columnas_completas_2(ws, columnas_originales, nueva_pos):
     n = len(columnas_originales)
     datos = [[ws.cell(row=r, column=c).value for r in range(1, ws.max_row + 1)]
@@ -54,9 +53,8 @@ def limpiar_todos_los_mainboard():
             except Exception as e:
                 print(f"[ERROR] {archivo} → {e}")
 
-# ======================================================
+
 # UTILIDADES
-# ======================================================
 def set_cell(df, row, col, value):
     df.loc[row - 1, col] = value
 
@@ -72,9 +70,7 @@ def extraer_codigo_pcb(texto):
             return match.group(1)
     return None
 
-# ======================================================
 # BLOQUE 2 + SUBMATERIALES
-# ======================================================
 def procesar_archivo_principal_mainboard_2(
     ruta_excel_principal: str,
     ruta_salida_principal: str
@@ -82,14 +78,13 @@ def procesar_archivo_principal_mainboard_2(
     nombre_archivo = os.path.splitext(os.path.basename(ruta_excel_principal))[0]
     df = pd.read_excel(ruta_excel_principal)
 
-    # --------------------------------------------------
+
     # Insertar 2 filas vacías al inicio
-    # --------------------------------------------------
+
     df = pd.concat([pd.DataFrame(columns=df.columns, index=range(2)), df], ignore_index=True)
 
-    # --------------------------------------------------
+
     # Configurar primeras filas
-    # --------------------------------------------------
     set_cell(df, 1, "LEVEL", "0")
     set_cell(df, 1, "ITEM", "X")
     set_cell(df, 1, "MATERIAL", "3TE")
@@ -104,9 +99,9 @@ def procesar_archivo_principal_mainboard_2(
 
     filas_protegidas = {0, 1, 2}
 
-    # --------------------------------------------------
+
     # Limpiar ITEM y inicializar LEVEL
-    # --------------------------------------------------
+
     df["ITEM"] = df["ITEM"].apply(limpiar_item).astype(str)
     df.loc[~df.index.isin(filas_protegidas), "LEVEL"] = 0
 
@@ -135,18 +130,16 @@ def procesar_archivo_principal_mainboard_2(
         if df.at[i, "LEVEL"] == 0:
             df.at[i, "LEVEL"] = df.at[i - 1, "LEVEL"]
 
-    # --------------------------------------------------
     # Manejo de SORT STRING
-    # --------------------------------------------------
+
     if "SORT STRING" not in df.columns:
         df["SORT STRING"] = None
     df["SORT STRING"] = df["SORT STRING"].astype("object")
     df.loc[1:, "SORT STRING"] = df.loc[1:, "LINE 2"]
     df.loc[1:, "LINE 2"] = None
 
-    # --------------------------------------------------
     # Extraer PCB y filtrar BOM
-    # --------------------------------------------------
+
     df["PCB_CODE"] = df["DESCRIPTION IN CHINESE"].apply(extraer_codigo_pcb)
     lista_pcb = df["PCB_CODE"].dropna().tolist()
 
@@ -197,9 +190,7 @@ def procesar_archivo_principal_mainboard_2(
             df_final_insertar_completo
         ], ignore_index=True)
 
-    # --------------------------------------------------
     # Limpiar y reasignar ITEM / LEVEL final
-    # --------------------------------------------------
     df["ITEM"] = df["ITEM"].apply(limpiar_item).astype(str)
     filas_protegidas = {0, 1, 2}
     df.loc[~df.index.isin(filas_protegidas), "LEVEL"] = 0

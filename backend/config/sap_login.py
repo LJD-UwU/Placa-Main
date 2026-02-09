@@ -2,14 +2,27 @@ import sys
 import time
 import subprocess
 import win32com.client
-from backend.config.sap_config import SAP_LOGON_PATH, SAP_USER, SAP_PASSWORD, SAP_SYSTEM_NAME
+
+from backend.config.sap_config import SAP_LOGON_PATH
+from backend.config.credenciales_loader import cargar_credenciales
 from backend.utils.sap_utils import esperar_sap, escribir_campo
+
 
 def abrir_sap_y_login(timeout=60):
     try:
+        # 🔐 Cargar credenciales dinámicas desde JSON
+        cred = cargar_credenciales()
+        SAP_SYSTEM_NAME = cred.get("SAP_SYSTEM_NAME")
+        SAP_USER = cred.get("SAP_USER")
+        SAP_PASSWORD = cred.get("SAP_PASSWORD")
+
+        if not all([SAP_SYSTEM_NAME, SAP_USER, SAP_PASSWORD]):
+            raise ValueError("Credenciales SAP incompletas en Credenciales.json")
+
         sap_gui_auto = None
         application = None
 
+        # 🔁 Reutilizar sesión si ya existe
         try:
             sap_gui_auto = win32com.client.GetObject("SAPGUI")
             if sap_gui_auto:
@@ -24,6 +37,7 @@ def abrir_sap_y_login(timeout=60):
         except Exception:
             print("[INFO] No se detectó sesión activa. Procediendo a abrir SAP...")
 
+        # 🚀 Abrir SAP Logon
         print(f"[INFO] Iniciando SAP Logon en {SAP_LOGON_PATH}...")
         subprocess.Popen(SAP_LOGON_PATH)
 
@@ -31,19 +45,23 @@ def abrir_sap_y_login(timeout=60):
         while time.time() - start_time < timeout:
             try:
                 sap_gui_auto = win32com.client.GetObject("SAPGUI")
-                if sap_gui_auto: break
-            except:
+                if sap_gui_auto:
+                    break
+            except Exception:
                 time.sleep(1)
 
         if not sap_gui_auto:
             raise TimeoutError("No se pudo conectar con el objeto SAPGUI")
 
         application = sap_gui_auto.GetScriptingEngine
+
+        # 🔌 Conectar al sistema SAP desde JSON
         print(f"[INFO] Conectando a: {SAP_SYSTEM_NAME}...")
         connection = application.OpenConnection(SAP_SYSTEM_NAME, True)
         session = connection.Children(0)
         session.findById("wnd[0]").maximize()
 
+        # 🔐 Login SAP
         try:
             escribir_campo(session, "wnd[0]/usr/txtRSYST-BNAME", SAP_USER)
             escribir_campo(session, "wnd[0]/usr/pwdRSYST-BCODE", SAP_PASSWORD)

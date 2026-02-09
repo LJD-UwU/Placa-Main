@@ -1,11 +1,8 @@
 import os
 from datetime import datetime
 import pandas as pd
-from backend.config.sap_config import EXPORT_FINAL_PATH
+from backend.utils.txt_to_xlsx import HISTORIAL_FOLDER
 
-# Carpeta y archivo de historial dentro de EXPORT_FINAL_PATH
-HISTORIAL_FOLDER = os.path.join(EXPORT_FINAL_PATH, "HISTORIAL")
-os.makedirs(HISTORIAL_FOLDER, exist_ok=True)
 HISTORIAL_FILE = "historial.xlsx"
 
 def _ruta_historial():

@@ -6,13 +6,19 @@ import pandas as pd
 from backend.config.sap_config import EXPORT_FINAL_PATH
 
 # CARPETAS
-MODEL_FILES_FOLDER = os.path.join(EXPORT_FINAL_PATH, "MODEL_BOM")
-MAINBOARD_1_FILES_FOLDER = os.path.join(EXPORT_FINAL_PATH, "MOTHERBOARD__BOM")
-MAINBOARD_2_FILES_FOLDER = os.path.join(EXPORT_FINAL_PATH, "MAINBOARD_FINAL_BOM")
+BASE_BOM_FOLDER = os.path.join(EXPORT_FINAL_PATH, "BOM")
+
+MODEL_FILES_FOLDER = os.path.join(BASE_BOM_FOLDER, "MODEL_INTERN")
+MAINBOARD_1_FILES_FOLDER = os.path.join(BASE_BOM_FOLDER, "MOTHERBOARD")
+MAINBOARD_2_FILES_FOLDER = os.path.join(BASE_BOM_FOLDER, "MAINBOARD_FINAL")
+HISTORIAL_FOLDER = os.path.join(BASE_BOM_FOLDER, "HISTORIAL")
+
 
 os.makedirs(MODEL_FILES_FOLDER, exist_ok=True)
 os.makedirs(MAINBOARD_1_FILES_FOLDER, exist_ok=True)
 os.makedirs(MAINBOARD_2_FILES_FOLDER, exist_ok=True)
+os.makedirs(HISTORIAL_FOLDER, exist_ok=True)
+
 
 def convertir_xls_a_xlsx(ruta_xls: str, ruta_xlsx: str):
     if not os.path.exists(ruta_xls):
@@ -61,9 +67,7 @@ def convertir_xls_a_xlsx(ruta_xls: str, ruta_xlsx: str):
             except:
                 pass
 
-# ------------------------------
 # Función: Exportar BOM desde SAP
-# ------------------------------
 def exportar_bom_a_xls(session, material, mainboard=False):
     """
     Exporta el BOM de CS11 a XLS.
@@ -105,9 +109,7 @@ def exportar_bom_a_xls(session, material, mainboard=False):
         print(f"[ERROR] Exportación SAP falló ({material}): {e}")
         return None
 
-# ------------------------------
 # Espera de archivo
-# ------------------------------
 def esperar_archivo(path, timeout=60):
     inicio = time.time()
     while time.time() - inicio < timeout:

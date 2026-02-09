@@ -9,13 +9,16 @@ from backend.utils.clean_excel import limpiar_excel_mainboard
 from backend.modules.procesar_mainboard_P1 import procesar_number
 from backend.modules.prosesar_mainboard_P2 import procesar_material_desde_mainboard
 from backend.config.sap_login import abrir_sap_y_login
+from backend.config.credenciales_loader import cargar_credenciales, guardar_credenciales
 from backend.modules.cs11 import ejecutar_cs11
 from backend.utils.txt_to_xlsx import (
     exportar_bom_a_xls,
     convertir_xls_a_xlsx,
     MODEL_FILES_FOLDER,
     MAINBOARD_1_FILES_FOLDER,
-    MAINBOARD_2_FILES_FOLDER
+    MAINBOARD_2_FILES_FOLDER,
+    MODEL_FILES_FOLDER,
+    HISTORIAL_FOLDER
 )
 from backend.config.sap_config import (
     DESCRIPCIONES,
@@ -27,9 +30,13 @@ from backend.config.sap_config import (
 class SAPApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Automatización SAP")
+        self.root.title("MBAutomator")
         self.root.geometry("460x420")
         self.root.resizable(False, False)
+        try:
+                self.root.iconbitmap(r"IMG/logo.ico") 
+        except Exception as e:
+                print(f"No se pudo cargar el icono: {e}")
 
         self.animando = False
         self.anim_dots = 0
@@ -57,10 +64,14 @@ class SAPApp:
 
         fila_btn = ttk.Frame(main)
         fila_btn.pack(pady=4)
+
         self.btn_procesar = ttk.Button(fila_btn, text="▶ Procesar", command=self.iniciar)
         self.btn_procesar.pack(side="left", padx=4)
+
         self.btn_open = ttk.Button(fila_btn, text="📁 Resultados", command=self.abrir_resultados, state="disabled")
         self.btn_open.pack(side="left", padx=4)
+
+        ttk.Button(fila_btn, text="🔐 Credenciales", command=self.abrir_credenciales).pack(side="left", padx=4)
 
         frame_log = ttk.LabelFrame(main, text="CONSOLA")
         frame_log.pack(fill="both", expand=True, pady=(6, 0))
@@ -78,6 +89,52 @@ class SAPApp:
         self.idx = 0
         self.session = None
         self.df_todos = pd.DataFrame(columns=["Modelo", "Planta", "Number", "Descripcion"])
+
+    # ================= CREDENCIALES =================
+    def abrir_credenciales(self):
+        cred = cargar_credenciales()
+
+        win = tk.Toplevel(self.root)
+        win.title("Credenciales SAP")
+        win.geometry("320x240")
+        win.resizable(False, False)
+        win.transient(self.root)
+        win.grab_set()
+
+        # --- Cambiar el icono de la ventana de credenciales ---
+        try:
+            win.iconbitmap(r"IMG/logo.ico")  # reemplaza el icono por tu logo
+        except Exception as e:
+            print(f"No se pudo cambiar el icono de la ventana de credenciales: {e}")
+
+        # --- Campos de credenciales ---
+        ttk.Label(win, text="Sistema SAP").pack(pady=(12, 0))
+        sistema = tk.StringVar(value=cred.get("SAP_SYSTEM_NAME", ""))
+        ttk.Entry(win, textvariable=sistema).pack(fill="x", padx=20)
+
+        ttk.Label(win, text="Usuario").pack(pady=(10, 0))
+        usuario = tk.StringVar(value=cred.get("SAP_USER", ""))
+        ttk.Entry(win, textvariable=usuario).pack(fill="x", padx=20)
+
+        ttk.Label(win, text="Contraseña").pack(pady=(10, 0))
+        password = tk.StringVar(value=cred.get("SAP_PASSWORD", ""))
+        ttk.Entry(win, textvariable=password, show="*").pack(fill="x", padx=20)
+
+        def guardar():
+            if not sistema.get() or not usuario.get() or not password.get():
+                messagebox.showwarning("Atención", "Todos los campos son obligatorios")
+                return
+
+            guardar_credenciales({
+                "SAP_SYSTEM_NAME": sistema.get().strip(),
+                "SAP_USER": usuario.get().strip(),
+                "SAP_PASSWORD": password.get()
+            })
+
+            messagebox.showinfo("OK", "Credenciales guardadas correctamente")
+            win.destroy()
+
+        ttk.Button(win, text="Guardar", command=guardar).pack(pady=18)
 
     # ================= LOG =================
     def log_msg(self, msg, tag="INFO"):
@@ -153,14 +210,40 @@ class SAPApp:
             return
 
         self.set_status("Conectando a SAP", animar=True)
-        self.session = abrir_sap_y_login()
-        self.animando = False
 
-        if not self.session:
-            self.log_msg("[ERROR] Conexión SAP fallida", "ERROR")
+        try:
+            # Intentar abrir SAP
+            self.session = abrir_sap_y_login()
+
+        except Exception as e:
+            msg = str(e)
+
+            # Detectar error de credenciales incompletas
+            if "Credenciales SAP incompletas" in msg:
+                self.log_msg(f"[ERROR] {msg}", "ERROR")
+                messagebox.showerror(
+                    "Error SAP",
+                    "Falló la apertura o login de SAP:\nCredenciales SAP incompletas.\nPor favor revisa tus credenciales."
+                )
+                # Habilitar botón para reintentar
+                self.btn_procesar.config(state="normal")
+                self.animando = False
+                self.session = None
+                return
+
+            # Otros errores de SAP (opcional)
+            self.log_msg(f"[ERROR] {msg}", "ERROR")
+            messagebox.showerror(
+                "Error SAP",
+                f"No se pudo conectar a SAP:\n{msg}"
+            )
             self.btn_procesar.config(state="normal")
+            self.animando = False
+            self.session = None
             return
 
+        # Si todo salió bien
+        self.animando = False
         self.log_msg("[OK] Conectado a SAP", "OK")
         self.idx = 0
         self.root.after(200, self.procesar_modelo)
@@ -252,9 +335,12 @@ class SAPApp:
 
     def guardar_excel_final(self):
         self.set_status("Procesando mainboards")
+
+        # Crear carpetas si no existen
         for folder in [MODEL_FILES_FOLDER, MAINBOARD_1_FILES_FOLDER, MAINBOARD_2_FILES_FOLDER]:
             os.makedirs(folder, exist_ok=True)
 
+        # Procesamiento normal de mainboards
         for _, row in self.df_todos.iterrows():
             number = str(row["Number"]).strip()
             if any(number in f for f in os.listdir(MAINBOARD_1_FILES_FOLDER)):
@@ -283,7 +369,6 @@ class SAPApp:
                     detalle="Mainboard exportado y analizado"
                 )
 
-                # Registrar el Excel final generado
                 registrar_historial_excel(
                     archivo=os.path.basename(ruta_xlsx),
                     proceso="Exportación final SAP",
@@ -301,6 +386,17 @@ class SAPApp:
                     estado="ERROR",
                     detalle=str(e)
                 )
+                
+        for folder in [HISTORIAL_FOLDER, MAINBOARD_1_FILES_FOLDER, MAINBOARD_2_FILES_FOLDER,MODEL_FILES_FOLDER]:
+            for f in os.listdir(folder):
+                ruta = os.path.join(folder, f)
+                # Comprobar si es un archivo .xls (mayúscula o minúscula)
+                if os.path.isfile(ruta) and f.lower().endswith(".xls"):
+                    try:
+                        os.remove(ruta)
+                        
+                    except Exception as e:
+                        self.log_msg(f"[ERROR] No se pudo eliminar {f}: {e}", "ERROR")
 
 if __name__ == "__main__":
     root = tk.Tk()

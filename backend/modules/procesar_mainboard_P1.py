@@ -12,7 +12,6 @@ TRANSACCION,
 PAUSA
 )
 
-
 # FUNCION PARA MODELOS INTERNOS
 
 def procesar_number(session, number, planta, capid):

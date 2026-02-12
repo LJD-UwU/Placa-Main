@@ -13,6 +13,7 @@ DESCRIPCIONES = ["主板大组件\\", "主板总成\\", "主板组件\\"]
 RESULT_COLUMNS = ["Number", "Descripcion"]
 MENSAJE_SIN_BOM = "没有可用的 BOM"
 PLANTAS = ["2000", "2900"]
+SECUENCIA = ["2000", "2900", "2000"] 
 TRANSACCION = "/NCS11"
 FILTRO_SAP = "1TE*"
 PLANTA1 = "2000"

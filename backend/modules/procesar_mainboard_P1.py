@@ -1,6 +1,7 @@
 import os
 import time
 import pandas as pd
+from openpyxl.styles import PatternFill
 from backend.utils.txt_to_xlsx import exportar_bom_a_xls, convertir_xls_a_xlsx
 from backend.utils.sap_utils import acceso_bom_exitoso
 from backend.config.sap_config import (
@@ -9,7 +10,8 @@ RESULT_COLUMNS,
 PLANTAS,
 FILTRO,
 TRANSACCION,
-PAUSA
+PAUSA,
+SECUENCIA
 )
 
 # FUNCION PARA MODELOS INTERNOS
@@ -51,9 +53,9 @@ def procesar_number_mainboard(session, number, capid):
     Procesa un Number para obtener su Mainboard en SAP.
     Incluye bloque adicional dinámico para seleccionar fila y presionar botones.
     """
-    secuencia = ["2000", "2900", "2000"]  # plantas a intentar
 
-    for planta in secuencia:
+
+    for planta in SECUENCIA:
         try:
             print(f"[INFO] Intentando {number} en planta {planta}")
 

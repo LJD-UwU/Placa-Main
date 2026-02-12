@@ -1,15 +1,15 @@
-import tkinter as tk
-from tkinter import ttk, filedialog, messagebox, scrolledtext
-import pandas as pd
-import os, re, time
-
-from backend.modules.extract_mainboard import extract_descripcion_numbers
-from backend.utils.historial import registrar_historial_excel
-from backend.utils.clean_excel import limpiar_excel_mainboard
-from backend.modules.procesar_mainboard_P1 import procesar_number
-from backend.modules.prosesar_mainboard_P2 import procesar_material_desde_mainboard
-from backend.config.sap_login import abrir_sap_y_login
 from backend.config.credenciales_loader import cargar_credenciales, guardar_credenciales
+from backend.modules.prosesar_mainboard_P2 import procesar_material_desde_mainboard
+from backend.modules.extract_mainboard import extract_descripcion_numbers
+from backend.modules.procesar_mainboard_P1 import procesar_number
+from backend.utils.clean_excel import limpiar_excel_mainboard
+from backend.utils.historial import registrar_historial_excel
+from backend.config.sap_login import abrir_sap_y_login
+from tkinter import ttk, filedialog, messagebox, scrolledtext
+import os, re, time,sys
+import tkinter as tk
+import pandas as pd
+
 from backend.modules.cs11 import ejecutar_cs11
 from backend.utils.txt_to_xlsx import (
     exportar_bom_a_xls,
@@ -24,7 +24,8 @@ from backend.config.sap_config import (
     DESCRIPCIONES,
     PLANTAS,
     FILTRO_SAP,
-    FILTRO
+    FILTRO,
+    PLANTA1
 )
 
 class SAPApp:
@@ -67,6 +68,9 @@ class SAPApp:
 
         self.btn_procesar = ttk.Button(fila_btn, text="▶ Procesar", command=self.iniciar)
         self.btn_procesar.pack(side="left", padx=4)
+        
+        self.btn_reiniciar = ttk.Button(fila_btn, text="🔄 Reiniciar", command=self.reiniciar_app)
+        self.btn_reiniciar.pack(side="left", padx=4)
 
         self.btn_open = ttk.Button(fila_btn, text="📁 Resultados", command=self.abrir_resultados, state="disabled")
         self.btn_open.pack(side="left", padx=4)
@@ -181,6 +185,16 @@ class SAPApp:
         path = os.path.abspath(MAINBOARD_2_FILES_FOLDER)
         if os.path.exists(path):
             os.startfile(path)
+            
+    def reiniciar_app(self):
+        respuesta = messagebox.askyesno(
+            "Reiniciar",
+            "¿Seguro que deseas reiniciar la aplicación?"
+        )
+        if respuesta:
+            self.root.destroy()
+            os.execl(sys.executable, sys.executable, *sys.argv)
+
 
     # ================= FLUJO =================
     def iniciar(self):
@@ -292,7 +306,6 @@ class SAPApp:
                     proceso="Modelo",
                     paso="Exportar BOM",
                     estado="OK",
-                    detalle=f"Planta {planta}"
                 )
 
                 ruta_xlsx = os.path.join(MODEL_FILES_FOLDER, re.sub(r'[\\/*?:"<>|]', "_", os.path.basename(ruta_xls).replace(".XLS","")) + ".xlsx")
@@ -302,8 +315,7 @@ class SAPApp:
                     archivo=os.path.basename(ruta_xlsx),
                     proceso="Modelo",
                     paso="Conversión XLSX",
-                    estado="OK",
-                    detalle="Codificación preservada"
+                    estado="OK"
                 )
 
                 self.log_msg("    • Analizando descripciones", "INFO")
@@ -346,7 +358,7 @@ class SAPApp:
             if any(number in f for f in os.listdir(MAINBOARD_1_FILES_FOLDER)):
                 continue
             try:
-                ruta_xls = procesar_number(self.session, number, "2000", FILTRO)
+                ruta_xls = procesar_number(self.session, number, PLANTA1, FILTRO)
                 ruta_xlsx = os.path.join(MAINBOARD_1_FILES_FOLDER, re.sub(r'[\\/*?:"<>|]', "_", os.path.basename(ruta_xls).replace(".XLS","")) + ".xlsx")
                 convertir_xls_a_xlsx(ruta_xls, ruta_xlsx)
                 limpiar_excel_mainboard(ruta_xlsx)

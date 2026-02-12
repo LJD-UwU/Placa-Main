@@ -1,5 +1,4 @@
 import os
-from datetime import datetime
 import pandas as pd
 from backend.utils.txt_to_xlsx import HISTORIAL_FOLDER
 
@@ -20,14 +19,11 @@ def registrar_historial_excel(
     Registra una fila detallada en el historial de procesamiento en Excel.
     Se agrega el tipo: Modelo, Motherboard o Mainboard.
     """
-    ahora = datetime.now()
 
     nueva_fila = {
-        "Fecha": ahora.strftime("%Y-%m-%d"),
-        "Hora": ahora.strftime("%H:%M:%S"),
-        "Tipo": tipo,          # NUEVO
-        "Archivo": archivo,
-        "Proceso": proceso,
+        "Tipo": tipo,          
+        "Modelo interno": archivo,
+        "Procesamiento": proceso,
         "Paso": paso,
         "Estado": estado,
         "Detalle": detalle

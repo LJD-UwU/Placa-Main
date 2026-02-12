@@ -1,4 +1,5 @@
 *__pycache__
+*IMG
 *.venv
 
 P.py
@@ -7,3 +8,5 @@ temp1.py
 module_clean.py
 tempf.py
 credenciales.json
+sap_config.py
+requirements.txt

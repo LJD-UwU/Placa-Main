@@ -11,13 +11,14 @@ from backend.config.sap_config import (
     TRANSACCION,
     FILTRO_SAP,
     FILTRO,
-    PAUSA
+    PAUSA,
+    PLANTAS
 )
 
 def ejecutar_cs11(session, material, componente=FILTRO_SAP, uso=FILTRO, plantas=None, pausa_entre_acciones=PAUSA):
   
-    if plantas is None:
-        plantas = ["2000", "2900"]
+    if PLANTAS is None:
+        PLANTAS
 
     print(f"[INFO] Iniciando CS11 para: {material}")
 
@@ -37,7 +38,7 @@ def ejecutar_cs11(session, material, componente=FILTRO_SAP, uso=FILTRO, plantas=
         "wnd[1]/usr/tabsG_SELONETABSTRIP/tabpTAB001/"
         "ssubSUBSCR_PRESEL:SAPLSDH4:0220/sub:SAPLSDH4:0220/"
         "txtG_SELFLD_TAB-LOW[0,24]",
-        f"*{material}*")
+        f"*.{material}.*")
     pausar(pausa_entre_acciones)
 
     escribir_campo(session,

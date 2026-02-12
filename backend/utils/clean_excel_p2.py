@@ -1,4 +1,4 @@
-import os
+import os 
 import time
 import re
 from glob import glob
@@ -22,7 +22,6 @@ def mover_columnas_completas_2(ws, columnas_originales, nueva_pos):
         for r in range(1, ws.max_row + 1):
             ws.cell(row=r, column=nueva_pos + i).value = col_data[r - 1]
 
-
 def limpiar_excel_mainboard_2(ruta_xlsx: str):
     wb = openpyxl.load_workbook(ruta_xlsx)
     ws = wb.active
@@ -43,7 +42,6 @@ def limpiar_excel_mainboard_2(ruta_xlsx: str):
 
     wb.save(ruta_xlsx)
 
-
 def limpiar_todos_los_mainboard():
     for archivo in os.listdir(MAINBOARD_2_FILES_FOLDER):
         if archivo.lower().endswith(".xlsx"):
@@ -60,12 +58,10 @@ def limpiar_todos_los_mainboard():
 def set_cell(df, row, col, value):
     df.loc[row - 1, col] = value
 
-
 def limpiar_item(x):
     if pd.isna(x) or str(x).strip() == "":
         return "X"
     return str(x).strip()
-
 
 def extraer_codigo_pcb(texto):
     if isinstance(texto, str) and ("PCB" in texto or "印制板" in texto):
@@ -87,8 +83,7 @@ def procesar_archivo_principal_mainboard_2(
     # Insertar 2 filas vacías al inicio
     df = pd.concat([pd.DataFrame(columns=df.columns, index=range(2)), df], ignore_index=True)
 
-    # Configurar primeras filas
-    set_cell(df, 1, "LEVEL", "0")
+    # Configurar primeras filas “manuales”
     set_cell(df, 1, "ITEM", "X")
     set_cell(df, 1, "MATERIAL", "3TE")
 
@@ -101,6 +96,21 @@ def procesar_archivo_principal_mainboard_2(
     set_cell(df, 3, "MATERIAL", nombre_archivo)
 
     filas_protegidas = {0, 1, 2}
+
+    # --- PRIMER REFRESH: CONVERTIR VALORES MANUALES A FLOAT ---
+    columnas_a_float = ["LEVEL", "MATERIAL", "ITEM", "QTY"]
+
+    for col in columnas_a_float:
+        if col in df.columns:
+            def convertir_valor(x):
+                try:
+                    if pd.notna(x) and str(x).strip() not in {"X", "3TE"} and str(x).strip() != "":
+                        return float(str(x).replace(",", ""))
+                    return x
+                except:
+                    return x
+            df[col] = df[col].apply(convertir_valor)
+    # --- FIN PRIMER REFRESH ---
 
     # LOGICA ORIGINAL DE REINICIO ITEM / LEVEL
     df["ITEM"] = df["ITEM"].apply(limpiar_item).astype(str)
@@ -134,7 +144,6 @@ def procesar_archivo_principal_mainboard_2(
     # DETECCIÓN DE CHINO
     if "SORT STRING" not in df.columns:
         df["SORT STRING"] = None
-
     df["SORT STRING"] = df["SORT STRING"].astype("object")
 
     def tiene_chino(texto):
@@ -230,7 +239,7 @@ def procesar_archivo_principal_mainboard_2(
         if df.at[i, "LEVEL"] == 0:
             df.at[i, "LEVEL"] = df.at[i - 1, "LEVEL"]
 
-    # GUARDAR Y COLOREAR FILAS
+    # GUARDAR EXCEL
     df.drop(columns=["PCB_CODE","PCB_clean"], errors="ignore", inplace=True)
     df.to_excel(ruta_salida_principal, index=False)
     wb = load_workbook(ruta_salida_principal)
@@ -243,22 +252,55 @@ def procesar_archivo_principal_mainboard_2(
             for col in range(1, 10):
                 ws.cell(row=idx, column=col).fill = amarillo
 
-    # Eliminar columna SORT STRING
+    # Limpiar contenido de la columna SORT STRING
+    col_sort_string = None
     for col in range(1, ws.max_column + 1):
         if ws.cell(row=1, column=col).value == "SORT STRING":
-            ws.delete_cols(col)
+            col_sort_string = col
             break
+    if col_sort_string:
+        for row in range(2, ws.max_row + 1):
+            ws.cell(row=row, column=col_sort_string).value = None
 
     # Verde → filas de submateriales
     if lista_pcb:
         verde = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
-
-        # Rangos de filas de submateriales
         filas_submateriales = list(range(indice_insercion+3, indice_insercion+3 + len(filas_a_insertar))) + \
                               list(range(len(df) + 2 - len(filas_final), len(df) + 2))
         for idx in filas_submateriales:
             for col in range(1, 10):
                 ws.cell(row=idx, column=col).fill = verde
 
+    # Cambiar el nombre de la hoja existente
+    ws.title = "BOMlist"
+
+    # TEXTOS FIJOS
+    ws["A2"] = "0"
+    ws["F2"] = "1000"
+    ws["F3"] = "1000"
+    ws["B3"] = " "
+    ws["J3"] = "HIMEX"
+    ws["G3"] = "PC"
+
+    # --- SEGUNDO REFRESH FINAL: CONVERTIR DATOS NUMÉRICOS ---
+    columnas_numericas = ["LEVEL", "ITEM", "QTY"]
+    mapa_columnas = {str(ws.cell(row=1, column=c).value).strip().upper(): openpyxl.utils.get_column_letter(c)
+                     for c in range(1, ws.max_column + 1)
+                     if str(ws.cell(row=1, column=c).value).strip().upper() in columnas_numericas}
+
+    for nombre, letra in mapa_columnas.items():
+        for cell in ws[letra][1:]:  # fila 1 es header
+            if cell.value is not None:
+                valor = str(cell.value).strip()
+                if valor != "":
+                    try:
+                        cell.value = float(valor.replace(",", ""))
+                    except:
+                        pass
+
+    # Agregar dos nuevas hojas vacías
+    wb.create_sheet("BOMHeader")
+    wb.create_sheet("BOMItem")
     wb.save(ruta_salida_principal)
+
     print(f"[OK] Mainboard P2 COMPLETO: {ruta_salida_principal}")

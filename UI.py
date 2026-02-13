@@ -35,9 +35,9 @@ class SAPApp:
         self.root.geometry("460x420")
         self.root.resizable(False, False)
         try:
-                self.root.iconbitmap(r"IMG/logo.ico") 
+            self.root.iconbitmap(r"IMG/logo.ico") 
         except Exception as e:
-                print(f"No se pudo cargar el icono: {e}")
+            print(f"No se pudo cargar el icono: {e}")
 
         self.animando = False
         self.anim_dots = 0
@@ -54,29 +54,38 @@ class SAPApp:
         main = ttk.Frame(root, padding=6)
         main.pack(fill="both", expand=True)
 
+        # --- Campo Excel ---
         fila_file = ttk.Frame(main)
         fila_file.pack(fill="x", pady=4)
         self.excel_path = tk.StringVar()
         ttk.Entry(fila_file, textvariable=self.excel_path).pack(side="left", fill="x", expand=True)
         ttk.Button(fila_file, text="📂", width=3, command=self.seleccionar_excel).pack(side="left", padx=4)
 
+        # --- Progreso ---
         self.progress = ttk.Progressbar(main, mode="determinate")
         self.progress.pack(fill="x", pady=6)
 
+        # Etiqueta del porcentaje
+        self.progress_label = ttk.Label(main, text="0%")
+        self.progress_label.pack()
+
+
+        # --- Botones ---
         fila_btn = ttk.Frame(main)
         fila_btn.pack(pady=4)
 
-        self.btn_procesar = ttk.Button(fila_btn, text="▶ Procesar", command=self.iniciar)
+        self.btn_procesar = ttk.Button(fila_btn, text="▶ Procesar", command=self.iniciar, state="disabled")
         self.btn_procesar.pack(side="left", padx=4)
-        
-        self.btn_reiniciar = ttk.Button(fila_btn, text="🔄 Reiniciar", command=self.reiniciar_app)
-        self.btn_reiniciar.pack(side="left", padx=4)
+
+        self.btn_limpiar = ttk.Button(fila_btn, text="🧹 Limpiar", command=self.limpiar_datos)
+        self.btn_limpiar.pack(side="left", padx=4)
 
         self.btn_open = ttk.Button(fila_btn, text="📁 Resultados", command=self.abrir_resultados, state="disabled")
         self.btn_open.pack(side="left", padx=4)
 
         ttk.Button(fila_btn, text="🔐 Credenciales", command=self.abrir_credenciales).pack(side="left", padx=4)
 
+        # --- Consola ---
         frame_log = ttk.LabelFrame(main, text="CONSOLA")
         frame_log.pack(fill="both", expand=True, pady=(6, 0))
         self.log = scrolledtext.ScrolledText(frame_log, height=9, font=("Consolas", 9))
@@ -89,15 +98,58 @@ class SAPApp:
         self.status = tk.StringVar(value="Estado: Listo")
         ttk.Label(root, textvariable=self.status, anchor="w").pack(fill="x", side="bottom", padx=6, pady=4)
 
+        # --- Datos ---
         self.modelos = []
         self.idx = 0
         self.session = None
         self.df_todos = pd.DataFrame(columns=["Modelo", "Planta", "Number", "Descripcion"])
 
+        # --- Vigilar cambios en Excel ---
+        self.excel_path.trace_add("write", lambda *args: self.verificar_habilitar_botones())
+        
+        # ================= LIMPIAR DATOS =================
+    def limpiar_datos(self):
+        # Limpiar la consola
+        self.log.config(state="normal")
+        self.log.delete("1.0", tk.END)
+        self.log.config(state="disabled")
+        self.log_msg("[INFO] Log limpiado", "INFO")
+
+        # Confirmar limpieza de archivos
+        respuesta = messagebox.askyesno(
+            "Limpiar archivos",
+            "¿Deseas eliminar todos los archivos temporales generados en las carpetas de trabajo?"
+        )
+        if not respuesta:
+            return
+
+        carpetas = [MODEL_FILES_FOLDER, MAINBOARD_1_FILES_FOLDER, MAINBOARD_2_FILES_FOLDER, HISTORIAL_FOLDER]
+        for folder in carpetas:
+            if os.path.exists(folder):
+                for f in os.listdir(folder):
+                    ruta = os.path.join(folder, f)
+                    if os.path.isfile(ruta) and f.lower().endswith((".xls", ".xlsx")):
+                        try:
+                            os.remove(ruta)
+                            self.log_msg(f"[OK] Archivo eliminado: {f}", "OK")
+                        except Exception as e:
+                            self.log_msg(f"[ERROR] No se pudo eliminar {f}: {e}", "ERROR")
+        self.log_msg("[INFO] Archivos temporales eliminados", "INFO")
+
+    # ================= VALIDACIÓN DE BOTONES =================
+    def verificar_habilitar_botones(self):
+        cred = cargar_credenciales()
+        excel = self.excel_path.get().strip()
+        if all(cred.get(k) for k in ["SAP_SYSTEM_NAME", "SAP_USER", "SAP_PASSWORD"]) and excel:
+            self.btn_procesar.config(state="normal")
+        else:
+            self.btn_procesar.config(state="disabled")
+        # Resultados siempre inicia deshabilitado
+        self.btn_open.config(state="disabled")
+
     # ================= CREDENCIALES =================
     def abrir_credenciales(self):
         cred = cargar_credenciales()
-
         win = tk.Toplevel(self.root)
         win.title("Credenciales SAP")
         win.geometry("320x240")
@@ -105,13 +157,11 @@ class SAPApp:
         win.transient(self.root)
         win.grab_set()
 
-        # --- Cambiar el icono de la ventana de credenciales ---
         try:
-            win.iconbitmap(r"IMG/logo.ico")  # reemplaza el icono por tu logo
+            win.iconbitmap(r"IMG/logo.ico")
         except Exception as e:
-            print(f"No se pudo cambiar el icono de la ventana de credenciales: {e}")
+            print(f"No se pudo cambiar el icono: {e}")
 
-        # --- Campos de credenciales ---
         ttk.Label(win, text="Sistema SAP").pack(pady=(12, 0))
         sistema = tk.StringVar(value=cred.get("SAP_SYSTEM_NAME", ""))
         ttk.Entry(win, textvariable=sistema).pack(fill="x", padx=20)
@@ -128,16 +178,14 @@ class SAPApp:
             if not sistema.get() or not usuario.get() or not password.get():
                 messagebox.showwarning("Atención", "Todos los campos son obligatorios")
                 return
-
             guardar_credenciales({
                 "SAP_SYSTEM_NAME": sistema.get().strip(),
                 "SAP_USER": usuario.get().strip(),
                 "SAP_PASSWORD": password.get()
             })
-
             messagebox.showinfo("OK", "Credenciales guardadas correctamente")
             win.destroy()
-
+            self.verificar_habilitar_botones()
         ttk.Button(win, text="Guardar", command=guardar).pack(pady=18)
 
     # ================= LOG =================
@@ -198,10 +246,22 @@ class SAPApp:
 
     # ================= FLUJO =================
     def iniciar(self):
+        # Validar credenciales antes de iniciar
+        cred = cargar_credenciales()
+        if not cred.get("SAP_SYSTEM_NAME") or not cred.get("SAP_USER") or not cred.get("SAP_PASSWORD"):
+            messagebox.showerror(
+                "Credenciales incompletas",
+                "No se han ingresado las credenciales SAP.\n"
+                "Por favor ve a 🔐 Credenciales e ingrésalas antes de continuar."
+            )
+            return  # No continuar hasta que estén completas
+
+        # Validar que haya un Excel seleccionado
         if not self.excel_path.get():
             messagebox.showwarning("Atención", "Selecciona un Excel")
             return
 
+        # Deshabilitar botones y preparar progreso
         self.btn_procesar.config(state="disabled")
         self.btn_open.config(state="disabled")
         self.progress["value"] = 0
@@ -413,4 +473,14 @@ class SAPApp:
 if __name__ == "__main__":
     root = tk.Tk()
     app = SAPApp(root)
+    
+    # Validación inmediata de credenciales
+    cred = cargar_credenciales()
+    if not cred.get("SAP_SYSTEM_NAME") or not cred.get("SAP_USER") or not cred.get("SAP_PASSWORD"):
+        messagebox.showinfo(
+            "Atención",
+            "No se han ingresado las credenciales SAP.\n"
+            "Ve a 🔐 Credenciales para completarlas antes de iniciar cualquier proceso."
+        )
+
     root.mainloop()

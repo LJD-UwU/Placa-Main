@@ -71,7 +71,7 @@ def ejecutar_cs11(session, material, componente=FILTRO_SAP, uso=FILTRO, plantas=
             pausar(pausa_entre_acciones)
 
             grid = esperar_cs11_completo(session, timeout=15)
-            print(f"[INFO] CS11 cargado para {material} en planta {planta} ({grid.RowCount} filas)")
+            print(f"[INFO] CS11 cargado para {material} en planta {planta} ")
             resultados.append((planta, grid))
             bom_obtenido = True
 

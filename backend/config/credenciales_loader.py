@@ -1,4 +1,4 @@
-import json 
+import json
 import os
 
 RUTA_CREDENCIALES = os.path.join(
@@ -7,6 +7,18 @@ RUTA_CREDENCIALES = os.path.join(
 )
 
 def cargar_credenciales():
+    # Si no existe, lo crea con la estructura requerida
+    if not os.path.exists(RUTA_CREDENCIALES):
+        credenciales_vacias = {
+            "SAP_SYSTEM_NAME": "",
+            "SAP_USER": "",
+            "SAP_PASSWORD": ""
+        }
+        with open(RUTA_CREDENCIALES, "w", encoding="utf-8") as f:
+            json.dump(credenciales_vacias, f, indent=2)
+        return credenciales_vacias
+
+    # Si existe, lo carga normal
     with open(RUTA_CREDENCIALES, "r", encoding="utf-8") as f:
         return json.load(f)
 

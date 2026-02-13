@@ -31,7 +31,7 @@ def ejecutar_cs11(session, material, componente=FILTRO_SAP, uso=FILTRO, plantas=
     session.findById("wnd[0]").sendVKey(0)
     pausar(pausa_entre_acciones)
     session.findById("wnd[0]").sendVKey(4) 
-    pausar(pausa_entre_acciones)
+    #pausar(pausa_entre_acciones)
 
     # Colocar el material dentro de **
     escribir_campo(session,
@@ -68,7 +68,7 @@ def ejecutar_cs11(session, material, componente=FILTRO_SAP, uso=FILTRO, plantas=
 
         try:
             grid = esperar_cs11_completo(session, timeout=15)
-            print(f"[INFO] CS11 cargado para {material} en planta {planta} ({grid.RowCount} filas)")
+            print(f"[INFO] CS11 cargado para {material} en planta {planta}")
             # --- Detener bucle tan pronto como encontramos un grid válido ---
             return [(planta, grid)]
         except Exception:

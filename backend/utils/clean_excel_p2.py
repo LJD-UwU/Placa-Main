@@ -33,7 +33,7 @@ def limpiar_excel_mainboard_2(ruta_xlsx: str):
     headers = [
         "LEVEL", "ITEM", "MATERIAL",
         "DESCRIPTION IN CHINESE", "DESCRIPTION IN ENGLISH",
-        "QTY", "UN", "LINE 1", "LINE 2", "SORT STRING"
+        "QTY", "UN", "LINE 1", "LINE 2", "SORTSTRNG" 
     ]
 
     ws.insert_cols(1, 1)
@@ -97,7 +97,7 @@ def procesar_archivo_principal_mainboard_2(
 
     filas_protegidas = {0, 1, 2}
 
-    # --- PRIMER REFRESH: CONVERTIR VALORES MANUALES A FLOAT ---
+    # PRIMER REFRESH: CONVERTIR VALORES MANUALES A FLOAT 
     columnas_a_float = ["LEVEL", "MATERIAL", "ITEM", "QTY"]
 
     for col in columnas_a_float:
@@ -110,7 +110,7 @@ def procesar_archivo_principal_mainboard_2(
                 except:
                     return x
             df[col] = df[col].apply(convertir_valor)
-    # --- FIN PRIMER REFRESH ---
+    # FIN PRIMER REFRESH
 
     # LOGICA ORIGINAL DE REINICIO ITEM / LEVEL
     df["ITEM"] = df["ITEM"].apply(limpiar_item).astype(str)
@@ -142,9 +142,9 @@ def procesar_archivo_principal_mainboard_2(
             df.at[i, "LEVEL"] = df.at[i - 1, "LEVEL"]
 
     # DETECCIÓN DE CHINO
-    if "SORT STRING" not in df.columns:
-        df["SORT STRING"] = None
-    df["SORT STRING"] = df["SORT STRING"].astype("object")
+    if "SORTSTRNG" not in df.columns:
+        df["SORTSTRNG"] = None
+    df["SORTSTRNG"] = df["SORTSTRNG"].astype("object")
 
     def tiene_chino(texto):
         if isinstance(texto, str):
@@ -153,7 +153,7 @@ def procesar_archivo_principal_mainboard_2(
 
     for col in ["LINE 1", "LINE 2"]:
         mask = df[col].apply(tiene_chino)
-        df.loc[mask, "SORT STRING"] = df.loc[mask, col]
+        df.loc[mask, "SORTSTRNG"] = df.loc[mask, col]
         df.loc[mask, col] = None
 
     # SUBMATERIALES + FILTRO USE / NO USE
@@ -203,11 +203,41 @@ def procesar_archivo_principal_mainboard_2(
                                       ignore_index=True)
             return df_nuevo
 
+        # CREAR SUBMATERIALES
+        df_sub_normales = crear_filas_pegando_datos(filas_a_insertar)
+        df_sub_final = crear_filas_pegando_datos(filas_final)
+
+        # FILAS MANUALES FINALES
+        filas_manuales = [
+            {
+                "ITEM": "73467",
+                "MATERIAL": "L100022",
+                "DESCRIPTION IN CHINESE": "",
+                "DESCRIPTION IN ENGLISH": "MB BARCODE LABEL (28mm*8mm)",
+                "QTY": "1,000",
+                "UN": "PC",
+                "LEVEL": 2
+            },
+            {
+                "ITEM": "7353742",
+                "MATERIAL": "L600006",
+                "DESCRIPTION IN CHINESE": "",
+                "DESCRIPTION IN ENGLISH": "RIBBON\\110mm*450m\\LOCAL 556",
+                "QTY": "556",
+                "UN": "",
+                "LEVEL": 2
+            }
+        ]
+
+        df_manuales = pd.DataFrame(filas_manuales, columns=df.columns)
+
+        # CONCATENAR SUBMATERIALES Y MANUALES
         df = pd.concat([
             df.iloc[:indice_insercion+1],
-            crear_filas_pegando_datos(filas_a_insertar),
+            df_sub_normales,
+            df_manuales,
             df.iloc[indice_insercion+1:],
-            crear_filas_pegando_datos(filas_final)
+            df_sub_final
         ], ignore_index=True)
 
     # REINICIO LOGICA ITEM / LEVEL DESPUES DE INSERTAR FILAS
@@ -247,29 +277,20 @@ def procesar_archivo_principal_mainboard_2(
 
     # Amarillo → filas con chino
     amarillo = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
-    for idx, tiene in enumerate(df["SORT STRING"].notna(), start=2):
+    for idx, tiene in enumerate(df["SORTSTRNG"].notna(), start=2):
         if tiene:
             for col in range(1, 10):
                 ws.cell(row=idx, column=col).fill = amarillo
 
-    # Limpiar contenido de la columna SORT STRING
+    # Limpiar contenido de la columna SORTSTRNG
     col_sort_string = None
     for col in range(1, ws.max_column + 1):
-        if ws.cell(row=1, column=col).value == "SORT STRING":
+        if ws.cell(row=1, column=col).value == "SORTSTRNG":
             col_sort_string = col
             break
     if col_sort_string:
         for row in range(2, ws.max_row + 1):
             ws.cell(row=row, column=col_sort_string).value = None
-
-    # Verde → filas de submateriales
-    if lista_pcb:
-        verde = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
-        filas_submateriales = list(range(indice_insercion+3, indice_insercion+3 + len(filas_a_insertar))) + \
-                              list(range(len(df) + 2 - len(filas_final), len(df) + 2))
-        for idx in filas_submateriales:
-            for col in range(1, 10):
-                ws.cell(row=idx, column=col).fill = verde
 
     # Cambiar el nombre de la hoja existente
     ws.title = "BOMlist"
@@ -281,6 +302,8 @@ def procesar_archivo_principal_mainboard_2(
     ws["B3"] = " "
     ws["J3"] = "HIMEX"
     ws["G3"] = "PC"
+    ws["D3"] = " MAINBOARD\INTERNAL MODEL\ROH"
+    ws["D4"] = "MAINBOARD SMT PART\INTERNAL MODEL\ROH"
 
     # --- SEGUNDO REFRESH FINAL: CONVERTIR DATOS NUMÉRICOS ---
     columnas_numericas = ["LEVEL", "ITEM", "QTY"]

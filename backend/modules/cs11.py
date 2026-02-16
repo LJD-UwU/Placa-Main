@@ -2,124 +2,84 @@ from backend.utils.sap_utils import (
     escribir_campo,
     ejecutar_busqueda,
     esperar_cs11_completo,
-    pausar,
-    tiene_parentesis_numericos
+    pausar
 )
-from backend.modules.cs03 import ejecutar_cs03_corregir_material
-from backend.config.sap_config import(
-    PLANTAS,
+from backend.config.sap_config import (
     TRANSACCION,
     FILTRO_SAP,
     FILTRO,
     PAUSA
 )
 
-def ejecutar_cs11(session, material, componente=FILTRO_SAP, uso=FILTRO, plantas=None, pausa_entre_acciones=PAUSA):
-    
-    if plantas is None:
-        plantas = PLANTAS
+def ejecutar_cs11(session, material, planta=None, alternativa=None, componente=FILTRO_SAP, uso=FILTRO, plantas=None, pausa_entre_acciones=PAUSA):
+    # Si se pasó una planta individual, convertirla en lista
+    if planta is not None and (plantas is None or not plantas):
+        plantas = [planta]
+
+    if plantas is None or not plantas:
+        raise ValueError("Debes pasar la lista de plantas a ejecutar_cs11")
 
     print(f"[INFO] Iniciando CS11 para: {material}")
     session.findById("wnd[0]").maximize()
     pausar(pausa_entre_acciones)
 
     # Ir a CS11
-    session.findById("wnd[0]/tbar[0]/okcd").text = TRANSACCION
+    print(f"[INFO] Ingresando transacción {TRANSACCION}")
+    session.findById("wnd[0]/tbar[0]/okcd").text = "/NCS11"
     pausar(pausa_entre_acciones)
     session.findById("wnd[0]").sendVKey(0)
-    pausar(pausa_entre_acciones)
-    session.findById("wnd[0]").sendVKey(4)  
-    pausar(pausa_entre_acciones)
-
-    # Escribir material y componente
-    escribir_campo(
-        session,
-        "wnd[1]/usr/tabsG_SELONETABSTRIP/tabpTAB001/ssubSUBSCR_PRESEL:SAPLSDH4:0220/"
-        "sub:SAPLSDH4:0220/txtG_SELFLD_TAB-LOW[0,24]",
-        f"*.{material}.*"
-    )
-    pausar(pausa_entre_acciones)
-
-    escribir_campo(
-        session,
-        "wnd[1]/usr/tabsG_SELONETABSTRIP/tabpTAB001/ssubSUBSCR_PRESEL:SAPLSDH4:0220/"
-        "sub:SAPLSDH4:0220/txtG_SELFLD_TAB-LOW[2,24]",
-        componente
-    )
-    pausar(pausa_entre_acciones)
-
-    # Confirmar selección múltiple
-    session.findById("wnd[1]/tbar[0]/btn[0]").press()
-    pausar(pausa_entre_acciones)
-    session.findById("wnd[1]").sendVKey(2)
+    print("[INFO] Ejecutada transacción")
     pausar(pausa_entre_acciones)
 
     resultados = []
     bom_obtenido = False
-    material_original = material
 
-    for planta in plantas:
-        if bom_obtenido:
-            print(f"[INFO] BOM ya obtenido, saltar planta {planta}")
-            break
+    for idx, planta_actual in enumerate(plantas):
+        print(f"[INFO] Procesando planta: {planta_actual}")
 
         try:
-            set_werks(session, planta)
-            set_capid(session, uso)
+            # Material
+            campo_mat = session.findById("wnd[0]/usr/ctxtRC29L-MATNR")
+            campo_mat.setFocus()
+            campo_mat.text = material
+            campo_mat.caretPosition = len(material)
 
+            # Planta
+            campo_plant = session.findById("wnd[0]/usr/ctxtRC29L-WERKS")
+            campo_plant.setFocus()
+            campo_plant.text = planta_actual
+            campo_plant.caretPosition = len(planta_actual)
+
+            # Alternativa
+            #campo_alt = session.findById("wnd[0]/usr/txtRC29L-STLAL")
+            #campo_alt.setFocus()
+            #campo_alt.text = alternativa
+            #campo_alt.caretPosition = len(alternativa)
+
+            # Filtro (uso)
+            campo_uso = session.findById("wnd[0]/usr/ctxtRC29L-CAPID")
+            campo_uso.setFocus()
+            campo_uso.text = uso
+            campo_uso.caretPosition = len(uso)
+
+            # Ejecutar búsqueda y esperar resultados
             ejecutar_busqueda(session)
             pausar(pausa_entre_acciones)
-
             grid = esperar_cs11_completo(session, timeout=15)
-            print(f"[INFO] CS11 cargado para {material} en planta {planta} ")
-            resultados.append((planta, grid))
+            resultados.append((planta_actual, grid))
             bom_obtenido = True
+            print(f"[INFO] CS11 cargado para {material} en planta {planta_actual}")
 
         except Exception as e:
-            print(f"[WARNING] CS11 falló para {material} en planta {planta}: {e}")
+            print(f"[WARNING] CS11 falló para {material} en planta {planta_actual}: {e}")
 
-            if not bom_obtenido and tiene_parentesis_numericos(material_original):
-                print("[INFO] Paréntesis numéricos detectados → ejecutando CS03")
-                material = ejecutar_cs03_corregir_material(session, material, componente, planta)
-
-                try:
-                    set_werks(session, planta)
-                    set_capid(session, uso)
-                    ejecutar_busqueda(session)
-                    grid = esperar_cs11_completo(session, timeout=15)
-                    print(f"[INFO] CS11 corregido exitosamente en planta {planta}")
-                    resultados.append((planta, grid))
-                    bom_obtenido = True
-                except Exception as e2:
-                    print(f"[ERROR] CS03 no resolvió el problema en planta {planta}: {e2}")
+        if bom_obtenido:
+            print(f"[INFO] BOM ya obtenido, saltando resto de plantas")
+            break
 
     if not resultados:
-        print(f"[ERROR] No se pudo obtener BOM para {material_original}")
+        print(f"[ERROR] No se pudo obtener BOM para {material}")
         return None
 
+    print(f"[INFO] CS11 finalizado con éxito para {material}")
     return resultados
-
-
-# FUNCIONES AUXILIARES
-
-def set_werks(session, planta, intentos=3, pausa=PAUSA):
-    """Intenta setear el campo de planta varias veces si falla"""
-    for i in range(intentos):
-        try:
-            escribir_campo(session, "wnd[0]/usr/ctxtRC29L-WERKS", planta)
-            return
-        except Exception:
-            print(f"[WARNING] Intento {i+1}/{intentos} falló para wnd[0]/usr/ctxtRC29L-WERKS")
-            pausar(pausa)
-    raise Exception("No se pudo setear la planta en SAP")
-
-def set_capid(session, uso, intentos=3, pausa=PAUSA):
-    """Intenta setear el campo de uso varias veces si falla"""
-    for i in range(intentos):
-        try:
-            escribir_campo(session, "wnd[0]/usr/ctxtRC29L-CAPID", uso)
-            return
-        except Exception:
-            print(f"[WARNING] Intento {i+1}/{intentos} falló para wnd[0]/usr/ctxtRC29L-CAPID")
-            pausar(pausa)
-    raise Exception("No se pudo setear CAPID en SAP")

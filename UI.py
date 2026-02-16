@@ -276,8 +276,31 @@ class SAPApp:
     def cargar_excel(self):
         try:
             df = pd.read_excel(self.excel_path.get())
-            self.modelos = df.iloc[:, 0].dropna().astype(str).tolist()
-            self.log_msg(f"[OK] {len(self.modelos)} modelos cargados", "OK")
+
+            # Limpiar nombres de columnas
+            df.columns = df.columns.str.strip().str.upper()
+
+            # Buscar columna MATERIAL sin importar mayúsculas
+            if "MATERIAL" not in df.columns:
+                raise ValueError(
+                    f"No se encontró la columna 'Material'. Columnas detectadas: {list(df.columns)}"
+                )
+
+            # Cargar materiales limpios
+            self.modelos = (
+                df["MATERIAL"]
+                .dropna()
+                .astype(str)
+                .str.strip()
+                .unique()
+                .tolist()
+            )
+
+            if not self.modelos:
+                raise ValueError("La columna 'Material' está vacía")
+
+            self.log_msg(f"[OK] {len(self.modelos)} materiales cargados", "OK")
+
         except Exception as e:
             self.log_msg(f"[ERROR] {e}", "ERROR")
             self.btn_procesar.config(state="normal")
@@ -292,20 +315,17 @@ class SAPApp:
         except Exception as e:
             msg = str(e)
 
-            # Detectar error de credenciales incompletas
             if "Credenciales SAP incompletas" in msg:
                 self.log_msg(f"[ERROR] {msg}", "ERROR")
                 messagebox.showerror(
                     "Error SAP",
                     "Falló la apertura o login de SAP:\nCredenciales SAP incompletas.\nPor favor revisa tus credenciales."
                 )
-                # Habilitar botón para reintentar
                 self.btn_procesar.config(state="normal")
                 self.animando = False
                 self.session = None
                 return
 
-            # Otros errores de SAP (opcional)
             self.log_msg(f"[ERROR] {msg}", "ERROR")
             messagebox.showerror(
                 "Error SAP",
@@ -324,7 +344,15 @@ class SAPApp:
 
     def procesar_modelo(self):
         total = len(self.modelos)
-        if self.idx >= total:
+
+        # Protección extra
+        if total == 0:
+            self.log_msg("[ERROR] No hay materiales para procesar", "ERROR")
+            self.btn_procesar.config(state="normal")
+            return
+
+        # 🔥 IMPORTANTE: usar > en vez de >=
+        if self.idx > total - 1:
             self.log_msg("\n[INFO] Iniciando procesamiento de mainboards y limpieza", "INFO")
             self.guardar_excel_final()
             self.set_status("Finalizado ✅")

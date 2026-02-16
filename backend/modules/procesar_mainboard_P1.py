@@ -7,7 +7,6 @@ from backend.utils.sap_utils import acceso_bom_exitoso
 from backend.config.sap_config import (
 MENSAJE_SIN_BOM,
 RESULT_COLUMNS,
-PLANTAS,
 FILTRO,
 TRANSACCION,
 PAUSA,
@@ -138,8 +137,10 @@ def procesar_number_mainboard(session, number, capid):
 
 
 # FUNCION PARA PROCESAR EXCEL COMPLETO
+def procesar_numbers_desde_excel(session, excel_input, excel_output, plantas=None, capid=FILTRO):
+    if plantas is None or not plantas:
+        raise ValueError("Debes pasar la lista de plantas a procesar")
 
-def procesar_numbers_desde_excel(session, excel_input, excel_output, plantas=PLANTAS, capid=FILTRO):
     """
     Procesa todos los Numbers de un Excel:
     - Primero modelos internos

@@ -13,11 +13,10 @@ from backend.utils.clean_excel_p2 import (
 )
 from backend.config.sap_config import (
     TRANSACCION,
-    PLANTA1
 )
 
 # PROCESAR MATERIAL DESDE MAINBOARD (NIVEL 2)
-def procesar_material_desde_mainboard(session, ruta_mainboard_xlsx, uso):
+def procesar_material_desde_mainboard(session, ruta_mainboard_xlsx, uso, plantas):
     """
     Flujo completo:
     1) Detecta material desde mainboard nivel 1
@@ -36,69 +35,55 @@ def procesar_material_desde_mainboard(session, ruta_mainboard_xlsx, uso):
 
     # DETECTAR MATERIAL DESDE MAINBOARD
     df = pd.read_excel(ruta_mainboard_xlsx)
-
     if df.empty:
         raise Exception("El archivo mainboard está vacío")
 
-    posibles_columnas = [
-        "MATERIAL", "Material", "MATNR", "Component", "Componente"
-    ]
-
-    columna_material = next(
-        (c for c in posibles_columnas if c in df.columns),
-        None
-    )
-
+    posibles_columnas = ["MATERIAL", "Material", "MATNR", "Component", "Componente"]
+    columna_material = next((c for c in posibles_columnas if c in df.columns), None)
     if not columna_material:
         raise Exception("No se encontró columna MATERIAL en el mainboard")
 
     material = str(df[columna_material].dropna().iloc[0]).strip()
-
     if not material:
         raise Exception("Material detectado vacío")
 
     print(f"[INFO] Material detectado desde mainboard: {material}")
 
+    # ACCESO SAP CS11 PARA CADA PLANTA
+    for planta in plantas:
+        session.findById("wnd[0]/tbar[0]/okcd").text = TRANSACCION
+        session.findById("wnd[0]").sendVKey(0)
 
-    # ACCESO SAP CS11
-    session.findById("wnd[0]/tbar[0]/okcd").text = TRANSACCION
-    session.findById("wnd[0]").sendVKey(0)
+        session.findById("wnd[0]/usr/ctxtRC29L-MATNR").text = material
+        session.findById("wnd[0]/usr/ctxtRC29L-WERKS").text = planta
+        session.findById("wnd[0]/usr/ctxtRC29L-CAPID").text = uso
+        session.findById("wnd[0]/tbar[1]/btn[8]").press()
 
-    session.findById("wnd[0]/usr/ctxtRC29L-MATNR").text = material
-    session.findById("wnd[0]/usr/ctxtRC29L-WERKS").text = PLANTA1
-    session.findById("wnd[0]/usr/ctxtRC29L-CAPID").text = uso
-    session.findById("wnd[0]/tbar[1]/btn[8]").press()
+        from backend.utils.sap_utils import acceso_bom_exitoso
+        if not acceso_bom_exitoso(session):
+            print(f"[WARNING] No se pudo acceder al BOM de {material} en planta {planta}")
+            continue
 
-    if not acceso_bom_exitoso(session):
-        raise Exception(f"No se pudo acceder al BOM de {material}")
+        # EXPORTAR BOM NIVEL 2
+        ruta_xls = exportar_bom_a_xls(session=session, material=material, mainboard=False)
+        if not ruta_xls or not os.path.exists(ruta_xls):
+            print(f"[WARNING] Falló la exportación del BOM desde SAP para planta {planta}")
+            continue
 
-    # EXPORTAR BOM NIVEL 2
-    ruta_xls = exportar_bom_a_xls(
-        session=session,
-        material=material,
-        mainboard=False
-    )
+        # CONVERTIR A XLSX
+        ruta_xlsx = os.path.join(MAINBOARD_2_FILES_FOLDER, f"{material}.xlsx")
+        convertir_xls_a_xlsx(str(ruta_xls), str(ruta_xlsx))
 
-    if not ruta_xls:
-        raise Exception("Falló la exportación del BOM desde SAP")
+        # LIMPIEZA BASE
+        limpiar_excel_mainboard_2(str(ruta_xlsx))
 
-    # CONVERTIR A XLSX
-    ruta_xlsx = os.path.join(
-        MAINBOARD_2_FILES_FOLDER,
-        f"{material}.xlsx"
-    )
+        # PROCESAMIENTO FINAL
+        procesar_archivo_principal_mainboard_2(
+            ruta_excel_principal=str(ruta_xlsx),
+            ruta_salida_principal=str(ruta_xlsx)
+        )
 
-    convertir_xls_a_xlsx(str(ruta_xls), str(ruta_xlsx))
+        print(f"[OK] Mainboard nivel 2 procesado COMPLETO: {ruta_xlsx}")
+        return ruta_xlsx
 
-    # LIMPIEZA BASE (HEADERS / COLUMNAS)
-    limpiar_excel_mainboard_2(str(ruta_xlsx))
-
-    # PROCESAMIENTO FINAL + SUBMATERIALES
-    # (usa BOM automáticamente desde clean_excel_p2.py)
-    procesar_archivo_principal_mainboard_2(
-        ruta_excel_principal=str(ruta_xlsx),
-        ruta_salida_principal=str(ruta_xlsx)
-    )
-
-    print(f"[OK] Mainboard nivel 2 procesado COMPLETO: {ruta_xlsx}")
-    return ruta_xlsx
+    raise Exception(f"No se pudo procesar el BOM de {material} en ninguna planta")

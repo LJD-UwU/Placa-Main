@@ -13,16 +13,12 @@ NC11_FILES = os.path.join(BASE_BOM_FOLDER,"TRANSACTION_NSC11")
 MODEL_FILES_FOLDER = os.path.join(NC11_FILES, "MODEL_INTERN")
 MAINBOARD_1_FILES_FOLDER = os.path.join(NC11_FILES, "MOTHERBOARD")
 MAINBOARD_2_FILES_FOLDER = os.path.join(NC11_FILES, "MAINBOARD_FINAL")
-HISTORIAL_FOLDER = os.path.join(BASE_BOM_FOLDER, "HISTORY")
-MODELOS_F = os.path.join(NC03_FILES, "ALTERNATIVE_MODELS")
 
 os.makedirs(NC03_FILES, exist_ok=True)
 os.makedirs(NC11_FILES, exist_ok=True)
 os.makedirs(MODEL_FILES_FOLDER, exist_ok=True)
 os.makedirs(MAINBOARD_1_FILES_FOLDER, exist_ok=True)
 os.makedirs(MAINBOARD_2_FILES_FOLDER, exist_ok=True)
-os.makedirs(HISTORIAL_FOLDER, exist_ok=True)
-os.makedirs(MODELOS_F, exist_ok=True)
 
 
 

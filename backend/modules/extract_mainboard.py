@@ -3,13 +3,13 @@ import re
 from backend.config.sap_config import (
     RESULT_COLUMNS,
 )
-
-def extract_descripcion_numbers(input_xlsx, modelo, descripcion_a_buscar, skiprows=0):
-    # Aceptar string o lista
+def extract_descripcion_numbers(input_xlsx, internal_models, descripcion_a_buscar, skiprows=0):
     if isinstance(descripcion_a_buscar, str):
         descripcion_a_buscar = [descripcion_a_buscar]
 
-    # Leer Excel
+    # Asegurarnos que internal_models sea string
+    internal_models = str(internal_models) if internal_models else ""
+
     try:
         df = pd.read_excel(input_xlsx, header=None, skiprows=skiprows)
     except Exception as e:
@@ -24,8 +24,8 @@ def extract_descripcion_numbers(input_xlsx, modelo, descripcion_a_buscar, skipro
                 continue
             cell_str = str(cell)
 
-            # ✅ FILTRO: Debe contener al menos uno de los caracteres chinos y el modelo
-            if any(chino in cell_str for chino in descripcion_a_buscar) and modelo in cell_str:
+            # Filtrar solo si contiene descripción y modelo
+            if any(desc in cell_str for desc in descripcion_a_buscar) and internal_models in cell_str:
                 number = None
                 if i > 0:
                     left_cell = row[i-1]

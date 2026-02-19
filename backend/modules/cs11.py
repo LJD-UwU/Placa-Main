@@ -1,22 +1,19 @@
 from backend.utils.sap_utils import (
-    escribir_campo,
     ejecutar_busqueda,
     esperar_cs11_completo,
     pausar
 )
 from backend.config.sap_config import (
     TRANSACCION,
-    FILTRO_SAP,
     FILTRO,
     PAUSA
 )
 
-def ejecutar_cs11(session, material, planta=None, alternativa=None, componente=FILTRO_SAP, uso=FILTRO, plantas=None, pausa_entre_acciones=PAUSA):
-    # Si se pasó una planta individual, convertirla en lista
-    if planta is not None and (plantas is None or not plantas):
-        plantas = [planta]
+def ejecutar_cs11(session, material, plantas, uso=FILTRO, pausa_entre_acciones=PAUSA):
+    if isinstance(plantas, str):
+        plantas = [plantas]
 
-    if plantas is None or not plantas:
+    if not plantas:
         raise ValueError("Debes pasar la lista de plantas a ejecutar_cs11")
 
     print(f"[INFO] Iniciando CS11 para: {material}")
@@ -34,44 +31,29 @@ def ejecutar_cs11(session, material, planta=None, alternativa=None, componente=F
     resultados = []
     bom_obtenido = False
 
-    for idx, planta_actual in enumerate(plantas):
-        print(f"[INFO] Procesando planta: {planta_actual}")
-
+    for idx, planta in enumerate(plantas):
+        print(f"[INFO] Procesando planta: {planta}")
         try:
-            # Material
-            campo_mat = session.findById("wnd[0]/usr/ctxtRC29L-MATNR")
-            campo_mat.setFocus()
-            campo_mat.text = material
-            campo_mat.caretPosition = len(material)
+            def set_campo(campo_id, valor):
+                campo = session.findById(campo_id)
+                campo.setFocus()
+                campo.text = valor
+                campo.caretPosition = len(valor)
 
-            # Planta
-            campo_plant = session.findById("wnd[0]/usr/ctxtRC29L-WERKS")
-            campo_plant.setFocus()
-            campo_plant.text = planta_actual
-            campo_plant.caretPosition = len(planta_actual)
+            set_campo("wnd[0]/usr/ctxtRC29L-MATNR", material)
+            set_campo("wnd[0]/usr/ctxtRC29L-WERKS", planta)
+            #set_campo("wnd[0]/usr/txtRC29L-STLAL", altboms)
+            set_campo("wnd[0]/usr/ctxtRC29L-CAPID", uso)
 
-            # Alternativa
-            #campo_alt = session.findById("wnd[0]/usr/txtRC29L-STLAL")
-            #campo_alt.setFocus()
-            #campo_alt.text = alternativa
-            #campo_alt.caretPosition = len(alternativa)
-
-            # Filtro (uso)
-            campo_uso = session.findById("wnd[0]/usr/ctxtRC29L-CAPID")
-            campo_uso.setFocus()
-            campo_uso.text = uso
-            campo_uso.caretPosition = len(uso)
-
-            # Ejecutar búsqueda y esperar resultados
             ejecutar_busqueda(session)
             pausar(pausa_entre_acciones)
             grid = esperar_cs11_completo(session, timeout=15)
-            resultados.append((planta_actual, grid))
+            resultados.append((planta, grid))
             bom_obtenido = True
-            print(f"[INFO] CS11 cargado para {material} en planta {planta_actual}")
+            print(f"[INFO] CS11 cargado para {material} en planta {planta}")
 
         except Exception as e:
-            print(f"[WARNING] CS11 falló para {material} en planta {planta_actual}: {e}")
+            print(f"[WARNING] CS11 falló para {material} en planta {planta}: {e}")
 
         if bom_obtenido:
             print(f"[INFO] BOM ya obtenido, saltando resto de plantas")

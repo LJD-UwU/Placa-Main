@@ -5,10 +5,6 @@ from backend.utils.txt_to_xlsx import (
     convertir_xls_a_xlsx,
     MAINBOARD_2_FILES_FOLDER
 )
-from backend.utils.clean_excel_p2 import (
-    limpiar_excel_mainboard_2,
-    procesar_archivo_principal_mainboard_2
-)
 from backend.config.sap_config import TRANSACCION
 from backend.utils.sap_utils import acceso_bom_exitoso
 
@@ -77,15 +73,6 @@ def procesar_material_desde_mainboard(session, ruta_mainboard_xlsx, uso, plantas
             nombre_xlsx = f"{material}_{planta}.xlsx"
             ruta_xlsx = os.path.join(MAINBOARD_2_FILES_FOLDER, nombre_xlsx)
             convertir_xls_a_xlsx(str(ruta_xls), str(ruta_xlsx))
-
-            # Limpieza base
-            limpiar_excel_mainboard_2(str(ruta_xlsx))
-
-            # Procesamiento final
-            procesar_archivo_principal_mainboard_2(
-                ruta_excel_principal=str(ruta_xlsx),
-                ruta_salida_principal=str(ruta_xlsx)
-            )
 
             print(f"[OK] Mainboard nivel 2 procesado COMPLETO: {ruta_xlsx}")
             rutas_procesadas.append(ruta_xlsx)

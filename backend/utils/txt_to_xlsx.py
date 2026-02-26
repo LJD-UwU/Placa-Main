@@ -7,14 +7,12 @@ from backend.config.sap_config import EXPORT_FINAL_PATH
 
 # CARPETAS
 BASE_BOM_FOLDER = os.path.join(EXPORT_FINAL_PATH, "BOM_FILES")
-NC03_FILES = os.path.join(BASE_BOM_FOLDER,"TRANSACTION_NSCO3")
 NC11_FILES = os.path.join(BASE_BOM_FOLDER,"TRANSACTION_NSC11")
 
 MODEL_FILES_FOLDER = os.path.join(NC11_FILES, "MODEL_INTERN")
 MAINBOARD_1_FILES_FOLDER = os.path.join(NC11_FILES, "MOTHERBOARD")
 MAINBOARD_2_FILES_FOLDER = os.path.join(NC11_FILES, "MAINBOARD_FINAL")
 
-os.makedirs(NC03_FILES, exist_ok=True)
 os.makedirs(NC11_FILES, exist_ok=True)
 os.makedirs(MODEL_FILES_FOLDER, exist_ok=True)
 os.makedirs(MAINBOARD_1_FILES_FOLDER, exist_ok=True)

@@ -21,7 +21,6 @@ from backend.utils.txt_to_xlsx import (
 from backend.config.sap_config import (
     DESCRIPCIONES,
     PLANTAS,
-    FILTRO_SAP,
     FILTRO,
     PLANTA1
 )
@@ -105,7 +104,6 @@ class SAPApp:
         # --- Vigilar cambios en Excel ---
         self.excel_path.trace_add("write", lambda *args: self.verificar_habilitar_botones())
         
-        # ================= LIMPIAR DATOS =================
     def limpiar_datos(self):
         # Limpiar la consola
         self.log.config(state="normal")
@@ -113,27 +111,45 @@ class SAPApp:
         self.log.config(state="disabled")
         self.log_msg("[INFO] Log limpiado", "INFO")
 
-        # Confirmar limpieza de archivos
+        # Confirmar acción
         respuesta = messagebox.askyesno(
-            "Limpiar archivos",
-            "¿Deseas eliminar todos los archivos temporales generados en las carpetas de trabajo?"
+            "Procesamiento de Excel",
+            "¿Deseas procesar los archivos Excel (limpieza + lógica)?"
         )
         if not respuesta:
             return
 
-        carpetas = [MODEL_FILES_FOLDER, MAINBOARD_1_FILES_FOLDER, MAINBOARD_2_FILES_FOLDER]
-        for folder in carpetas:
-            if os.path.exists(folder):
-                for f in os.listdir(folder):
-                    ruta = os.path.join(folder, f)
-                    if os.path.isfile(ruta) and f.lower().endswith((".xls", ".xlsx")):
-                        try:
-                            os.remove(ruta)
-                            self.log_msg(f"[OK] Archivo eliminado: {f}", "OK")
-                        except Exception as e:
-                            self.log_msg(f"[ERROR] No se pudo eliminar {f}: {e}", "ERROR")
-        self.log_msg("[INFO] Archivos temporales eliminados", "INFO")
+        # ---------------- IMPORTAR FUNCIONES ----------------
+        try:
+            from backend.utils.clean_excel_p2 import limpiar_excel_inicial, procesar_excel_con_logica
+        except ImportError as e:
+            self.log_msg(f"[ERROR] No se pudo importar clean_excel_p2.py: {e}", "ERROR")
+            return
 
+        folder = MAINBOARD_2_FILES_FOLDER
+        if not os.path.exists(folder):
+            self.log_msg(f"[ERROR] La carpeta {folder} no existe", "ERROR")
+            return
+
+        # ---------------- PROCESAR ARCHIVOS ----------------
+        for f in os.listdir(folder):
+            ruta_excel = os.path.join(folder, f)
+            if os.path.isfile(ruta_excel) and f.lower().endswith(".xlsx"):
+                salida_excel = os.path.join(folder, f"PROCESADO_{f}")
+                try:
+                    self.log_msg(f"[INFO] Limpiando archivo: {f}", "INFO")
+                    # Limpiar filas y columnas innecesarias y preparar encabezados
+                    limpiar_excel_inicial(ruta_excel, ruta_excel)  # se guarda en el mismo archivo
+
+                    self.log_msg(f"[INFO] Aplicando lógica principal: {f}", "INFO")
+                    procesar_excel_con_logica(ruta_excel, salida_excel)
+
+                    self.log_msg(f"[OK] Archivo procesado → PROCESADO_{f}", "OK")
+                except Exception as e:
+                    self.log_msg(f"[ERROR] No se pudo procesar {f}: {e}", "ERROR")
+
+        self.log_msg("[INFO] Todos los archivos Excel han sido procesados", "INFO")
+        
     # ================= VALIDACIÓN DE BOTONES =================
     def verificar_habilitar_botones(self):
         cred = cargar_credenciales()

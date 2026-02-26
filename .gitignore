@@ -6,7 +6,8 @@ P.py
 sap_config.py
 temp1.py
 module_clean.py
-tempf.py
-credenciales.json
+temp.py
+.json
 sap_config.py
 requirements.txt
+mainboard_cleaner.py

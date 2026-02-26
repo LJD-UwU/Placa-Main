@@ -437,7 +437,8 @@ class SAPApp:
                 ruta_xls = procesar_number(
                 self.session, 
                 number, 
-                plantas=self.plantas[self.idx],
+                PLANTA1,
+                FILTRO
                 )
                 ruta_xlsx = os.path.join(
                     MAINBOARD_1_FILES_FOLDER,

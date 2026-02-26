@@ -15,7 +15,7 @@ SECUENCIA,
 
 # FUNCION PARA MODELOS INTERNOS
 
-def procesar_number(session, number, plantas, capid):
+def procesar_number(session, number, planta, capid):
     """
     Procesa un Number en SAP para un modelo interno.
     Retorna la ruta del XLS exportado.
@@ -25,23 +25,23 @@ def procesar_number(session, number, plantas, capid):
         session.findById("wnd[0]").sendVKey(0)
 
         session.findById("wnd[0]/usr/ctxtRC29L-MATNR").text = number
-        session.findById("wnd[0]/usr/ctxtRC29L-WERKS").text = plantas
+        session.findById("wnd[0]/usr/ctxtRC29L-WERKS").text = planta
         session.findById("wnd[0]/usr/ctxtRC29L-CAPID").text = capid
         session.findById("wnd[0]/tbar[1]/btn[8]").press()
         time.sleep(0.8)
 
         if not acceso_bom_exitoso(session):
-            print(f"[INFO] No se accedió al BOM para {number} en planta {plantas}")
+            print(f"[INFO] No se accedió al BOM para {number} en planta {planta}")
             return None
 
         ruta_xls = exportar_bom_a_xls(session, number, mainboard=True)
         if not ruta_xls or not os.path.exists(ruta_xls):
-            print(f"[WARNING] Falló exportación XLS para {number} en planta {plantas}")
+            print(f"[WARNING] Falló exportación XLS para {number} en planta {planta}")
             return None
 
         return ruta_xls
     except Exception as e:
-        print(f"[ERROR] Error procesando {number} en planta {plantas}: {e}")
+        print(f"[ERROR] Error procesando {number} en planta {planta}: {e}")
         return None
 
 

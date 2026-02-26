@@ -17,6 +17,8 @@ from backend.utils.txt_to_xlsx import (
     MAINBOARD_1_FILES_FOLDER,
     MAINBOARD_2_FILES_FOLDER,
     MODEL_FILES_FOLDER,
+    BASE_BOM_FOLDER,
+    NC11_FILES
 )
 from backend.config.sap_config import (
     DESCRIPCIONES,
@@ -61,11 +63,6 @@ class SAPApp:
         # --- Progreso ---
         self.progress = ttk.Progressbar(main, mode="determinate")
         self.progress.pack(fill="x", pady=6)
-
-        # Etiqueta del porcentaje
-        self.progress_label = ttk.Label(main, text="0%")
-        self.progress_label.pack()
-
 
         # --- Botones ---
         fila_btn = ttk.Frame(main)
@@ -114,16 +111,16 @@ class SAPApp:
         # Confirmar acción
         respuesta = messagebox.askyesno(
             "Procesamiento de Excel",
-            "¿Deseas procesar los archivos Excel (limpieza + lógica)?"
+            "¿Deseas procesar los archivos Excel con clean_excel_p2.py?"
         )
         if not respuesta:
             return
 
-        # ---------------- IMPORTAR FUNCIONES ----------------
+        # ---------------- PROCESAR ARCHIVOS MAINBOARD P2 ----------------
         try:
-            from backend.utils.clean_excel_p2 import limpiar_excel_inicial, procesar_excel_con_logica
+            from backend.utils.clean_excel_p2 import procesar_archivo_principal_mainboard_2
         except ImportError as e:
-            self.log_msg(f"[ERROR] No se pudo importar clean_excel_p2.py: {e}", "ERROR")
+            self.log_msg(f"[ERROR] No se pudo importar procesar_mainboard_P2.py: {e}", "ERROR")
             return
 
         folder = MAINBOARD_2_FILES_FOLDER
@@ -131,20 +128,18 @@ class SAPApp:
             self.log_msg(f"[ERROR] La carpeta {folder} no existe", "ERROR")
             return
 
-        # ---------------- PROCESAR ARCHIVOS ----------------
+        # Procesar todos los archivos .xlsx en la carpeta
         for f in os.listdir(folder):
             ruta_excel = os.path.join(folder, f)
             if os.path.isfile(ruta_excel) and f.lower().endswith(".xlsx"):
                 salida_excel = os.path.join(folder, f"PROCESADO_{f}")
                 try:
-                    self.log_msg(f"[INFO] Limpiando archivo: {f}", "INFO")
-                    # Limpiar filas y columnas innecesarias y preparar encabezados
-                    limpiar_excel_inicial(ruta_excel, ruta_excel)  # se guarda en el mismo archivo
-
-                    self.log_msg(f"[INFO] Aplicando lógica principal: {f}", "INFO")
-                    procesar_excel_con_logica(ruta_excel, salida_excel)
-
-                    self.log_msg(f"[OK] Archivo procesado → PROCESADO_{f}", "OK")
+                    self.log_msg(f"[INFO] Procesando archivo: {f}", "INFO")
+                    
+                    # Ejecutar la función principal del módulo
+                    procesar_archivo_principal_mainboard_2(ruta_excel, salida_excel)
+                    
+                    self.log_msg(f"[OK] Archivo procesado: PROCESADO_{f}", "OK")
                 except Exception as e:
                     self.log_msg(f"[ERROR] No se pudo procesar {f}: {e}", "ERROR")
 
@@ -371,7 +366,7 @@ class SAPApp:
 
         # Verificar si ya terminamos
         if self.idx >= total:
-            self.log_msg("\n[INFO] Iniciando procesamiento de mainboards y limpieza", "INFO")
+            self.log_msg("\n[INFO] Iniciando procesamiento de las mainboards ", "INFO")
             self.guardar_excel_final()
             self.set_status("Finalizado ✅")
             self.progress["value"] = 100
@@ -382,7 +377,6 @@ class SAPApp:
         
         internal_models = self.internal_models[self.idx]
         modelo = self.modelos[self.idx]
-        self.progress["value"] = int(((self.idx + 1) / total) * 100)
         self.set_status(f"Modelo {self.idx + 1}/{total}")
         self.log_msg(f"\n▶ Modelo {self.idx + 1}/{total}: {modelo}", "INFO")
 
@@ -430,7 +424,7 @@ class SAPApp:
         self.set_status("Procesando mainboards")
 
         # Crear carpetas si no existen
-        for folder in [MODEL_FILES_FOLDER, MAINBOARD_1_FILES_FOLDER, MAINBOARD_2_FILES_FOLDER]:
+        for folder in [BASE_BOM_FOLDER, NC11_FILES, MODEL_FILES_FOLDER, MAINBOARD_1_FILES_FOLDER, MAINBOARD_2_FILES_FOLDER]:
             os.makedirs(folder, exist_ok=True)
 
         # Procesamiento de mainboards

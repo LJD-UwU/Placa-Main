@@ -1,169 +1,349 @@
 import os
-import re
-from glob import glob
-import pandas as pd
 import openpyxl
-from openpyxl import load_workbook
-from openpyxl.styles import PatternFill
+from openpyxl.styles import PatternFill, Font
+import pandas as pd
+from glob import glob
+from backend.config.sap_config import EXTRAER_ARCHIVO
+import re
 
-# ----------------- FUNCIONES AUXILIARES -----------------
-def limpiar_item(x):
-    if pd.isna(x) or str(x).strip() == "":
-        return "X"
-    return str(x).strip()
+# ================== FUNCIONES ==================
+def contiene_chino(texto):
+    """Detecta si un texto contiene caracteres chinos."""
+    return any('\u4e00' <= c <= '\u9fff' for c in str(texto))
 
-def extraer_codigo_pcb(texto):
-    if isinstance(texto, str) and ("PCB" in texto or "印制板" in texto):
-        match = re.search(r"\.(\d+)(\\|$)", texto)
-        if match:
-            return match.group(1)
+def extraer_codigo_pcb(texto, siguiente_celda=None):
+    """Extrae código PCB si el texto contiene letras y números."""
+    if isinstance(texto, str) and re.search(r'[A-Za-z].*\d|\d.*[A-Za-z]', texto):
+        if siguiente_celda:
+            match = re.search(r"\.(\d+)(\\|$)", str(siguiente_celda))
+            if match:
+                return match.group(1)
     return None
 
-def tiene_chino(texto):
-    if isinstance(texto, str):
-        return any('\u4e00' <= c <= '\u9fff' for c in texto)
-    return False
+# ================== LÓGICA DE LAS X ==================
+def aplicar_logica_x(ws):
+    """Aplica la lógica de marcar ITEM vacíos con 'X', numeración por bloques y LEVEL jerárquico."""
+    col_indices = {ws.cell(row=1, column=c).value: c for c in range(1, ws.max_column + 1)}
+    col_item = col_indices.get("ITEM")
+    col_level = col_indices.get("LEVEL")
+    if not col_item or not col_level:
+        return
 
-def safe_float(x):
+    filas_protegidas = {2, 3, 4}
+    bold_font = Font(bold=True)
+
+    # 1. ITEM vacío → X
+    for row in range(2, ws.max_row + 1):
+        if row in filas_protegidas:
+            continue
+        val = ws.cell(row=row, column=col_item).value
+        if val is None or str(val).strip() == "":
+            ws.cell(row=row, column=col_item).value = "X"
+            for col in range(1, ws.max_column + 1):
+                ws.cell(row=row, column=col).font = bold_font
+
+    # 2. Numeración por bloques
+    contador = 10
+    for row in range(2, ws.max_row + 1):
+        if row in filas_protegidas:
+            continue
+        val = ws.cell(row=row, column=col_item).value
+        if val == "X":
+            contador = 10
+            for col in range(1, ws.max_column + 1):
+                ws.cell(row=row, column=col).font = bold_font
+            continue
+        ws.cell(row=row, column=col_item).value = str(contador)
+        contador += 10
+
+    # 3. LEVEL jerárquico
+    nivel_actual = 1
+    for row in range(2, ws.max_row + 1):
+        if row in filas_protegidas:
+            continue
+        val = ws.cell(row=row, column=col_item).value
+        if val == "X":
+            nivel_actual += 1
+        else:
+            ws.cell(row=row, column=col_level).value = nivel_actual + 1
+
+    # 4. Rellenar LEVEL vacío
+    for row in range(3, ws.max_row + 1):
+        if ws.cell(row=row, column=col_level).value in (None, ""):
+            ws.cell(row=row, column=col_level).value = ws.cell(row=row - 1, column=col_level).value
+
+# ================== SUBMATERIALES ==================
+def agregar_submateriales(df_main, ws):
+    """
+    Agrega submateriales de BOM y manuales dentro del LEVEL 2 antes de la X correspondiente.
+    Aplica color gris y fuente Calibri 11 sin negrita a todos los submateriales.
+    """
+    gris_submaterial = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
+    fuente_normal = Font(name="Calibri", size=11, bold=False)
+
+    # ===== Extraer códigos PCB =====
+    df_main["PCB_CODE"] = df_main.apply(
+        lambda row: extraer_codigo_pcb(row["MATERIAL"], row["DESCRIPTION IN CHINESE"]), axis=1
+    )
+    lista_pcb = df_main["PCB_CODE"].dropna().tolist()
+    if not lista_pcb:
+        df_main.drop(columns=["PCB_CODE"], inplace=True, errors="ignore")
+        return df_main
+
+    # ===== Cargar penúltimo archivo BOM =====
+    archivos = [f for f in glob(os.path.join(EXTRAER_ARCHIVO, "*.xlsx")) if not os.path.basename(f).startswith("~$")]
+    if len(archivos) < 2:
+        print("[WARN] No hay suficientes archivos BOM para tomar el anterior al más reciente.")
+        df_main.drop(columns=["PCB_CODE"], inplace=True, errors="ignore")
+        return df_main
+    archivo_bom = sorted(archivos, key=os.path.getmtime)[-2]
+    print(f"[INFO] Archivo BOM tomado: {archivo_bom}")
+
     try:
-        return float(str(x).replace(",", ""))
-    except (ValueError, AttributeError):
-        return x
+        df_bom = pd.read_excel(archivo_bom, engine="openpyxl")
+    except Exception as e:
+        print(f"[ERROR] No se pudo leer {archivo_bom}: {e}")
+        df_main.drop(columns=["PCB_CODE"], inplace=True, errors="ignore")
+        return df_main
 
-# ----------------- LIMPIEZA INICIAL CON OPENPYXL -----------------
-def limpiar_excel_inicial(ruta_excel, ruta_salida):
-    wb = openpyxl.load_workbook(ruta_excel)
+    # ===== Filtrar USE =====
+    df_bom["PCB_clean"] = df_bom["PCB"].astype(str).str.strip()
+    if "USE/NO USE" in df_bom.columns:
+        df_bom["USE/NO USE"] = df_bom["USE/NO USE"].astype(str).str.strip().str.upper()
+        df_bom = df_bom[df_bom["USE/NO USE"] != "NO USE"]
+
+    # ===== Filtrar submateriales relacionados con PCB =====
+    mask = df_bom["PCB_clean"].apply(lambda x: any(code in x for code in lista_pcb))
+    cols_interes = ["PCB","Part #","ZH Description","EN Description","QTY","UNIT"]
+    df_filtrado = df_bom.loc[mask, cols_interes].reset_index(drop=True)
+
+    # ===== Separar finales y normales =====
+    finales = {"L600022","1063182"}
+    df_filtrado["Part #"] = df_filtrado["Part #"].astype(str)
+    df_finales = df_filtrado[df_filtrado["Part #"].isin(finales)]
+    df_normales = df_filtrado[~df_filtrado["Part #"].isin(finales)]
+
+    # ===== Mapear columnas BOM → Excel =====
+    col_map = {
+        "PCB": "ITEM",
+        "Part #": "MATERIAL",
+        "ZH Description": "DESCRIPTION IN CHINESE",
+        "EN Description": "DESCRIPTION IN ENGLISH",
+        "QTY": "QTY",
+        "UNIT": "UN"
+    }
+
+    def mapear_filas(df_sub):
+        df_nuevo = pd.DataFrame(columns=df_main.columns)
+        for _, fila in df_sub.iterrows():
+            nueva = {col_map[col]: fila[col] for col in df_sub.columns if col in col_map}
+            df_nuevo = pd.concat([df_nuevo, pd.DataFrame([nueva], columns=df_main.columns)], ignore_index=True)
+        df_nuevo["LEVEL"] = 2
+        df_nuevo["_SUBMATERIAL"] = True
+        return df_nuevo
+
+    df_sub_normales = mapear_filas(df_normales)
+    df_sub_finales = mapear_filas(df_finales)
+
+    # ===== Filas manuales =====
+    filas_manuales = [
+        {
+            "ITEM": "73467",
+            "MATERIAL": "L100022",
+            "DESCRIPTION IN CHINESE": "",
+            "DESCRIPTION IN ENGLISH": "MB BARCODE LABEL (28mm*8mm)",
+            "QTY": "1,000",
+            "UN": "PC",
+            "LEVEL": 2,
+            "_SUBMATERIAL": True
+        },
+        {
+            "ITEM": "7353742",
+            "MATERIAL": "L600006",
+            "DESCRIPTION IN CHINESE": "",
+            "DESCRIPTION IN ENGLISH": "RIBBON\\110mm*450m\\LOCAL 556",
+            "QTY": "556",
+            "UN": "",
+            "LEVEL": 2,
+            "_SUBMATERIAL": True
+        }
+    ]
+    df_manuales = pd.DataFrame(filas_manuales, columns=df_sub_normales.columns)
+    df_sub_normales = pd.concat([df_sub_normales, df_manuales], ignore_index=True)
+
+    # ===== Insertar submateriales antes de X del bloque LEVEL 2 =====
+    indices_level2 = [i for i, v in enumerate(df_main["LEVEL"]) if v == 2]
+    for idx in reversed(indices_level2):
+        x_index = None
+        for j in range(idx, len(df_main)):
+            if df_main.at[j, "ITEM"] == "X" and df_main.at[j, "LEVEL"] == 2:
+                x_index = j
+                break  
+        if x_index is not None:
+            df_main = pd.concat([
+                df_main.iloc[:x_index],
+                df_sub_normales,
+                df_main.iloc[x_index:]
+            ], ignore_index=True)
+
+            # Aplicar color y fuente directamente en ws
+            for i in range(len(df_sub_normales)):
+                fila_excel = x_index + 2 + i
+                for c in range(1, ws.max_column + 1):
+                    ws.cell(row=fila_excel, column=c).fill = gris_submaterial
+                    ws.cell(row=fila_excel, column=c).font = fuente_normal
+            break
+
+    # ===== Agregar submateriales finales al final =====
+    df_main = pd.concat([df_main, df_sub_finales], ignore_index=True)
+    fila_inicio = len(df_main) - len(df_sub_finales) + 2
+    for i in range(len(df_sub_finales)):
+        fila_excel = fila_inicio + i
+        for c in range(1, ws.max_column + 1):
+            ws.cell(row=fila_excel, column=c).fill = gris_submaterial
+            ws.cell(row=fila_excel, column=c).font = fuente_normal
+
+    # ===== Limpiar columna temporal =====
+    df_main.drop(columns=["PCB_CODE","_SUBMATERIAL"], inplace=True, errors="ignore")
+
+    return df_main
+
+# ================== PROCESO PRINCIPAL ==================
+def procesar_archivo_principal_mainboard_2(ruta_excel_principal: str, ruta_salida_principal: str):
+    wb = openpyxl.load_workbook(ruta_excel_principal)
     ws = wb.active
 
-    # Eliminar filas y columnas innecesarias
-    ws.delete_cols(10, 26)
+    ws.delete_cols(1)
+    ws.delete_cols(9, 26)
     ws.delete_rows(1, 9)
 
-    # Encabezados
     headers = [
         "LEVEL", "ITEM", "MATERIAL",
         "DESCRIPTION IN CHINESE", "DESCRIPTION IN ENGLISH",
         "QTY", "UN", "LINE 1", "LINE 2", "SORTSTRNG"
     ]
+    ws.insert_cols(1)
     for col, header in enumerate(headers, start=1):
         ws.cell(row=1, column=col).value = header
 
-    # Guardar archivo limpio
-    wb.save(ruta_salida)
-    print(f"[OK] Limpieza inicial completada → {ruta_salida}")
-
-# ----------------- LOGICA PRINCIPAL CON PANDAS -----------------
-def procesar_excel_con_logica(ruta_excel_principal, ruta_salida_principal, carpeta_extraer=None):
-    # Primero limpiar el archivo para asegurar encabezados correctos
-    limpiar_excel_inicial(ruta_excel_principal, ruta_excel_principal)
-
     nombre_archivo = os.path.splitext(os.path.basename(ruta_excel_principal))[0]
-    df = pd.read_excel(ruta_excel_principal)
+    ws.insert_rows(2, 2)
+    ws["B2"] = "X"
+    ws["C2"] = "3TE"
+    ws["A3"] = "1"
+    ws["B3"] = " "
+    ws["C3"] = nombre_archivo
+    ws["A4"] = "1"
+    ws["B4"] = "X"
+    ws["C4"] = nombre_archivo
 
-    # Insertar 2 filas vacías al inicio
-    df = pd.concat([pd.DataFrame(columns=df.columns, index=range(2)), df], ignore_index=True)
+    aplicar_logica_x(ws)
 
-    # Configurar primeras filas manuales
-    df.loc[0, "ITEM"] = "X"
-    df.loc[0, "MATERIAL"] = "3TE"
-    df.loc[1, "LEVEL"] = 1
-    df.loc[1, "ITEM"] = ""
-    df.loc[1, "MATERIAL"] = nombre_archivo
-    df.loc[2, "LEVEL"] = 1
-    df.loc[2, "ITEM"] = "X"
-    df.loc[2, "MATERIAL"] = nombre_archivo
+    amarillo = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
+    col_indices = {ws.cell(row=1, column=c).value: c for c in range(1, ws.max_column + 1)}
+    for row in range(2, ws.max_row + 1):
+        fila_colorear = False
+        for col_name in ["LINE 1", "LINE 2"]:
+            col = col_indices.get(col_name)
+            if col:
+                val = ws.cell(row=row, column=col).value
+                if val and contiene_chino(val):
+                    ws.cell(row=row, column=col).value = None
+                    fila_colorear = True
+        if fila_colorear:
+            for col in range(1, ws.max_column + 1):
+                ws.cell(row=row, column=col).fill = amarillo
 
-    filas_protegidas = {0, 1, 2}
+    # ===== DataFrame =====
+    df_main = pd.DataFrame(ws.values)
+    df_main.columns = df_main.iloc[0]
+    df_main = df_main[1:].reset_index(drop=True)
 
-    # Convertir columnas numéricas de forma segura
-    for col in ["LEVEL", "QTY"]:
-        if col in df.columns:
-            df[col] = df[col].apply(lambda x: safe_float(x) if pd.notna(x) else x)
+    df_main = agregar_submateriales(df_main, ws)
 
-    # Reinicio ITEM/LEVEL
-    df["ITEM"] = df["ITEM"].apply(limpiar_item)
-    df.loc[~df.index.isin(filas_protegidas), "LEVEL"] = 0
+    filas_protegidas = {0,1,2}
+    df_main["ITEM"] = df_main["ITEM"].apply(lambda v: str(v).strip() if v else "")
+    df_main.loc[~df_main.index.isin(filas_protegidas), "LEVEL"] = 0
+
     contador_bloque = 10
-    for i, val in df["ITEM"].items():
+    for i, val in df_main["ITEM"].items():
         if i in filas_protegidas:
             continue
         if val == "X":
             contador_bloque = 10
             continue
-        df.at[i, "ITEM"] = str(contador_bloque)
+        df_main.at[i, "ITEM"] = str(contador_bloque)
         contador_bloque += 10
 
     nivel_actual = 1
-    for i in range(len(df)):
+    for i in range(len(df_main)):
         if i in filas_protegidas:
             continue
-        if df.at[i, "ITEM"] == "X":
+        if df_main.at[i, "ITEM"] == "X":
             nivel_actual += 1
         else:
-            df.at[i, "LEVEL"] = nivel_actual + 1
-    for i in range(1, len(df)):
+            df_main.at[i, "LEVEL"] = nivel_actual + 1
+
+    for i in range(1, len(df_main)):
         if i in filas_protegidas:
             continue
-        if df.at[i, "LEVEL"] == 0:
-            df.at[i, "LEVEL"] = df.at[i-1, "LEVEL"]
+        if df_main.at[i, "LEVEL"] == 0:
+            df_main.at[i, "LEVEL"] = df_main.at[i - 1, "LEVEL"]
 
-    # Mover datos con caracteres chinos a SORTSTRNG
-    if "SORTSTRNG" not in df.columns:
-        df["SORTSTRNG"] = None
-    for col in ["LINE 1", "LINE 2"]:
-        if col in df.columns:
-            mask = df[col].apply(tiene_chino)
-            df.loc[mask, "SORTSTRNG"] = df.loc[mask, col]
-            df.loc[mask, col] = None
+    gris_submaterial = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
 
-    # Submateriales y filtrado PCB
-    if "DESCRIPTION IN CHINESE" in df.columns:
-        df["PCB_CODE"] = df["DESCRIPTION IN CHINESE"].apply(extraer_codigo_pcb)
-        lista_pcb = df["PCB_CODE"].dropna().tolist()
-        if lista_pcb and carpeta_extraer:
-            archivos = glob(os.path.join(carpeta_extraer, "*.xls*"))
-            if archivos:
-                archivo_bom = max(archivos, key=os.path.getmtime)
-                df_bom = pd.read_excel(archivo_bom)
-                df_bom["PCB_clean"] = df_bom["PCB"].astype(str).str.strip()
-                if "USE/NO USE" in df_bom.columns:
-                    df_bom = df_bom[df_bom["USE/NO USE"].astype(str).str.strip().str.upper() != "NO USE"]
-                mask = df_bom["PCB_clean"].apply(lambda x: any(code in x for code in lista_pcb))
-                df_filtrado = df_bom.loc[mask, ["PCB","Part #","ZH Description","EN Description","QTY","UNIT"]].reset_index(drop=True)
+    for r_idx, fila in enumerate(df_main.itertuples(index=False), start=2):
+        is_submaterial = getattr(fila, "_SUBMATERIAL", False)
+        for c_idx, val in enumerate(fila, start=1):
+            ws.cell(row=r_idx, column=c_idx).value = val
+            if is_submaterial:
+                ws.cell(row=r_idx, column=c_idx).fill = gris_submaterial
 
-                col_mapping = {
-                    "PCB": "ITEM",
-                    "Part #": "MATERIAL",
-                    "ZH Description": "DESCRIPTION IN CHINESE",
-                    "EN Description": "DESCRIPTION IN ENGLISH",
-                    "QTY": "QTY",
-                    "UNIT": "UN"
-                }
+    if "_SUBMATERIAL" in df_main.columns:
+        df_main.drop(columns=["_SUBMATERIAL"], inplace=True)
 
-                df_nuevo = pd.DataFrame(columns=df.columns)
-                for i in range(len(df_filtrado)):
-                    fila = {col_mapping[c]: df_filtrado[c].iloc[i] for c in df_filtrado.columns if c in col_mapping}
-                    df_nuevo = pd.concat([df_nuevo, pd.DataFrame([fila], columns=df.columns)], ignore_index=True)
-                df_nuevo["LEVEL"] = 2
-                df = pd.concat([df, df_nuevo], ignore_index=True)
-
-    # Guardar Excel
-    df.drop(columns=["PCB_CODE"], errors="ignore", inplace=True)
-    df.to_excel(ruta_salida_principal, index=False)
-
-    # Colorear filas con SORTSTRNG
-    wb = load_workbook(ruta_salida_principal)
-    ws = wb.active
-    amarillo = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
-    if "SORTSTRNG" in df.columns:
-        col_sort_string = df.columns.get_loc("SORTSTRNG") + 1
-        for idx, tiene in enumerate(df["SORTSTRNG"].notna(), start=2):
-            if tiene:
-                for col in range(1, ws.max_column + 1):
-                    ws.cell(row=idx, column=col).fill = amarillo
+    bold_font = Font(bold=True)
+    col_indices = {ws.cell(row=1, column=c).value: c for c in range(1, ws.max_column + 1)}
+    col_item = col_indices.get("ITEM")
+    if col_item:
         for row in range(2, ws.max_row + 1):
-            ws.cell(row=row, column=col_sort_string).value = None
+            if str(ws.cell(row=row, column=col_item).value).strip() == "X":
+                for col in range(1, ws.max_column + 1):
+                    ws.cell(row=row, column=col).font = bold_font
 
     ws.title = "BOMlist"
+    ws["A2"] = "0"
+    ws["F2"] = "1000"
+    ws["F3"] = "1000"
+    ws["J3"] = "HIMEX"
+    ws["G3"] = "PC"
+    ws["D3"] = " MAINBOARD\\INTERNAL MODEL\\ROH"
+    ws["D4"] = "MAINBOARD SMT PART\\INTERNAL MODEL\\ROH"
+
+    if "BOMHeader" not in wb.sheetnames:
+        ws_header = wb.create_sheet("BOMHeader")
+        encabezados_header = ["BOMID","MATNR","WERKS","STLAN","STLAL","ZTEXT","BMENG","STKTX"]
+        for col, header in enumerate(encabezados_header, start=1):
+            ws_header.cell(row=1, column=col).value = header
+    if "BOMItem" not in wb.sheetnames:
+        ws_item = wb.create_sheet("BOMItem")
+        encabezados_item = ["BOMID","POSNR","POSTP","IDNRK","MENGE","MEINS","SORTF","POTX1","POTX2"]
+        for col, header in enumerate(encabezados_item, start=1):
+            ws_item.cell(row=1, column=col).value = header
+
+    columnas_numericas = ["LEVEL", "ITEM", "QTY","MATERIAL"]
+    mapa_columnas = {str(ws.cell(row=1, column=c).value).strip().upper(): openpyxl.utils.get_column_letter(c)
+                     for c in range(1, ws.max_column + 1)
+                     if str(ws.cell(row=1, column=c).value).strip().upper() in columnas_numericas}
+    for nombre, letra in mapa_columnas.items():
+        for cell in ws[letra][1:]:
+            if cell.value is not None:
+                valor = str(cell.value).strip()
+                if valor != "":
+                    try:
+                        cell.value = float(valor.replace(",", ""))
+                    except:
+                        pass
+
     wb.save(ruta_salida_principal)
-    print(f"[OK] Mainboard COMPLETO → {ruta_salida_principal}")
+    print(f"[OK] Proceso completo {ruta_salida_principal}")

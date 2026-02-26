@@ -7,6 +7,7 @@ from backend.config.sap_config import EXPORT_FINAL_PATH
 
 # CARPETAS
 BASE_BOM_FOLDER = os.path.join(EXPORT_FINAL_PATH, "BOM_FILES")
+
 NC11_FILES = os.path.join(BASE_BOM_FOLDER,"TRANSACTION_NSC11")
 
 MODEL_FILES_FOLDER = os.path.join(NC11_FILES, "MODEL_INTERN")
@@ -17,8 +18,6 @@ os.makedirs(NC11_FILES, exist_ok=True)
 os.makedirs(MODEL_FILES_FOLDER, exist_ok=True)
 os.makedirs(MAINBOARD_1_FILES_FOLDER, exist_ok=True)
 os.makedirs(MAINBOARD_2_FILES_FOLDER, exist_ok=True)
-
-
 
 def convertir_xls_a_xlsx(ruta_xls: str, ruta_xlsx: str):
     if not os.path.exists(ruta_xls):

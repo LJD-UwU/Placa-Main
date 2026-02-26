@@ -1,7 +1,7 @@
 from backend.config.credenciales_loader import cargar_credenciales, guardar_credenciales
 from backend.modules.prosesar_mainboard_P2 import procesar_material_desde_mainboard
 from backend.modules.extract_mainboard import extract_descripcion_numbers
-from backend.modules.procesar_mainboard_P1 import procesar_number
+from backend.modules.procesar_motherboard_P1 import procesar_number
 from backend.utils.clean_excel import limpiar_excel_mainboard
 from backend.config.sap_login import abrir_sap_y_login
 from tkinter import ttk, filedialog, messagebox, scrolledtext
@@ -111,7 +111,7 @@ class SAPApp:
         # Confirmar acción
         respuesta = messagebox.askyesno(
             "Procesamiento de Excel",
-            "¿Deseas procesar los archivos Excel con clean_excel_p2.py?"
+            "¿Deseas procesar los archivos Excel?"
         )
         if not respuesta:
             return
@@ -386,7 +386,8 @@ class SAPApp:
                 self.session,
                 material=modelo,
                 uso=FILTRO,
-                plantas=PLANTAS
+                altboms=self.altboms[self.idx],
+                plantas=self.plantas[self.idx]
             )
 
             if not resultados:
@@ -433,7 +434,11 @@ class SAPApp:
             if any(number in f for f in os.listdir(MAINBOARD_1_FILES_FOLDER)):
                 continue
             try:
-                ruta_xls = procesar_number(self.session, number, PLANTA1, FILTRO)
+                ruta_xls = procesar_number(
+                self.session, 
+                number, 
+                plantas=self.plantas[self.idx],
+                )
                 ruta_xlsx = os.path.join(
                     MAINBOARD_1_FILES_FOLDER,
                     re.sub(r'[\\/*?:"<>|]', "_", os.path.basename(ruta_xls).rsplit(".", 1)[0]) + ".xlsx"

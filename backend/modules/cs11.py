@@ -9,7 +9,7 @@ from backend.config.sap_config import (
     PAUSA
 )
 
-def ejecutar_cs11(session, material, plantas, uso=FILTRO, pausa_entre_acciones=PAUSA):
+def ejecutar_cs11(session, material, plantas, altboms, uso=FILTRO, pausa_entre_acciones=PAUSA):
     if isinstance(plantas, str):
         plantas = [plantas]
 
@@ -42,7 +42,7 @@ def ejecutar_cs11(session, material, plantas, uso=FILTRO, pausa_entre_acciones=P
 
             set_campo("wnd[0]/usr/ctxtRC29L-MATNR", material)
             set_campo("wnd[0]/usr/ctxtRC29L-WERKS", planta)
-            #set_campo("wnd[0]/usr/txtRC29L-STLAL", altboms)
+            set_campo("wnd[0]/usr/txtRC29L-STLAL", altboms)
             set_campo("wnd[0]/usr/ctxtRC29L-CAPID", uso)
 
             ejecutar_busqueda(session)

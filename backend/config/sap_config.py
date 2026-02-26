@@ -1,12 +1,12 @@
 #* CONFIGURACIÓN SAP
 import os
 #! Ruta SAP Logon
-SAP_LOGON_PATH = r"C:\Program Files (x86)\SAP\FrontEnd\SAPgui\saplogon.exe"
+SAP_LOGON_PATH = r""
 
 EXPORT_FINAL_PATH = os.path.join(os.path.expanduser("~"), "Documents")
 
 #! Ruta archivos de los submateriales
-EXTRAER_ARCHIVO = r"\\172.29.172.155\Industrial_Eng\IE-SAP\1) BOM files\e) Submaterial Usage" 
+EXTRAER_ARCHIVO = r"" 
 
 #* CONFIGURACIONES MODULOS
 DESCRIPCIONES = ["主板大组件\\", "主板总成\\", "主板组件\\"]

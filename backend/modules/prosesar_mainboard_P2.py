@@ -28,7 +28,11 @@ def leer_excel_sap_fallback(ruta_xls):
                 return pd.DataFrame()  # retorna vacío para continuar flujo
 
 
-def procesar_material_desde_mainboard(session, ruta_mainboard_xlsx, uso, plantas):
+def procesar_material_desde_mainboard(session, ruta_mainboard_xlsx, uso, planta):
+    """
+    Procesa un material para una sola planta.
+    Retorna la ruta del archivo XLSX generado, o None si falló.
+    """
     ruta_mainboard_xlsx = str(ruta_mainboard_xlsx)
 
     if not os.path.exists(ruta_mainboard_xlsx):
@@ -49,51 +53,44 @@ def procesar_material_desde_mainboard(session, ruta_mainboard_xlsx, uso, plantas
     if not material:
         raise Exception("Material detectado vacío")
 
-    print(f"[INFO] Material detectado desde mainboard: {material}")
+    print(f"[INFO] Material detectado desde mainboard: {material}, Planta: {planta}")
 
-    rutas_finales = []
+    try:
+        session.findById("wnd[0]/tbar[0]/okcd").text = TRANSACCION
+        session.findById("wnd[0]").sendVKey(0)
 
-    #! ===== CS11 POR CADA PLANTA =====
-    for planta in plantas:
+        session.findById("wnd[0]/usr/ctxtRC29L-WERKS").text = planta
+        session.findById("wnd[0]/usr/ctxtRC29L-MATNR").text = material
+        session.findById("wnd[0]/usr/ctxtRC29L-CAPID").text = uso
+        session.findById("wnd[0]/tbar[1]/btn[8]").press()
+
+        if not acceso_bom_exitoso(session):
+            print(f"[WARNING] No se pudo acceder al BOM de {material} en planta {planta}")
+            return None
+
+        #! ===== EXPORTAR BOM =====
+        ruta_xls = exportar_bom_a_xls(session=session, material=material, mainboard=False)
+        if not ruta_xls or not os.path.exists(ruta_xls):
+            print(f"[WARNING] Falló exportación BOM planta {planta}")
+            return None
+
+        #! ===== CONVERTIR XLS → XLSX =====
+        nombre_base = f"{material}_{planta}"
+        ruta_xlsx = os.path.join(MAINBOARD_2_FILES_FOLDER, f"{nombre_base}.xlsx")
+
         try:
-            session.findById("wnd[0]/tbar[0]/okcd").text = TRANSACCION
-            session.findById("wnd[0]").sendVKey(0)
-
-            session.findById("wnd[0]/usr/ctxtRC29L-WERKS").text = planta
-            session.findById("wnd[0]/usr/ctxtRC29L-MATNR").text = material
-            session.findById("wnd[0]/usr/ctxtRC29L-CAPID").text = uso
-            session.findById("wnd[0]/tbar[1]/btn[8]").press()
-
-            if not acceso_bom_exitoso(session):
-                print(f"[WARNING] No se pudo acceder al BOM de {material} en planta {planta}")
-                continue
-
-            #! ===== EXPORTAR BOM =====
-            ruta_xls = exportar_bom_a_xls(session=session, material=material, mainboard=False)
-            if not ruta_xls or not os.path.exists(ruta_xls):
-                print(f"[WARNING] Falló exportación BOM planta {planta}")
-                continue
-
-            #! ===== CONVERTIR XLS → XLSX =====
-            nombre_base = f"{material}"
-            ruta_xlsx = os.path.join(MAINBOARD_2_FILES_FOLDER, f"{nombre_base}.xlsx")
-
-            try:
-                convertir_xls_a_xlsx(str(ruta_xls), str(ruta_xlsx))
-            except Exception as e:
-                print(f"[WARNING] Convertir XLS→XLSX falló, usando fallback: {e}")
-                df_temp = leer_excel_sap_fallback(ruta_xls)
-                if df_temp.empty:
-                    print("[WARNING] Archivo XLS no pudo ser leído, se continuará con limpieza base vacía")
-                    df_temp = pd.DataFrame()
-                df_temp.to_excel(ruta_xlsx, index=False)
-
+            convertir_xls_a_xlsx(str(ruta_xls), str(ruta_xlsx))
         except Exception as e:
-            print(f"[ERROR] Planta {planta}: {e}")
-            continue
+            print(f"[WARNING] Convertir XLS→XLSX falló, usando fallback: {e}")
+            df_temp = leer_excel_sap_fallback(ruta_xls)
+            if df_temp.empty:
+                print("[WARNING] Archivo XLS no pudo ser leído, se continuará con limpieza base vacía")
+                df_temp = pd.DataFrame()
+            df_temp.to_excel(ruta_xlsx, index=False)
 
-    if not rutas_finales:
-        print(f"[ERROR] No se pudo procesar el BOM de {material} en ninguna planta")
-        return []
+        print(f"[INFO] BOM procesado correctamente: {ruta_xlsx}")
+        return ruta_xlsx
 
-    return rutas_finales
+    except Exception as e:
+        print(f"[ERROR] Planta {planta}: {e}")
+        return None

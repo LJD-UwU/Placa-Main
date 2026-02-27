@@ -1,6 +1,7 @@
 import os
 import time
 import re
+from datetime import datetime
 import xlwings as xw
 import pandas as pd
 from backend.config.sap_config import EXPORT_FINAL_PATH
@@ -18,6 +19,8 @@ os.makedirs(NC11_FILES, exist_ok=True)
 os.makedirs(MODEL_FILES_FOLDER, exist_ok=True)
 os.makedirs(MAINBOARD_1_FILES_FOLDER, exist_ok=True)
 os.makedirs(MAINBOARD_2_FILES_FOLDER, exist_ok=True)
+
+fecha_actual = datetime.now().strftime("%Y-%m-%d")
 
 def convertir_xls_a_xlsx(ruta_xls: str, ruta_xlsx: str):
     if not os.path.exists(ruta_xls):
@@ -67,13 +70,13 @@ def convertir_xls_a_xlsx(ruta_xls: str, ruta_xlsx: str):
                 pass
 
 # Función: Exportar BOM desde SAP
-def exportar_bom_a_xls(session, material, mainboard=False):
+def exportar_bom_a_xls(session, material, altboms=None, mainboard=False):
     """
     Exporta el BOM de CS11 a XLS.
     Guarda automáticamente en la carpeta correspondiente.
     """
     nombre_limpio = re.sub(r'[\\/*?:"<>|]', "_", material)
-    xls_name = f"{nombre_limpio}.XLS"
+    xls_name = f"{fecha_actual}_{nombre_limpio}_ALTBOM_{altboms}.XLS"
 
     carpeta_destino = MAINBOARD_1_FILES_FOLDER if mainboard else MODEL_FILES_FOLDER
     ruta_xls_final = os.path.join(carpeta_destino, xls_name)

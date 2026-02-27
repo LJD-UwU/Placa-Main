@@ -128,11 +128,16 @@ class SAPApp:
             self.log_msg(f"[ERROR] La carpeta {folder} no existe", "ERROR")
             return
 
+        # Crear carpeta ARCHIVOS_FINALES si no existe
+        carpeta_final = os.path.join(folder, "ARCHIVOS_FINALES")
+        os.makedirs(carpeta_final, exist_ok=True)
+        self.log_msg(f"[INFO] Los archivos procesados se guardarán en: {carpeta_final}", "INFO")
+
         # Procesar todos los archivos .xlsx en la carpeta
         for f in os.listdir(folder):
             ruta_excel = os.path.join(folder, f)
             if os.path.isfile(ruta_excel) and f.lower().endswith(".xlsx"):
-                salida_excel = os.path.join(folder, f"PROCESADO_{f}")
+                salida_excel = os.path.join(carpeta_final, f"PROCESADO_{f}")
                 try:
                     self.log_msg(f"[INFO] Procesando archivo: {f}", "INFO")
                     
@@ -395,7 +400,11 @@ class SAPApp:
 
             for planta, _ in resultados:
                 self.log_msg(f"  • Planta {planta}: exportando BOM", "INFO")
-                ruta_xls = exportar_bom_a_xls(self.session, modelo, mainboard=False)
+                ruta_xls = exportar_bom_a_xls(
+                self.session, 
+                modelo, 
+                altboms=self.altboms[self.idx],
+                mainboard=False)
                 self.log_msg("    ✓ BOM exportado", "OK")
 
                 ruta_xlsx = os.path.join(MODEL_FILES_FOLDER,
@@ -434,12 +443,7 @@ class SAPApp:
             if any(number in f for f in os.listdir(MAINBOARD_1_FILES_FOLDER)):
                 continue
             try:
-                ruta_xls = procesar_number(
-                self.session, 
-                number, 
-                PLANTA1,
-                FILTRO
-                )
+                ruta_xls = procesar_number(self.session, number, PLANTA1, FILTRO)
                 ruta_xlsx = os.path.join(
                     MAINBOARD_1_FILES_FOLDER,
                     re.sub(r'[\\/*?:"<>|]', "_", os.path.basename(ruta_xls).rsplit(".", 1)[0]) + ".xlsx"
@@ -447,12 +451,19 @@ class SAPApp:
                 convertir_xls_a_xlsx(ruta_xls, ruta_xlsx)
                 limpiar_excel_mainboard(ruta_xlsx)
 
-                materiales_detectados = procesar_material_desde_mainboard(
-                session=self.session,
-                ruta_mainboard_xlsx=ruta_xlsx,  # ruta del archivo XLSX del mainboard
-                uso=FILTRO,
-                plantas=PLANTAS
-            )
+                materiales_detectados = []
+
+                for planta in self.plantas:
+                    ruta = procesar_material_desde_mainboard(
+                        session=self.session,
+                        ruta_mainboard_xlsx=ruta_xlsx,
+                        uso=FILTRO,
+                        planta=planta
+                    )
+                    if ruta:
+                        materiales_detectados.append(ruta)
+
+                print("Archivos generados:", materiales_detectados)
 
                 if materiales_detectados:
                     # Aquí puedes guardar o registrar los materiales detectados

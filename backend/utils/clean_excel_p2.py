@@ -209,7 +209,7 @@ def agregar_submateriales(df_main, ws):
     return df_main
 
 # ================== PROCESO PRINCIPAL ==================
-def procesar_archivo_principal_mainboard_2(ruta_excel_principal: str, ruta_salida_principal: str):
+def procesar_archivo_principal_mainboard_2(ruta_excel_principal: str, ruta_salida_principal: str, ):
     wb = openpyxl.load_workbook(ruta_excel_principal)
     ws = wb.active
 
@@ -317,8 +317,8 @@ def procesar_archivo_principal_mainboard_2(ruta_excel_principal: str, ruta_salid
     ws["F3"] = "1000"
     ws["J3"] = "HIMEX"
     ws["G3"] = "PC"
-    ws["D3"] = " MAINBOARD\\INTERNAL MODEL\\ROH"
-    ws["D4"] = "MAINBOARD SMT PART\\INTERNAL MODEL\\ROH"
+    ws["E3"] = " MAINBOARD\\  \\ROH"
+    ws["E4"] = "MAINBOARD SMT PART\\ \\ROH"
 
     if "BOMHeader" not in wb.sheetnames:
         ws_header = wb.create_sheet("BOMHeader")

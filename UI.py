@@ -422,18 +422,27 @@ class SAPApp:
                 ruta_xls = exportar_bom_a_xls(
                 self.session, 
                 modelo, 
-                mainboard=False)
+                mainboard=False,
+                )
                 self.log_msg("    ✓ BOM exportado", "OK")
                 
             
                 fecha = datetime.now().strftime("%Y-%m-%d")
-                nombre_base = re.sub(r'[\\/*?:"<>|]', "_", os.path.basename(ruta_xls).replace(".XLS",""))
+
+                nombre_base = os.path.splitext(os.path.basename(ruta_xls))[0]
+                nombre_base = re.sub(r'[\\/*?:"<>|]', "_", nombre_base)
+                nombre_base = re.sub(r'^(?:\d+-)+', '', nombre_base)
+
                 altboms = self.altboms[self.idx]
-                
+
                 ruta_xlsx = os.path.join(
-                MODEL_FILES_FOLDER,
-                f"{fecha}-{nombre_base}-ALTBOM{altboms}.xlsx"
+                    MODEL_FILES_FOLDER,
+                    f"{fecha}-{nombre_base}-ALTBOM{altboms}.xlsx"
                 )
+
+                if os.path.exists(ruta_xlsx):
+                    os.remove(ruta_xlsx)
+
                 convertir_xls_a_xlsx(ruta_xls, ruta_xlsx)
                 self.log_msg("    ✓ Convertido a XLSX", "OK")
                 

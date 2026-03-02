@@ -316,18 +316,26 @@ def procesar_archivo_principal_mainboard_2(
                 for col in range(1, ws.max_column + 1):
                     ws.cell(row=row, column=col).font = bold_font
 
-    ws.title = "BOMlist"
-    ws["A2"] = "0"
-    ws["F2"] = "1000"
-    ws["F3"] = "1000"
-    ws["J3"] = "HIMEX"
-    ws["G3"] = "PC"
-    
-    texto_modelo = internal_model.strip() if internal_model else ""
-    
-    ws["E3"] = f" MAINBOARD\\{texto_modelo}\\ROH"
-    ws["E4"] = f"MAINBOARD SMT PART\\{texto_modelo}\\ROH"
+        ws.title = "BOMlist"
+        ws["A2"] = "0"
+        ws["F2"] = "1000"
+        ws["F3"] = "1000"
+        ws["J3"] = "HIMEX"
+        ws["G3"] = "PC"
 
+        texto_modelo = internal_model.strip() if internal_model else ""
+
+        ws["E3"] = f"MAIN BOARD\\{texto_modelo}\\ROH"
+        ws["E4"] = f"MAIN BOARD\\{texto_modelo}\\ROH"
+
+        valor = ws["D5"].value
+
+        if valor and "\\" in valor:
+            parte = valor.split("\\", 1)[1]   
+            ws["E5"] = "MAINBOARD SMT PART\\" + parte
+        else:
+            ws["E5"] = "MAINBOARD SMT PART\\"
+    
     if "BOMHeader" not in wb.sheetnames:
         ws_header = wb.create_sheet("BOMHeader")
         encabezados_header = ["BOMID","MATNR","WERKS","STLAN","STLAL","ZTEXT","BMENG","STKTX"]

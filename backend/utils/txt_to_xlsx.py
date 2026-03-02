@@ -69,13 +69,17 @@ def convertir_xls_a_xlsx(ruta_xls: str, ruta_xlsx: str):
                 pass
 
 # Función: Exportar BOM desde SAP
-def exportar_bom_a_xls(session, material, mainboard=False):
+def exportar_bom_a_xls(
+    session, material, 
+    mainboard=False,
+    ):
     """
     Exporta el BOM de CS11 a XLS.
     Guarda automáticamente en la carpeta correspondiente.
     """
     nombre_limpio = re.sub(r'[\\/*?:"<>|]', "_", material)
-    xls_name = f"{nombre_limpio}.XLS"
+    hora = datetime.now().strftime("%H-%M-%S")
+    xls_name = f"{hora}-{nombre_limpio}.XLS"
 
     carpeta_destino = MAINBOARD_1_FILES_FOLDER if mainboard else MODEL_FILES_FOLDER
     ruta_xls_final = os.path.join(carpeta_destino, xls_name)

@@ -99,7 +99,7 @@ def procesar_material_desde_mainboard(session, ruta_mainboard_xlsx, uso, planta)
                 print(f"[WARNING] No se pudo mover el XLS: {e}")
 
         #! ===== CONVERTIR XLS → XLSX =====
-        nombre_base = f"{material}_{planta}"
+        nombre_base = f"{material}"
         ruta_xlsx = os.path.join(MAINBOARD_2_FILES_FOLDER, f"{nombre_base}.xlsx")
 
         try:

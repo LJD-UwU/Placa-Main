@@ -19,7 +19,6 @@ os.makedirs(MODEL_FILES_FOLDER, exist_ok=True)
 os.makedirs(MAINBOARD_1_FILES_FOLDER, exist_ok=True)
 os.makedirs(MAINBOARD_2_FILES_FOLDER, exist_ok=True)
 
-fecha_actual = datetime.now().strftime("%Y-%m-%d")
 
 def convertir_xls_a_xlsx(ruta_xls: str, ruta_xlsx: str):
     if not os.path.exists(ruta_xls):
@@ -78,8 +77,8 @@ def exportar_bom_a_xls(
     Guarda automáticamente en la carpeta correspondiente.
     """
     nombre_limpio = re.sub(r'[\\/*?:"<>|]', "_", material)
-    hora = datetime.now().strftime("%H-%M-%S")
-    xls_name = f"{hora}-{nombre_limpio}.XLS"
+    fecha = datetime.now().strftime("%Y-%m-%d")
+    xls_name = f"{fecha}-{nombre_limpio}.XLS"
 
     carpeta_destino = MAINBOARD_1_FILES_FOLDER if mainboard else MODEL_FILES_FOLDER
     ruta_xls_final = os.path.join(carpeta_destino, xls_name)

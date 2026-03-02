@@ -499,7 +499,7 @@ class SAPApp:
 
                 materiales_detectados = []
 
-                for planta in self.plantas:
+                for planta in set(self.plantas):
                     ruta = procesar_material_desde_mainboard(
                         session=self.session,
                         ruta_mainboard_xlsx=ruta_xlsx,

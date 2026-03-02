@@ -8,6 +8,7 @@ from tkinter import ttk, filedialog, messagebox, scrolledtext
 import os, re, time,sys
 import tkinter as tk
 import pandas as pd
+from datetime import datetime
 
 from backend.modules.cs11 import ejecutar_cs11
 from backend.utils.txt_to_xlsx import (
@@ -21,9 +22,7 @@ from backend.utils.txt_to_xlsx import (
 )
 from backend.config.sap_config import (
     DESCRIPCIONES,
-    PLANTAS,
     FILTRO,
-    PLANTA1
 )
 
 class SAPApp:
@@ -425,9 +424,16 @@ class SAPApp:
                 modelo, 
                 mainboard=False)
                 self.log_msg("    ✓ BOM exportado", "OK")
-
-                ruta_xlsx = os.path.join(MODEL_FILES_FOLDER,
-                                        re.sub(r'[\\/*?:"<>|]', "_", os.path.basename(ruta_xls).replace(".XLS","")) + ".xlsx")
+                
+            
+                fecha = datetime.now().strftime("%Y-%m-%d")
+                nombre_base = re.sub(r'[\\/*?:"<>|]', "_", os.path.basename(ruta_xls).replace(".XLS",""))
+                altboms = self.altboms[self.idx]
+                
+                ruta_xlsx = os.path.join(
+                MODEL_FILES_FOLDER,
+                f"{fecha}-{nombre_base}-ALTBOM{altboms}.xlsx"
+                )
                 convertir_xls_a_xlsx(ruta_xls, ruta_xlsx)
                 self.log_msg("    ✓ Convertido a XLSX", "OK")
                 

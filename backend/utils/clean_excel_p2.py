@@ -96,7 +96,7 @@ def agregar_submateriales(df_main, ws):
         print("[WARN] No hay suficientes archivos BOM para tomar el anterior al más reciente.")
         df_main.drop(columns=["PCB_CODE"], inplace=True, errors="ignore")
         return df_main
-    archivo_bom = sorted(archivos, key=os.path.getmtime)[-2]
+    archivo_bom = sorted(archivos, key=os.path.getmtime)[-1]
     print(f"[INFO] Archivo BOM tomado: {archivo_bom}")
 
     try:

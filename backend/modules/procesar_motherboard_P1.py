@@ -15,7 +15,7 @@ SECUENCIA,
 
 # FUNCION PARA MODELOS INTERNOS
 
-def procesar_number(session, number, planta, capid):
+def procesar_number(session, number, planta, uso):
     """
     Procesa un Number en SAP para un modelo interno.
     Retorna la ruta del XLS exportado.
@@ -26,7 +26,7 @@ def procesar_number(session, number, planta, capid):
 
         session.findById("wnd[0]/usr/ctxtRC29L-MATNR").text = number
         session.findById("wnd[0]/usr/ctxtRC29L-WERKS").text = planta
-        session.findById("wnd[0]/usr/ctxtRC29L-CAPID").text = capid
+        session.findById("wnd[0]/usr/ctxtRC29L-CAPID").text = uso
         session.findById("wnd[0]/tbar[1]/btn[8]").press()
         time.sleep(0.8)
 

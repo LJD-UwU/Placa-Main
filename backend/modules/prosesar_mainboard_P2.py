@@ -1,5 +1,6 @@
 import os
 import pandas as pd
+import shutil
 
 from backend.utils.txt_to_xlsx import (
     exportar_bom_a_xls,
@@ -9,6 +10,7 @@ from backend.utils.txt_to_xlsx import (
 
 from backend.config.sap_config import TRANSACCION
 from backend.utils.sap_utils import acceso_bom_exitoso
+
 
 def leer_excel_sap_fallback(ruta_xls):
     """
@@ -20,12 +22,11 @@ def leer_excel_sap_fallback(ruta_xls):
         try:
             return pd.read_excel(ruta_xls, engine='xlrd')
         except Exception:
-            # SAP a veces exporta HTML disfrazado de XLS
             try:
                 return pd.read_html(ruta_xls)[0]
             except Exception as e:
                 print(f"[WARNING] No se pudo leer XLS original: {e}")
-                return pd.DataFrame()  # retorna vacío para continuar flujo
+                return pd.DataFrame()
 
 
 def procesar_material_desde_mainboard(session, ruta_mainboard_xlsx, uso, planta):
@@ -56,6 +57,7 @@ def procesar_material_desde_mainboard(session, ruta_mainboard_xlsx, uso, planta)
     print(f"[INFO] Material detectado desde mainboard: {material}, Planta: {planta}")
 
     try:
+        # ===== ENTRAR A TRANSACCIÓN SAP =====
         session.findById("wnd[0]/tbar[0]/okcd").text = TRANSACCION
         session.findById("wnd[0]").sendVKey(0)
 
@@ -68,11 +70,33 @@ def procesar_material_desde_mainboard(session, ruta_mainboard_xlsx, uso, planta)
             print(f"[WARNING] No se pudo acceder al BOM de {material} en planta {planta}")
             return None
 
-        #! ===== EXPORTAR BOM =====
-        ruta_xls = exportar_bom_a_xls(session=session, material=material, mainboard=False)
-        if not ruta_xls or not os.path.exists(ruta_xls):
-            print(f"[WARNING] Falló exportación BOM planta {planta}")
-            return None
+        #! ===== VERIFICAR SI YA EXISTE XLS =====
+        nombre_xls_esperado = f"{material}_{planta}.xls"
+        ruta_xls_destino = os.path.join(MAINBOARD_2_FILES_FOLDER, nombre_xls_esperado)
+
+        if os.path.exists(ruta_xls_destino):
+            print(f"[INFO] XLS ya existe, no se descargará de SAP: {ruta_xls_destino}")
+            ruta_xls = ruta_xls_destino
+
+        else:
+            #! ===== EXPORTAR BOM DESDE SAP =====
+            ruta_xls = exportar_bom_a_xls(
+                session=session,
+                material=material,
+                mainboard=False
+            )
+
+            if not ruta_xls or not os.path.exists(ruta_xls):
+                print(f"[WARNING] Falló exportación BOM planta {planta}")
+                return None
+
+            #! ===== MOVER XLS A MAINBOARD_2_FILES_FOLDER =====
+            try:
+                shutil.move(ruta_xls, ruta_xls_destino)
+                ruta_xls = ruta_xls_destino
+                print(f"[INFO] XLS movido a: {ruta_xls}")
+            except Exception as e:
+                print(f"[WARNING] No se pudo mover el XLS: {e}")
 
         #! ===== CONVERTIR XLS → XLSX =====
         nombre_base = f"{material}_{planta}"

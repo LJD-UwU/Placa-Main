@@ -6,16 +6,15 @@ import xlwings as xw
 import pandas as pd
 from backend.config.sap_config import EXPORT_FINAL_PATH
 
-# CARPETAS
+# CARPETA PRINCIPAL
 BASE_BOM_FOLDER = os.path.join(EXPORT_FINAL_PATH, "BOM_FILES")
 
-NC11_FILES = os.path.join(BASE_BOM_FOLDER,"TRANSACTION_NSC11")
+# CARPETAS SECUNDARIAS
+MODEL_FILES_FOLDER = os.path.join(BASE_BOM_FOLDER, "MODEL_INTERN")
+MAINBOARD_1_FILES_FOLDER = os.path.join(BASE_BOM_FOLDER, "MOTHERBOARD")
+MAINBOARD_2_FILES_FOLDER = os.path.join(BASE_BOM_FOLDER, "MAINBOARD_FINAL")
 
-MODEL_FILES_FOLDER = os.path.join(NC11_FILES, "MODEL_INTERN")
-MAINBOARD_1_FILES_FOLDER = os.path.join(NC11_FILES, "MOTHERBOARD")
-MAINBOARD_2_FILES_FOLDER = os.path.join(NC11_FILES, "MAINBOARD_FINAL")
 
-os.makedirs(NC11_FILES, exist_ok=True)
 os.makedirs(MODEL_FILES_FOLDER, exist_ok=True)
 os.makedirs(MAINBOARD_1_FILES_FOLDER, exist_ok=True)
 os.makedirs(MAINBOARD_2_FILES_FOLDER, exist_ok=True)
@@ -70,13 +69,13 @@ def convertir_xls_a_xlsx(ruta_xls: str, ruta_xlsx: str):
                 pass
 
 # Función: Exportar BOM desde SAP
-def exportar_bom_a_xls(session, material, altboms=None, mainboard=False):
+def exportar_bom_a_xls(session, material, mainboard=False):
     """
     Exporta el BOM de CS11 a XLS.
     Guarda automáticamente en la carpeta correspondiente.
     """
     nombre_limpio = re.sub(r'[\\/*?:"<>|]', "_", material)
-    xls_name = f"{fecha_actual}_{nombre_limpio}_ALTBOM_{altboms}.XLS"
+    xls_name = f"{nombre_limpio}.XLS"
 
     carpeta_destino = MAINBOARD_1_FILES_FOLDER if mainboard else MODEL_FILES_FOLDER
     ruta_xls_final = os.path.join(carpeta_destino, xls_name)

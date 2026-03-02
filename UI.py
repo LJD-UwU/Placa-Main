@@ -17,8 +17,7 @@ from backend.utils.txt_to_xlsx import (
     MAINBOARD_1_FILES_FOLDER,
     MAINBOARD_2_FILES_FOLDER,
     MODEL_FILES_FOLDER,
-    BASE_BOM_FOLDER,
-    NC11_FILES
+    BASE_BOM_FOLDER
 )
 from backend.config.sap_config import (
     DESCRIPCIONES,
@@ -133,20 +132,41 @@ class SAPApp:
         os.makedirs(carpeta_final, exist_ok=True)
         self.log_msg(f"[INFO] Los archivos procesados se guardarán en: {carpeta_final}", "INFO")
 
-        # Procesar todos los archivos .xlsx en la carpeta
-        for f in os.listdir(folder):
+        # Obtener archivos XLSX ordenados por fecha de modificación (más antiguo primero)
+        archivos = [
+            f for f in os.listdir(folder)
+            if os.path.isfile(os.path.join(folder, f)) and f.lower().endswith(".xlsx")
+        ]
+        archivos.sort(
+            key=lambda x: os.path.getmtime(os.path.join(folder, x)),
+            reverse=False  # 🔹 Más antiguo primero
+        )
+
+        # Procesar archivos en ese orden
+        for i, f in enumerate(archivos):
             ruta_excel = os.path.join(folder, f)
-            if os.path.isfile(ruta_excel) and f.lower().endswith(".xlsx"):
-                salida_excel = os.path.join(carpeta_final, f"PROCESADO_{f}")
-                try:
-                    self.log_msg(f"[INFO] Procesando archivo: {f}", "INFO")
-                    
-                    # Ejecutar la función principal del módulo
-                    procesar_archivo_principal_mainboard_2(ruta_excel, salida_excel)
-                    
-                    self.log_msg(f"[OK] Archivo procesado: PROCESADO_{f}", "OK")
-                except Exception as e:
-                    self.log_msg(f"[ERROR] No se pudo procesar {f}: {e}", "ERROR")
+            salida_excel = os.path.join(carpeta_final, f"PROCESADO_{f}")
+
+            try:
+                self.log_msg(f"[INFO] Procesando archivo: {f}", "INFO")
+
+                # Asignar el modelo interno correspondiente
+                internal_model = ""
+                if hasattr(self, "internal_models") and self.internal_models:
+                    if i < len(self.internal_models):
+                        internal_model = self.internal_models[i]
+
+                # Llamar a la función principal de procesamiento
+                procesar_archivo_principal_mainboard_2(
+                    ruta_excel,
+                    salida_excel,
+                    internal_model
+                )
+
+                self.log_msg(f"[OK] Archivo procesado: PROCESADO_{f}", "OK")
+
+            except Exception as e:
+                self.log_msg(f"[ERROR] No se pudo procesar {f}: {e}", "ERROR")
 
         self.log_msg("[INFO] Todos los archivos Excel han sido procesados", "INFO")
         
@@ -403,7 +423,6 @@ class SAPApp:
                 ruta_xls = exportar_bom_a_xls(
                 self.session, 
                 modelo, 
-                altboms=self.altboms[self.idx],
                 mainboard=False)
                 self.log_msg("    ✓ BOM exportado", "OK")
 
@@ -434,7 +453,7 @@ class SAPApp:
         self.set_status("Procesando mainboards")
 
         # Crear carpetas si no existen
-        for folder in [BASE_BOM_FOLDER, NC11_FILES, MODEL_FILES_FOLDER, MAINBOARD_1_FILES_FOLDER, MAINBOARD_2_FILES_FOLDER]:
+        for folder in [BASE_BOM_FOLDER, MODEL_FILES_FOLDER, MAINBOARD_1_FILES_FOLDER, MAINBOARD_2_FILES_FOLDER]:
             os.makedirs(folder, exist_ok=True)
 
         # Procesamiento de mainboards
@@ -443,7 +462,19 @@ class SAPApp:
             if any(number in f for f in os.listdir(MAINBOARD_1_FILES_FOLDER)):
                 continue
             try:
-                ruta_xls = procesar_number(self.session, number, PLANTA1, FILTRO)
+                ruta_xls = None
+                for planta in self.plantas:
+                    ruta_xls = procesar_number(
+                        session=self.session,
+                        number=number,
+                        planta=planta,
+                        uso=FILTRO
+                    )
+                    if ruta_xls:
+                        break
+
+                if not ruta_xls:
+                    continue
                 ruta_xlsx = os.path.join(
                     MAINBOARD_1_FILES_FOLDER,
                     re.sub(r'[\\/*?:"<>|]', "_", os.path.basename(ruta_xls).rsplit(".", 1)[0]) + ".xlsx"

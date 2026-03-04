@@ -18,7 +18,6 @@ from backend.utils.txt_to_xlsx import (
     MODEL_FILES_FOLDER,
     MAINBOARD_1_FILES_FOLDER,
     MAINBOARD_2_FILES_FOLDER,
-    MODEL_FILES_FOLDER,
     BASE_BOM_FOLDER
 )
 from backend.config.sap_config import (
@@ -34,7 +33,7 @@ class SAPApp:
         self.root.resizable(False, False)
 
         try:
-            img = Image.open("IMG/logo.ico") 
+            img = Image.open("IMG/logo.png") 
             img = img.resize((256, 256))  
             icon = ImageTk.PhotoImage(img)
             self.root.iconphoto(True, icon)
@@ -91,6 +90,7 @@ class SAPApp:
         self.log.tag_config("INFO", foreground="blue")
         self.log.tag_config("OK", foreground="green")
         self.log.tag_config("ERROR", foreground="red")
+        self.log.tag_config("WARNING", foreground="orange")
 
         self.status = tk.StringVar(value="Estado: Listo")
         ttk.Label(root, textvariable=self.status, anchor="w").pack(fill="x", side="bottom", padx=6, pady=4)
@@ -132,18 +132,18 @@ class SAPApp:
         try:
             from backend.utils.clean_excel_p2 import procesar_archivo_principal_mainboard_2
         except ImportError as e:
-            self.log_msg(f"[ERROR] No se pudo importar procesar_mainboard_P2.py: {e}", "ERROR")
+            self.log_msg(f"[ERROR] No se pudo importar procesar_mainboard_P2.py: {e}")
             return
 
         folder = MAINBOARD_2_FILES_FOLDER
         if not os.path.exists(folder):
-            self.log_msg(f"[ERROR] La carpeta {folder} no existe", "ERROR")
+            self.log_msg(f"[ERROR] La carpeta {folder} no existe")
             return
 
         #! Crear carpeta ARCHIVOS_FINALES si no existe
         carpeta_final = os.path.join(folder, "ARCHIVOS_FINALES")
         os.makedirs(carpeta_final, exist_ok=True)
-        self.log_msg(f"[INFO] Los archivos procesados se guardarán en: {carpeta_final}", "INFO")
+        self.log_msg(f"[INFO] Los archivos procesados se guardarán en: {carpeta_final}")
 
         #! Obtener archivos XLSX ordenados por fecha de modificación (más antiguo primero)
         archivos = [
@@ -161,7 +161,7 @@ class SAPApp:
             salida_excel = os.path.join(carpeta_final, f"MB-BMM-{f}")
 
             try:
-                self.log_msg(f"[INFO] Procesando archivo: {f}", "INFO")
+                self.log_msg(f"[INFO] Procesando archivo: {f}")
 
                 #! Asignar el modelo interno correspondiente
                 internal_model = ""
@@ -176,12 +176,12 @@ class SAPApp:
                     internal_model
                 )
 
-                self.log_msg(f"[OK] Archivo procesado: PROCESADO_{f}", "OK")
+                self.log_msg(f"[OK] Archivo procesado: PROCESADO_{f}")
 
             except Exception as e:
-                self.log_msg(f"[ERROR] No se pudo procesar {f}: {e}", "ERROR")
+                self.log_msg(f"[ERROR] No se pudo procesar {f}: {e}")
 
-        self.log_msg("[INFO] Todos los archivos Excel han sido procesados", "INFO")
+        self.log_msg("[INFO] Todos los archivos Excel han sido procesados")
         
     #! ================= VALIDACIÓN DE BOTONES =================
     def verificar_habilitar_botones(self):
@@ -205,7 +205,7 @@ class SAPApp:
         win.grab_set()
 
         try:
-            img = Image.open("IMG/logo.ico")
+            img = Image.open("IMG/logo.png")
             img = img.resize((256, 256))
             icon = ImageTk.PhotoImage(img)
             win.iconphoto(True, icon)
@@ -376,11 +376,11 @@ class SAPApp:
             if not self.modelos:
                 raise ValueError("La columna 'MATERIAL' está vacía")
 
-            self.log_msg("[OK] Excel cargado correctamente", "OK")
+            self.log_msg("[OK] Excel cargado correctamente")
             return True
 
         except Exception as e:
-            self.log_msg(f"[ERROR] {e}", "ERROR")
+            self.log_msg(f"[ERROR] {e}")
             return False
         
     def procesar_modelo(self):
@@ -388,13 +388,13 @@ class SAPApp:
 
         #! Protección extra
         if total == 0:
-            self.log_msg("[ERROR] No hay materiales para procesar", "ERROR")
+            self.log_msg("[ERROR] No hay materiales para procesar")
             self.btn_procesar.config(state="normal")
             return
 
         #! Verificar si ya terminamos
         if self.idx >= total:
-            self.log_msg("\n[INFO] Iniciando procesamiento de las mainboards ", "INFO")
+            self.log_msg("\n[INFO] Iniciando procesamiento de las mainboards ")
             self.guardar_excel_final()
             self.set_status("Finalizado ✅")
             self.progress["value"] = 100
@@ -406,7 +406,7 @@ class SAPApp:
         internal_models = self.internal_models[self.idx]
         modelo = self.modelos[self.idx]
         self.set_status(f"Modelo {self.idx + 1}/{total}")
-        self.log_msg(f"\n▶ Modelo {self.idx + 1}/{total}: {modelo}", "INFO")
+        self.log_msg(f"\n▶ Modelo {self.idx + 1}/{total}: {modelo}")
 
         try:
             self.log_msg("  • Ejecutando CS11...", "INFO")
@@ -419,26 +419,22 @@ class SAPApp:
             )
 
             if not resultados:
-                self.log_msg(f"[DEBUG] No se encontraron plantas para {modelo}", "INFO")
+                self.log_msg(f"[INFO] No se encontraron plantas para {modelo}" )
 
             for planta, _ in resultados:
-                self.log_msg(f"  • Planta {planta}: exportando BOM", "INFO")
+                self.log_msg(f"  • Planta {planta}: exportando BOM")
                 ruta_xls = exportar_bom_a_xls(
                 self.session, 
                 modelo, 
-                mainboard=False,
+                mainboard=False
                 )
-                self.log_msg("    ✓ BOM exportado", "OK")
                 
-            
+                self.log_msg("    ✓ BOM exportado")
                 fecha = datetime.now().strftime("%Y-%m-%d")
-
                 nombre_base = os.path.splitext(os.path.basename(ruta_xls))[0]
                 nombre_base = re.sub(r'[\\/*?:"<>|]', "_", nombre_base)
                 nombre_base = re.sub(r'^(?:\d+-)+', '', nombre_base)
-
                 altboms = self.altboms[self.idx]
-
                 ruta_xlsx = os.path.join(
                     MODEL_FILES_FOLDER,
                     f"{fecha}-{nombre_base}-ALTBOM{altboms}.xlsx"
@@ -448,20 +444,20 @@ class SAPApp:
                     os.remove(ruta_xlsx)
 
                 convertir_xls_a_xlsx(ruta_xls, ruta_xlsx)
-                self.log_msg("    ✓ Convertido a XLSX", "OK")
+                self.log_msg("    ✓ Convertido a XLSX")
                 
 
-                self.log_msg("    • Analizando descripciones", "INFO")
+                self.log_msg("    • Analizando descripciones")
                 df_modelo = extract_descripcion_numbers(ruta_xlsx, internal_models, DESCRIPCIONES)
                 if df_modelo.empty:
-                    self.log_msg(f"[DEBUG] No se encontraron mainboards para {modelo}", "INFO")
+                    self.log_msg(f"[INFO] No se encontro mainboard para {modelo}", )
                 else:
                     df_modelo["Modelo"] = modelo
                     df_modelo["Planta"] = planta
                     self.df_todos = pd.concat([self.df_todos, df_modelo], ignore_index=True)
 
         except Exception as e:
-            self.log_msg(f"[ERROR] {e}", "ERROR")
+            self.log_msg(f"[ERROR] {e}")
             
         #! Incrementar índice y continuar
         self.idx += 1
@@ -472,7 +468,7 @@ class SAPApp:
         self.set_status("Procesando mainboards")
 
         #! Crear carpetas si no existen
-        for folder in [BASE_BOM_FOLDER, MODEL_FILES_FOLDER, MAINBOARD_1_FILES_FOLDER, MAINBOARD_2_FILES_FOLDER,MAINBOARD_2_FILES_FOLDER]:
+        for folder in [BASE_BOM_FOLDER, MODEL_FILES_FOLDER, MAINBOARD_1_FILES_FOLDER, MAINBOARD_2_FILES_FOLDER]:
             os.makedirs(folder, exist_ok=True)
 
         #! Procesamiento de mainboards
@@ -519,7 +515,7 @@ class SAPApp:
                     pass
 
             except Exception as e:
-                self.log_msg(f"[ERROR] Mainboard {number}: {e}", "ERROR")
+                self.log_msg(f"[ERROR] Mainboard {number}: {e}")
 
         #! Eliminar archivos .xls residuales
         for folder in [MAINBOARD_1_FILES_FOLDER, MAINBOARD_2_FILES_FOLDER, MODEL_FILES_FOLDER]:
@@ -529,7 +525,7 @@ class SAPApp:
                     try:
                         os.remove(ruta)
                     except Exception as e:
-                        self.log_msg(f"[ERROR] No se pudo eliminar {f}: {e}", "ERROR")
+                        self.log_msg(f"[ERROR] No se pudo eliminar {f}: {e}")
 
 
 if __name__ == "__main__":

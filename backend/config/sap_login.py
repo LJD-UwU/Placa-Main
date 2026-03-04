@@ -10,7 +10,7 @@ from backend.utils.sap_utils import esperar_sap, escribir_campo
 
 def abrir_sap_y_login(timeout=60):
     try:
-        # 🔐 Cargar credenciales dinámicas desde JSON
+        # ! Cargar credenciales desde JSON
         cred = cargar_credenciales()
         SAP_SYSTEM_NAME = cred.get("SAP_SYSTEM_NAME")
         SAP_USER = cred.get("SAP_USER")
@@ -22,7 +22,7 @@ def abrir_sap_y_login(timeout=60):
         sap_gui_auto = None
         application = None
 
-        # 🔁 Reutilizar sesión si ya existe
+        #! Reutilizar sesión si ya esta inicializada
         try:
             sap_gui_auto = win32com.client.GetObject("SAPGUI")
             if sap_gui_auto:
@@ -37,7 +37,7 @@ def abrir_sap_y_login(timeout=60):
         except Exception:
             print("[INFO] No se detectó sesión activa. Procediendo a abrir SAP...")
 
-        # 🚀 Abrir SAP Logon
+        #! Abrir SAP Logon
         print(f"[INFO] Iniciando SAP Logon en {SAP_LOGON_PATH}...")
         subprocess.Popen(SAP_LOGON_PATH)
 
@@ -55,13 +55,13 @@ def abrir_sap_y_login(timeout=60):
 
         application = sap_gui_auto.GetScriptingEngine
 
-        # 🔌 Conectar al sistema SAP desde JSON
+        #! Conectar al sistema SAP desde JSON
         print(f"[INFO] Conectando a: {SAP_SYSTEM_NAME}...")
         connection = application.OpenConnection(SAP_SYSTEM_NAME, True)
         session = connection.Children(0)
         session.findById("wnd[0]").maximize()
 
-        # 🔐 Login SAP
+        #! Login SAP
         try:
             escribir_campo(session, "wnd[0]/usr/txtRSYST-BNAME", SAP_USER)
             escribir_campo(session, "wnd[0]/usr/pwdRSYST-BCODE", SAP_PASSWORD)

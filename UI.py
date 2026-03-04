@@ -5,6 +5,7 @@ from backend.modules.procesar_motherboard_P1 import procesar_number
 from backend.utils.clean_excel import limpiar_excel_mainboard
 from backend.config.sap_login import abrir_sap_y_login
 from tkinter import ttk, filedialog, messagebox, scrolledtext
+from PIL import Image, ImageTk
 import os, re, time,sys
 import tkinter as tk
 import pandas as pd
@@ -31,8 +32,12 @@ class SAPApp:
         self.root.title("MBAutomator")
         self.root.geometry("460x420")
         self.root.resizable(False, False)
+
         try:
-            self.root.iconbitmap(r"IMG/logo.ico") 
+            img = Image.open("IMG/logo.ico") 
+            img = img.resize((256, 256))  
+            icon = ImageTk.PhotoImage(img)
+            self.root.iconphoto(True, icon)
         except Exception as e:
             print(f"No se pudo cargar el icono: {e}")
 
@@ -51,18 +56,18 @@ class SAPApp:
         main = ttk.Frame(root, padding=6)
         main.pack(fill="both", expand=True)
 
-        # --- Campo Excel ---
+        #! --- Campo de inserciocion del Excel ---
         fila_file = ttk.Frame(main)
         fila_file.pack(fill="x", pady=4)
         self.excel_path = tk.StringVar()
         ttk.Entry(fila_file, textvariable=self.excel_path).pack(side="left", fill="x", expand=True)
         ttk.Button(fila_file, text="📂", width=3, command=self.seleccionar_excel).pack(side="left", padx=4)
 
-        # --- Progreso ---
+        #! --- Progreso del sistema ---
         self.progress = ttk.Progressbar(main, mode="determinate")
         self.progress.pack(fill="x", pady=6)
 
-        # --- Botones ---
+        #! --- Botones ---
         fila_btn = ttk.Frame(main)
         fila_btn.pack(pady=4)
 
@@ -77,7 +82,7 @@ class SAPApp:
 
         ttk.Button(fila_btn, text="🔐 Credenciales", command=self.abrir_credenciales).pack(side="left", padx=4)
 
-        # --- Consola ---
+        #! --- Consola ---
         frame_log = ttk.LabelFrame(main, text="CONSOLA")
         frame_log.pack(fill="both", expand=True, pady=(6, 0))
         self.log = scrolledtext.ScrolledText(frame_log, height=9, font=("Consolas", 9))
@@ -90,23 +95,23 @@ class SAPApp:
         self.status = tk.StringVar(value="Estado: Listo")
         ttk.Label(root, textvariable=self.status, anchor="w").pack(fill="x", side="bottom", padx=6, pady=4)
 
-        # --- Datos ---
+        #! --- Datos ---
         self.modelos = []
         self.idx = 0
         self.session = None
         self.df_todos = pd.DataFrame(columns=["Modelo", "Planta", "Number", "Descripcion"])
 
-        # --- Vigilar cambios en Excel ---
+        #! --- Vigilar cambios en Excel ---
         self.excel_path.trace_add("write", lambda *args: self.verificar_habilitar_botones())
         
     def limpiar_datos(self):
-        # Limpiar la consola
+        #! Limpiar la consola
         self.log.config(state="normal")
         self.log.delete("1.0", tk.END)
         self.log.config(state="disabled")
         self.log_msg("[INFO] Log limpiado", "INFO")
 
-        # Confirmar acción
+        #! Confirmar acción
         respuesta = messagebox.askyesno(
             "Procesamiento de Excel",
             "¿Deseas procesar los archivos Excel?"
@@ -114,7 +119,7 @@ class SAPApp:
         if not respuesta:
             return
 
-        # ---------------- PROCESAR ARCHIVOS MAINBOARD P2 ----------------
+        #! ---------------- PROCESAR ARCHIVOS MAINBOARD P2 ----------------
         try:
             from backend.utils.clean_excel_p2 import procesar_archivo_principal_mainboard_2
         except ImportError as e:
@@ -126,36 +131,36 @@ class SAPApp:
             self.log_msg(f"[ERROR] La carpeta {folder} no existe", "ERROR")
             return
 
-        # Crear carpeta ARCHIVOS_FINALES si no existe
+        #! Crear carpeta ARCHIVOS_FINALES si no existe
         carpeta_final = os.path.join(folder, "ARCHIVOS_FINALES")
         os.makedirs(carpeta_final, exist_ok=True)
         self.log_msg(f"[INFO] Los archivos procesados se guardarán en: {carpeta_final}", "INFO")
 
-        # Obtener archivos XLSX ordenados por fecha de modificación (más antiguo primero)
+        #! Obtener archivos XLSX ordenados por fecha de modificación (más antiguo primero)
         archivos = [
             f for f in os.listdir(folder)
             if os.path.isfile(os.path.join(folder, f)) and f.lower().endswith(".xlsx")
         ]
         archivos.sort(
             key=lambda x: os.path.getmtime(os.path.join(folder, x)),
-            reverse=False  # 🔹 Más antiguo primero
+            reverse=False  #! Más reciente
         )
 
-        # Procesar archivos en ese orden
+        #! Procesar archivos en ese orden
         for i, f in enumerate(archivos):
             ruta_excel = os.path.join(folder, f)
-            salida_excel = os.path.join(carpeta_final, f"PROCESADO_{f}")
+            salida_excel = os.path.join(carpeta_final, f"MB-BMM-{f}")
 
             try:
                 self.log_msg(f"[INFO] Procesando archivo: {f}", "INFO")
 
-                # Asignar el modelo interno correspondiente
+                #! Asignar el modelo interno correspondiente
                 internal_model = ""
                 if hasattr(self, "internal_models") and self.internal_models:
                     if i < len(self.internal_models):
                         internal_model = self.internal_models[i]
 
-                # Llamar a la función principal de procesamiento
+                #! Llamar a la función principal de procesamiento
                 procesar_archivo_principal_mainboard_2(
                     ruta_excel,
                     salida_excel,
@@ -169,7 +174,7 @@ class SAPApp:
 
         self.log_msg("[INFO] Todos los archivos Excel han sido procesados", "INFO")
         
-    # ================= VALIDACIÓN DE BOTONES =================
+    #! ================= VALIDACIÓN DE BOTONES =================
     def verificar_habilitar_botones(self):
         cred = cargar_credenciales()
         excel = self.excel_path.get().strip()
@@ -177,10 +182,10 @@ class SAPApp:
             self.btn_procesar.config(state="normal")
         else:
             self.btn_procesar.config(state="disabled")
-        # Resultados siempre inicia deshabilitado
+        #! Resultados siempre inicia deshabilitado
         self.btn_open.config(state="disabled")
 
-    # ================= CREDENCIALES =================
+    #! ================= CREDENCIALES =================
     def abrir_credenciales(self):
         cred = cargar_credenciales()
         win = tk.Toplevel(self.root)
@@ -191,9 +196,12 @@ class SAPApp:
         win.grab_set()
 
         try:
-            win.iconbitmap(r"IMG/logo.ico")
+            img = Image.open("IMG/logo.ico")
+            img = img.resize((256, 256))
+            icon = ImageTk.PhotoImage(img)
+            win.iconphoto(True, icon)
         except Exception as e:
-            print(f"No se pudo cambiar el icono: {e}")
+                print(f"No se pudo cambiar el icono: {e}")
 
         ttk.Label(win, text="Sistema SAP").pack(pady=(12, 0))
         sistema = tk.StringVar(value=cred.get("SAP_SYSTEM_NAME", ""))
@@ -221,7 +229,7 @@ class SAPApp:
             self.verificar_habilitar_botones()
         ttk.Button(win, text="Guardar", command=guardar).pack(pady=18)
 
-    # ================= LOG =================
+    #! ================= LOG =================
     def log_msg(self, msg, tag="INFO"):
         self.log.config(state="normal")
         self.log.insert(tk.END, msg + "\n", tag)
@@ -229,7 +237,7 @@ class SAPApp:
         self.log.config(state="disabled")
         self.root.update()
 
-    # ================= ESTADO =================
+    #! ================= ESTADO DE LA APP =================
     def set_status(self, msg, animar=False):
         self.animando = False
         self.anim_dots = 0
@@ -256,7 +264,7 @@ class SAPApp:
         if self.btn_procesar["state"] == "disabled":
             self.root.after(1000, self.actualizar_tiempo)
 
-    # ================= UI =================
+    #! ================= UI =================
     def seleccionar_excel(self):
         f = filedialog.askopenfilename(filetypes=[("Excel", "*.xlsx")])
         if f:
@@ -277,9 +285,9 @@ class SAPApp:
             os.execl(sys.executable, sys.executable, *sys.argv)
 
 
-    # ================= FLUJO =================
+    #! ================= FLUJO =================
     def iniciar(self):
-        # Validar credenciales antes de iniciar
+        #! Validar credenciales antes de iniciar
         cred = cargar_credenciales()
         if not cred.get("SAP_SYSTEM_NAME") or not cred.get("SAP_USER") or not cred.get("SAP_PASSWORD"):
             messagebox.showerror(
@@ -287,14 +295,14 @@ class SAPApp:
                 "No se han ingresado las credenciales SAP.\n"
                 "Por favor ve a 🔐 Credenciales e ingrésalas antes de continuar."
             )
-            return  # No continuar hasta que estén completas
+            return  #! No continuar hasta que estén completas
 
-        # Validar que haya un Excel seleccionado
+        #! Validar que haya un Excel seleccionado
         if not self.excel_path.get():
             messagebox.showwarning("Atención", "Selecciona un Excel")
             return
 
-        # Deshabilitar botones y preparar progreso
+        #! Deshabilitar botones y preparar progreso
         self.btn_procesar.config(state="disabled")
         self.btn_open.config(state="disabled")
         self.progress["value"] = 0
@@ -310,20 +318,20 @@ class SAPApp:
         try:
             df = pd.read_excel(self.excel_path.get())
 
-            # Limpiar nombres de columnas
+            #! Limpiar nombres de columnas
             df.columns = df.columns.str.strip().str.upper()
 
-            # Columnas que queremos cargar
+            #! Columnas a cargar
             columnas_requeridas = ["MATERIAL", "PLANT", "ALTBOM", "INTERNAL MODEL"]
 
-            # Verificar que todas existan
+            #! Verificar que todas existan
             faltantes = [c for c in columnas_requeridas if c not in df.columns]
             if faltantes:
                 raise ValueError(
                     f"No se encontraron las columnas: {faltantes}. Columnas detectadas: {list(df.columns)}"
                 )
 
-            # Función auxiliar para limpiar y loguear
+            #! Función auxiliar para limpiar y loguear
             def limpiar_columna(nombre_columna):
                 valores = (
                     df[nombre_columna]
@@ -336,7 +344,7 @@ class SAPApp:
                 self.log_msg(f"[INFO] {len(valores)} valores '{nombre_columna}'")
                 return valores
 
-            # Cargar columnas
+            #! Cargar columnas
             self.modelos = limpiar_columna("MATERIAL")
             self.plantas = limpiar_columna("PLANT")
             self.altboms = limpiar_columna("ALTBOM")
@@ -350,7 +358,7 @@ class SAPApp:
             self.btn_procesar.config(state="normal")
             return
 
-        # Conexión a SAP
+        #! Conexión a SAP
         self.set_status("Conectando a SAP", animar=True)
 
         try:
@@ -382,13 +390,13 @@ class SAPApp:
     def procesar_modelo(self):
         total = len(self.modelos)
 
-        # Protección extra
+        #! Protección extra
         if total == 0:
             self.log_msg("[ERROR] No hay materiales para procesar", "ERROR")
             self.btn_procesar.config(state="normal")
             return
 
-        # Verificar si ya terminamos
+        #! Verificar si ya terminamos
         if self.idx >= total:
             self.log_msg("\n[INFO] Iniciando procesamiento de las mainboards ", "INFO")
             self.guardar_excel_final()
@@ -459,7 +467,7 @@ class SAPApp:
         except Exception as e:
             self.log_msg(f"[ERROR] {e}", "ERROR")
             
-        # Incrementar índice y continuar
+        #! Incrementar índice y continuar
         self.idx += 1
         self.root.after(200, self.procesar_modelo)
 
@@ -467,11 +475,11 @@ class SAPApp:
     def guardar_excel_final(self):
         self.set_status("Procesando mainboards")
 
-        # Crear carpetas si no existen
+        #! Crear carpetas si no existen
         for folder in [BASE_BOM_FOLDER, MODEL_FILES_FOLDER, MAINBOARD_1_FILES_FOLDER, MAINBOARD_2_FILES_FOLDER]:
             os.makedirs(folder, exist_ok=True)
 
-        # Procesamiento de mainboards
+        #! Procesamiento de mainboards
         for _, row in self.df_todos.iterrows():
             number = str(row["Number"]).strip()
             if any(number in f for f in os.listdir(MAINBOARD_1_FILES_FOLDER)):
@@ -512,13 +520,12 @@ class SAPApp:
                 print("Archivos generados:", materiales_detectados)
 
                 if materiales_detectados:
-                    # Aquí puedes guardar o registrar los materiales detectados
                     pass
 
             except Exception as e:
                 self.log_msg(f"[ERROR] Mainboard {number}: {e}", "ERROR")
 
-        # Eliminar archivos .xls residuales
+        #! Eliminar archivos .xls residuales
         for folder in [MAINBOARD_1_FILES_FOLDER, MAINBOARD_2_FILES_FOLDER, MODEL_FILES_FOLDER]:
             for f in os.listdir(folder):
                 ruta = os.path.join(folder, f)
@@ -533,7 +540,7 @@ if __name__ == "__main__":
     root = tk.Tk()
     app = SAPApp(root)
     
-    # Validación inmediata de credenciales
+    #! Validación inmediata de credenciales
     cred = cargar_credenciales()
     if not cred.get("SAP_SYSTEM_NAME") or not cred.get("SAP_USER") or not cred.get("SAP_PASSWORD"):
         messagebox.showinfo(

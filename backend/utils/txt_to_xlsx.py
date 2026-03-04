@@ -6,10 +6,10 @@ import xlwings as xw
 import pandas as pd
 from backend.config.sap_config import EXPORT_FINAL_PATH
 
-# CARPETA PRINCIPAL
+#! CARPETA PRINCIPAL
 BASE_BOM_FOLDER = os.path.join(EXPORT_FINAL_PATH, "BOM_FILES")
 
-# CARPETAS SECUNDARIAS
+#! CARPETAS SECUNDARIAS
 MODEL_FILES_FOLDER = os.path.join(BASE_BOM_FOLDER, "MODEL_INTERN")
 MAINBOARD_1_FILES_FOLDER = os.path.join(BASE_BOM_FOLDER, "MOTHERBOARD")
 MAINBOARD_2_FILES_FOLDER = os.path.join(BASE_BOM_FOLDER, "MAINBOARD_FINAL")
@@ -38,14 +38,12 @@ def convertir_xls_a_xlsx(ruta_xls: str, ruta_xlsx: str):
         app.screen_updating = False
 
         wb = app.books.open(ruta_xls)
-        wb.api.SaveAs(ruta_csv, FileFormat=6)  # Guardar como CSV
+        wb.api.SaveAs(ruta_csv, FileFormat=6) 
         wb.close()
         app.quit()
-
-        # Leer CSV en chino
         df = pd.read_csv(ruta_csv, encoding="gb2312")
 
-        # Guardar como XLSX
+        #! Guardar como XLSX
         df.to_excel(ruta_xlsx, index=False, engine="openpyxl")
         print(f"[OK] XLS → XLSX (CP936 preservado): {ruta_xlsx}")
         return ruta_xlsx
@@ -60,14 +58,13 @@ def convertir_xls_a_xlsx(ruta_xls: str, ruta_xlsx: str):
         return None
 
     finally:
-        # Limpiar CSV temporal
         if ruta_csv and os.path.exists(ruta_csv):
             try:
                 os.remove(ruta_csv)
             except:
                 pass
 
-# Función: Exportar BOM desde SAP
+#! Función: Exportar BOM desde SAP
 def exportar_bom_a_xls(
     session, material, 
     mainboard=False,
@@ -88,7 +85,7 @@ def exportar_bom_a_xls(
         session.findById("wnd[0]/tbar[1]/btn[45]").press()
         time.sleep(1)
 
-        # Opción Spreadsheet si aparece
+        #! Opción Spreadsheet si aparece
         try:
             session.findById(
                 "wnd[1]/usr/sub:SAPLSPO5:0101/radSPOPLI-SELFLAG[1,0]"
@@ -113,7 +110,7 @@ def exportar_bom_a_xls(
         print(f"[ERROR] Exportación SAP falló ({material}): {e}")
         return None
 
-# Espera de archivo
+#! Espera de archivo
 def esperar_archivo(path, timeout=60):
     inicio = time.time()
     while time.time() - inicio < timeout:

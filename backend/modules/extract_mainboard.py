@@ -7,7 +7,7 @@ def extract_descripcion_numbers(input_xlsx, internal_models, descripcion_a_busca
     if isinstance(descripcion_a_buscar, str):
         descripcion_a_buscar = [descripcion_a_buscar]
 
-    # Asegurarnos que internal_models sea string
+    #! Asegurarnos que internal_models sea un dato string
     internal_models = str(internal_models) if internal_models else ""
 
     try:
@@ -24,7 +24,7 @@ def extract_descripcion_numbers(input_xlsx, internal_models, descripcion_a_busca
                 continue
             cell_str = str(cell)
 
-            # Filtrar solo si contiene descripción y modelo
+            #! Filtrar solo si contiene descripción y modelo
             if any(desc in cell_str for desc in descripcion_a_buscar) and internal_models in cell_str:
                 number = None
                 if i > 0:

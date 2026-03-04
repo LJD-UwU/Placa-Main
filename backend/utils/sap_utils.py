@@ -4,7 +4,6 @@ import os
 from backend.config.sap_config import (
     PAUSA
 )
-# UTILIDADES GENERALES SAP
 
 timeout=15
 
@@ -60,7 +59,7 @@ def ejecutar_busqueda(session):
         session.findById("wnd[0]").sendVKey(8)
     esperar_sap(session)
 
-# UTILIDADES CS11 / VALIDACIONES
+#! UTILIDADES CS11 / VALIDACIONES
 
 def validar_planta(session, planta):
     """Valida si la planta actual coincide"""
@@ -93,7 +92,7 @@ def esperar_cs11_completo(session, timeout=30):
         time.sleep(PAUSA)
     raise Exception("CS11 no terminó de cargar el grid")
 
-# CONEXIÓN Y EXPORTACIÓN
+#! CONEXIÓN Y EXPORTACIÓN
 
 def conectar_sap():
     """
@@ -121,11 +120,11 @@ def exportar_bom_a_excel(session, nombre_archivo="BOM.xlsx", ruta_carpeta=os.get
     Retorna la ruta completa del archivo generado.
     """
     try:
-        # Construir ruta completa
+        #! Construir ruta completa
         ruta_excel = os.path.join(ruta_carpeta, nombre_archivo)
 
-        # Usar función de SAP para exportar a Excel
-        # Presionar botón de exportar
+        #! Usar función de SAP para exportar a Excel
+        #! Presionar botón de exportar
         try:
             session.findById("wnd[0]/mbar/menu[0]/menu[3]/menu[1]").select()
         except:
@@ -146,7 +145,7 @@ def validar_planta(session, planta, intentos=3, delay=1):
             if campo.text.strip() == planta:
                 return True
             else:
-                # Si no coincide, intentamos setearlo nuevamente
+                #! Si no coincide, intentamos setearlo nuevamente
                 campo.text = planta
                 campo.caretPosition = len(planta)
                 time.sleep(delay)
@@ -174,7 +173,7 @@ def acceso_bom_exitoso(session):
     Verifica si realmente se accedió al BOM en CS11
     """
     try:
-        # ❌ Mensaje de BOM inexistente
+        #! Mensaje de BOM inexistente
         try:
             status = session.findById("wnd[0]/sbar").Text
             if "没有可用的 BOM" in status:
@@ -182,7 +181,7 @@ def acceso_bom_exitoso(session):
         except:
             pass
 
-        # ✅ Grid real con filas
+        # ! Grid real con filas
         posibles_grids = [
             "wnd[0]/usr/cntlGRID1/shellcont/shell",
             "wnd[0]/usr/cntlGRID1/shellcont/shell/shellcont[1]/shell"

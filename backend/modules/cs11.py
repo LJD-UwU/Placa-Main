@@ -20,7 +20,7 @@ def ejecutar_cs11(session, material, plantas, altboms, uso=FILTRO, pausa_entre_a
     session.findById("wnd[0]").maximize()
     pausar(pausa_entre_acciones)
 
-    # Ir a CS11
+    #! Ir a CS11
     print(f"[INFO] Ingresando transacción {TRANSACCION}")
     session.findById("wnd[0]/tbar[0]/okcd").text = "/NCS11"
     pausar(pausa_entre_acciones)

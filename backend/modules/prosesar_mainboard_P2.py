@@ -57,7 +57,7 @@ def procesar_material_desde_mainboard(session, ruta_mainboard_xlsx, uso, planta)
     print(f"[INFO] Material detectado desde mainboard: {material}, Planta: {planta}")
 
     try:
-        # ===== ENTRAR A TRANSACCIÓN SAP =====
+        #! ===== ENTRAR A TRANSACCIÓN SAP =====
         session.findById("wnd[0]/tbar[0]/okcd").text = TRANSACCION
         session.findById("wnd[0]").sendVKey(0)
 

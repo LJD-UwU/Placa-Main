@@ -18,6 +18,7 @@ from backend.utils.txt_to_xlsx import (
     MODEL_FILES_FOLDER,
     MAINBOARD_1_FILES_FOLDER,
     MAINBOARD_2_FILES_FOLDER,
+    MAINBOARD_3_FILES_FOLDER,
     MODEL_FILES_FOLDER,
     BASE_BOM_FOLDER
 )
@@ -111,6 +112,15 @@ class SAPApp:
         self.log.config(state="disabled")
         self.log_msg("[INFO] Log limpiado", "INFO")
 
+        #! VALIDAR QUE HAYA EXCEL SELECCIONADO
+        if not self.excel_path.get():
+            messagebox.showwarning("Atención", "Selecciona un Excel primero")
+            return
+
+        #! CARGAR DATOS DEL EXCEL
+        if not self.cargar_excel_datos():
+            return
+
         #! Confirmar acción
         respuesta = messagebox.askyesno(
             "Procesamiento de Excel",
@@ -126,7 +136,7 @@ class SAPApp:
             self.log_msg(f"[ERROR] No se pudo importar procesar_mainboard_P2.py: {e}", "ERROR")
             return
 
-        folder = MAINBOARD_2_FILES_FOLDER
+        folder = MAINBOARD_3_FILES_FOLDER
         if not os.path.exists(folder):
             self.log_msg(f"[ERROR] La carpeta {folder} no existe", "ERROR")
             return
@@ -271,7 +281,7 @@ class SAPApp:
             self.excel_path.set(f)
 
     def abrir_resultados(self):
-        path = os.path.abspath(MAINBOARD_2_FILES_FOLDER)
+        path = os.path.abspath(MAINBOARD_3_FILES_FOLDER)
         if os.path.exists(path):
             os.startfile(path)
             
@@ -312,28 +322,45 @@ class SAPApp:
 
         self.log_msg("[INFO] Automatización iniciada")
         self.set_status("Cargando Excel", animar=True)
-        self.root.after(100, self.cargar_excel)
+        self.root.after(100, self.flujo_procesar)
         
-    def cargar_excel(self):
+        
+    def flujo_procesar(self):
+        if not self.cargar_excel_datos():
+            self.btn_procesar.config(state="normal")
+            return
+
+        self.set_status("Conectando a SAP", animar=True)
+
+        try:
+            self.session = abrir_sap_y_login()
+        except Exception as e:
+            self.log_msg(f"[ERROR] {e}", "ERROR")
+            self.btn_procesar.config(state="normal")
+            self.animando = False
+            return
+
+        self.animando = False
+        self.log_msg("[OK] Conectado a SAP", "OK")
+        self.idx = 0
+        self.root.after(200, self.procesar_modelo)
+        
+    def cargar_excel_datos(self):
         try:
             df = pd.read_excel(self.excel_path.get())
 
-            #! Limpiar nombres de columnas
             df.columns = df.columns.str.strip().str.upper()
 
-            #! Columnas a cargar
             columnas_requeridas = ["MATERIAL", "PLANT", "ALTBOM", "INTERNAL MODEL"]
 
-            #! Verificar que todas existan
             faltantes = [c for c in columnas_requeridas if c not in df.columns]
             if faltantes:
                 raise ValueError(
-                    f"No se encontraron las columnas: {faltantes}. Columnas detectadas: {list(df.columns)}"
+                    f"No se encontraron las columnas: {faltantes}"
                 )
 
-            #! Función auxiliar para limpiar y loguear
             def limpiar_columna(nombre_columna):
-                valores = (
+                return (
                     df[nombre_columna]
                     .dropna()
                     .astype(str)
@@ -341,10 +368,7 @@ class SAPApp:
                     .str.replace(r"\.0$", "", regex=True)
                     .tolist()
                 )
-                self.log_msg(f"[INFO] {len(valores)} valores '{nombre_columna}'")
-                return valores
 
-            #! Cargar columnas
             self.modelos = limpiar_columna("MATERIAL")
             self.plantas = limpiar_columna("PLANT")
             self.altboms = limpiar_columna("ALTBOM")
@@ -353,40 +377,13 @@ class SAPApp:
             if not self.modelos:
                 raise ValueError("La columna 'MATERIAL' está vacía")
 
+            self.log_msg("[OK] Excel cargado correctamente", "OK")
+            return True
+
         except Exception as e:
             self.log_msg(f"[ERROR] {e}", "ERROR")
-            self.btn_procesar.config(state="normal")
-            return
-
-        #! Conexión a SAP
-        self.set_status("Conectando a SAP", animar=True)
-
-        try:
-            self.session = abrir_sap_y_login()
-        except Exception as e:
-            msg = str(e)
-            if "Credenciales SAP incompletas" in msg:
-                self.log_msg(f"[ERROR] {msg}", "ERROR")
-                messagebox.showerror(
-                    "Error SAP",
-                    "Falló la apertura o login de SAP:\nCredenciales SAP incompletas.\nPor favor revisa tus credenciales."
-                )
-            else:
-                self.log_msg(f"[ERROR] {msg}", "ERROR")
-                messagebox.showerror("Error SAP", f"No se pudo conectar a SAP:\n{msg}")
-
-            self.btn_procesar.config(state="normal")
-            self.animando = False
-            self.session = None
-            return
-
-        # Todo OK
-        self.animando = False
-        self.log_msg("[OK] Conectado a SAP", "OK")
-        self.idx = 0
-        self.root.after(200, self.procesar_modelo)
-
-
+            return False
+        
     def procesar_modelo(self):
         total = len(self.modelos)
 
@@ -476,7 +473,7 @@ class SAPApp:
         self.set_status("Procesando mainboards")
 
         #! Crear carpetas si no existen
-        for folder in [BASE_BOM_FOLDER, MODEL_FILES_FOLDER, MAINBOARD_1_FILES_FOLDER, MAINBOARD_2_FILES_FOLDER]:
+        for folder in [BASE_BOM_FOLDER, MODEL_FILES_FOLDER, MAINBOARD_1_FILES_FOLDER, MAINBOARD_2_FILES_FOLDER,MAINBOARD_3_FILES_FOLDER]:
             os.makedirs(folder, exist_ok=True)
 
         #! Procesamiento de mainboards
@@ -526,7 +523,7 @@ class SAPApp:
                 self.log_msg(f"[ERROR] Mainboard {number}: {e}", "ERROR")
 
         #! Eliminar archivos .xls residuales
-        for folder in [MAINBOARD_1_FILES_FOLDER, MAINBOARD_2_FILES_FOLDER, MODEL_FILES_FOLDER]:
+        for folder in [MAINBOARD_1_FILES_FOLDER, MAINBOARD_3_FILES_FOLDER, MODEL_FILES_FOLDER]:
             for f in os.listdir(folder):
                 ruta = os.path.join(folder, f)
                 if os.path.isfile(ruta) and f.lower().endswith(".xls"):

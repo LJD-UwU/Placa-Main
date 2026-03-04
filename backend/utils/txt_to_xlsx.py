@@ -12,12 +12,14 @@ BASE_BOM_FOLDER = os.path.join(EXPORT_FINAL_PATH, "BOM_FILES")
 #! CARPETAS SECUNDARIAS
 MODEL_FILES_FOLDER = os.path.join(BASE_BOM_FOLDER, "MODEL_INTERN")
 MAINBOARD_1_FILES_FOLDER = os.path.join(BASE_BOM_FOLDER, "MOTHERBOARD")
-MAINBOARD_2_FILES_FOLDER = os.path.join(BASE_BOM_FOLDER, "MAINBOARD_FINAL")
+MAINBOARD_2_FILES_FOLDER = os.path.join(BASE_BOM_FOLDER, "MAIN_BOARD_FINAL")
+MAINBOARD_3_FILES_FOLDER = os.path.join(MAINBOARD_2_FILES_FOLDER, "FINAL_FINAL")
 
 
 os.makedirs(MODEL_FILES_FOLDER, exist_ok=True)
 os.makedirs(MAINBOARD_1_FILES_FOLDER, exist_ok=True)
 os.makedirs(MAINBOARD_2_FILES_FOLDER, exist_ok=True)
+os.makedirs(MAINBOARD_3_FILES_FOLDER, exist_ok=True)
 
 
 def convertir_xls_a_xlsx(ruta_xls: str, ruta_xlsx: str):

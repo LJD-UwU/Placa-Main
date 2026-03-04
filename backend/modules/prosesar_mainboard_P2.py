@@ -5,7 +5,7 @@ import shutil
 from backend.utils.txt_to_xlsx import (
     exportar_bom_a_xls,
     convertir_xls_a_xlsx,
-    MAINBOARD_2_FILES_FOLDER
+    MAINBOARD_3_FILES_FOLDER
 )
 
 from backend.config.sap_config import TRANSACCION
@@ -72,7 +72,7 @@ def procesar_material_desde_mainboard(session, ruta_mainboard_xlsx, uso, planta)
 
         #! ===== VERIFICAR SI YA EXISTE XLS =====
         nombre_xls_esperado = f"{material}_{planta}.xls"
-        ruta_xls_destino = os.path.join(MAINBOARD_2_FILES_FOLDER, nombre_xls_esperado)
+        ruta_xls_destino = os.path.join(MAINBOARD_3_FILES_FOLDER, nombre_xls_esperado)
 
         if os.path.exists(ruta_xls_destino):
             print(f"[INFO] XLS ya existe, no se descargará de SAP: {ruta_xls_destino}")
@@ -90,7 +90,7 @@ def procesar_material_desde_mainboard(session, ruta_mainboard_xlsx, uso, planta)
                 print(f"[WARNING] Falló exportación BOM planta {planta}")
                 return None
 
-            #! ===== MOVER XLS A MAINBOARD_2_FILES_FOLDER =====
+            #! ===== MOVER XLS A MAINBOARD_3_FILES_FOLDER =====
             try:
                 shutil.move(ruta_xls, ruta_xls_destino)
                 ruta_xls = ruta_xls_destino
@@ -100,7 +100,7 @@ def procesar_material_desde_mainboard(session, ruta_mainboard_xlsx, uso, planta)
 
         #! ===== CONVERTIR XLS → XLSX =====
         nombre_base = f"{material}"
-        ruta_xlsx = os.path.join(MAINBOARD_2_FILES_FOLDER, f"{nombre_base}.xlsx")
+        ruta_xlsx = os.path.join(MAINBOARD_3_FILES_FOLDER, f"{nombre_base}.xlsx")
 
         try:
             convertir_xls_a_xlsx(str(ruta_xls), str(ruta_xlsx))

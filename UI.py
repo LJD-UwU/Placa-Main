@@ -18,7 +18,6 @@ from backend.utils.txt_to_xlsx import (
     MODEL_FILES_FOLDER,
     MAINBOARD_1_FILES_FOLDER,
     MAINBOARD_2_FILES_FOLDER,
-    MAINBOARD_3_FILES_FOLDER,
     MODEL_FILES_FOLDER,
     BASE_BOM_FOLDER
 )
@@ -136,7 +135,7 @@ class SAPApp:
             self.log_msg(f"[ERROR] No se pudo importar procesar_mainboard_P2.py: {e}", "ERROR")
             return
 
-        folder = MAINBOARD_3_FILES_FOLDER
+        folder = MAINBOARD_2_FILES_FOLDER
         if not os.path.exists(folder):
             self.log_msg(f"[ERROR] La carpeta {folder} no existe", "ERROR")
             return
@@ -281,7 +280,7 @@ class SAPApp:
             self.excel_path.set(f)
 
     def abrir_resultados(self):
-        path = os.path.abspath(MAINBOARD_3_FILES_FOLDER)
+        path = os.path.abspath(MAINBOARD_2_FILES_FOLDER)
         if os.path.exists(path):
             os.startfile(path)
             
@@ -473,7 +472,7 @@ class SAPApp:
         self.set_status("Procesando mainboards")
 
         #! Crear carpetas si no existen
-        for folder in [BASE_BOM_FOLDER, MODEL_FILES_FOLDER, MAINBOARD_1_FILES_FOLDER, MAINBOARD_2_FILES_FOLDER,MAINBOARD_3_FILES_FOLDER]:
+        for folder in [BASE_BOM_FOLDER, MODEL_FILES_FOLDER, MAINBOARD_1_FILES_FOLDER, MAINBOARD_2_FILES_FOLDER,MAINBOARD_2_FILES_FOLDER]:
             os.makedirs(folder, exist_ok=True)
 
         #! Procesamiento de mainboards
@@ -523,7 +522,7 @@ class SAPApp:
                 self.log_msg(f"[ERROR] Mainboard {number}: {e}", "ERROR")
 
         #! Eliminar archivos .xls residuales
-        for folder in [MAINBOARD_1_FILES_FOLDER, MAINBOARD_3_FILES_FOLDER, MODEL_FILES_FOLDER]:
+        for folder in [MAINBOARD_1_FILES_FOLDER, MAINBOARD_2_FILES_FOLDER, MODEL_FILES_FOLDER]:
             for f in os.listdir(folder):
                 ruta = os.path.join(folder, f)
                 if os.path.isfile(ruta) and f.lower().endswith(".xls"):

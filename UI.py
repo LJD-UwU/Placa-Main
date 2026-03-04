@@ -132,7 +132,7 @@ class SAPApp:
         try:
             from backend.utils.clean_excel_p2 import procesar_archivo_principal_mainboard_2
         except ImportError as e:
-            self.log_msg(f"[ERROR] No se pudo importar procesar_mainboard_P2.py: {e}")
+            self.log_msg(f"[ERROR] No se pudo importar procesar_mainboard_P2.py: {e}","ERROR")
             return
 
         folder = MAINBOARD_2_FILES_FOLDER
@@ -143,7 +143,7 @@ class SAPApp:
         #! Crear carpeta ARCHIVOS_FINALES si no existe
         carpeta_final = os.path.join(folder, "ARCHIVOS_FINALES")
         os.makedirs(carpeta_final, exist_ok=True)
-        self.log_msg(f"[INFO] Los archivos procesados se guardarán en: {carpeta_final}")
+        self.log_msg(f"Los archivos procesados se guardarán en: {carpeta_final}\n","OK")
 
         #! Obtener archivos XLSX ordenados por fecha de modificación (más antiguo primero)
         archivos = [
@@ -161,7 +161,7 @@ class SAPApp:
             salida_excel = os.path.join(carpeta_final, f"MB-BMM-{f}")
 
             try:
-                self.log_msg(f"[INFO] Procesando archivo: {f}")
+                self.log_msg(f"[INFO] Procesando archivo: {f}","OK")
 
                 #! Asignar el modelo interno correspondiente
                 internal_model = ""
@@ -176,10 +176,10 @@ class SAPApp:
                     internal_model
                 )
 
-                self.log_msg(f"[OK] Archivo procesado: PROCESADO_{f}")
+                self.log_msg(f"[OK] Archivo procesado: PROCESADO_{f}\n")
 
             except Exception as e:
-                self.log_msg(f"[ERROR] No se pudo procesar {f}: {e}")
+                self.log_msg(f"[ERROR] No se pudo procesar {f}: {e}","ERROR")
 
         self.log_msg("[INFO] Todos los archivos Excel han sido procesados")
         
@@ -376,11 +376,11 @@ class SAPApp:
             if not self.modelos:
                 raise ValueError("La columna 'MATERIAL' está vacía")
 
-            self.log_msg("[OK] Excel cargado correctamente")
+            self.log_msg("Excel cargado correctamente:","OK")
             return True
 
         except Exception as e:
-            self.log_msg(f"[ERROR] {e}")
+            self.log_msg(f"[ERROR] {e}","ERROR")
             return False
         
     def procesar_modelo(self):
@@ -388,13 +388,13 @@ class SAPApp:
 
         #! Protección extra
         if total == 0:
-            self.log_msg("[ERROR] No hay materiales para procesar")
+            self.log_msg("[ERROR] No hay materiales para procesar","ERROR")
             self.btn_procesar.config(state="normal")
             return
 
         #! Verificar si ya terminamos
         if self.idx >= total:
-            self.log_msg("\n[INFO] Iniciando procesamiento de las mainboards ")
+            self.log_msg("\n[INFO] Iniciando procesamiento de las mainboards\n")
             self.guardar_excel_final()
             self.set_status("Finalizado ✅")
             self.progress["value"] = 100
@@ -406,10 +406,10 @@ class SAPApp:
         internal_models = self.internal_models[self.idx]
         modelo = self.modelos[self.idx]
         self.set_status(f"Modelo {self.idx + 1}/{total}")
-        self.log_msg(f"\n▶ Modelo {self.idx + 1}/{total}: {modelo}")
+        self.log_msg(f"\n▶ Modelo {self.idx + 1}/{total}: {modelo}","OK")
 
         try:
-            self.log_msg("  • Ejecutando CS11...", "INFO")
+            self.log_msg("  • Ejecutando CS11...\n", "INFO")
             resultados = ejecutar_cs11(
                 self.session,
                 material=modelo,
@@ -447,7 +447,7 @@ class SAPApp:
                 self.log_msg("    ✓ Convertido a XLSX")
                 
 
-                self.log_msg("    • Analizando descripciones")
+                self.log_msg("    • Analizando descripciones","OK")
                 df_modelo = extract_descripcion_numbers(ruta_xlsx, internal_models, DESCRIPCIONES)
                 if df_modelo.empty:
                     self.log_msg(f"[INFO] No se encontro mainboard para {modelo}", )
@@ -457,7 +457,7 @@ class SAPApp:
                     self.df_todos = pd.concat([self.df_todos, df_modelo], ignore_index=True)
 
         except Exception as e:
-            self.log_msg(f"[ERROR] {e}")
+            self.log_msg(f"[ERROR] {e}","ERROR")
             
         #! Incrementar índice y continuar
         self.idx += 1
@@ -515,7 +515,7 @@ class SAPApp:
                     pass
 
             except Exception as e:
-                self.log_msg(f"[ERROR] Mainboard {number}: {e}")
+                self.log_msg(f"[ERROR] Mainboard {number}: {e}","ERROR")
 
         #! Eliminar archivos .xls residuales
         for folder in [MAINBOARD_1_FILES_FOLDER, MAINBOARD_2_FILES_FOLDER, MODEL_FILES_FOLDER]:
@@ -525,7 +525,7 @@ class SAPApp:
                     try:
                         os.remove(ruta)
                     except Exception as e:
-                        self.log_msg(f"[ERROR] No se pudo eliminar {f}: {e}")
+                        self.log_msg(f"[ERROR] No se pudo eliminar {f}: {e}","ERROR")
 
 
 if __name__ == "__main__":

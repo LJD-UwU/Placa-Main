@@ -4,6 +4,7 @@ from openpyxl.styles import PatternFill, Font
 import pandas as pd
 from glob import glob
 from backend.config.sap_config import EXTRAER_ARCHIVO
+from openpyxl.styles import PatternFill, Font, Alignment
 import re
 
 
@@ -163,7 +164,7 @@ def agregar_submateriales(df_main, ws):
             "DESCRIPTION IN CHINESE": "",
             "DESCRIPTION IN ENGLISH": "RIBBON\\110mm*450m\\LOCAL 556",
             "QTY": "556",
-            "UN": "",
+            "UN": "CM",
             "LEVEL": 2,
             "_SUBMATERIAL": True
         }
@@ -212,7 +213,8 @@ def agregar_submateriales(df_main, ws):
 def procesar_archivo_principal_mainboard_2(
     ruta_excel_principal: str, 
     ruta_salida_principal: str,
-    internal_model: str =""
+    internal_model: str ="",
+    plantas: str =""
     ):
     
     wb = openpyxl.load_workbook(ruta_excel_principal)
@@ -327,6 +329,10 @@ def procesar_archivo_principal_mainboard_2(
 
         ws["E3"] = f"MAIN BOARD\\{texto_modelo}\\ROH"
         ws["E4"] = f"MAIN BOARD\\{texto_modelo}\\ROH"
+        
+        texto_planta = plantas.strip() if plantas else ""
+        
+        ws["D3"] = f"{texto_planta}"
 
         valor = ws["D5"].value
 
@@ -347,19 +353,25 @@ def procesar_archivo_principal_mainboard_2(
         for col, header in enumerate(encabezados_item, start=1):
             ws_item.cell(row=1, column=col).value = header
 
-    columnas_numericas = ["LEVEL", "ITEM", "QTY","MATERIAL"]
+    columnas_numericas = ["LEVEL", "ITEM", "QTY","MATERIAL","DESCRIPTION IN CHINESE"]
     mapa_columnas = {str(ws.cell(row=1, column=c).value).strip().upper(): openpyxl.utils.get_column_letter(c)
                      for c in range(1, ws.max_column + 1)
                      if str(ws.cell(row=1, column=c).value).strip().upper() in columnas_numericas}
+    
     for nombre, letra in mapa_columnas.items():
-        for cell in ws[letra][1:]:
-            if cell.value is not None:
-                valor = str(cell.value).strip()
-                if valor != "":
-                    try:
-                        cell.value = float(valor.replace(",", ""))
-                    except:
-                        pass
+            for cell in ws[letra][1:]:
+                if cell.value is not None:
+                    valor = str(cell.value).strip()
+                    if valor != "":
+                        try:
+                            cell.value = float(valor.replace(",", ""))
+                        except:
+                            pass
+
+        # Alinear todo el texto a la izquierda
+    for fila in ws.iter_rows():
+            for celda in fila:
+                celda.alignment = Alignment(horizontal="left")
 
     wb.save(ruta_salida_principal)
     print(f"[OK] Proceso completo {ruta_salida_principal}")

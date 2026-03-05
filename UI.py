@@ -6,7 +6,7 @@ from backend.utils.clean_excel import limpiar_excel_mainboard
 from backend.config.sap_login import abrir_sap_y_login
 from tkinter import ttk, filedialog, messagebox, scrolledtext
 from PIL import Image, ImageTk
-import os, re, time,sys
+import os, re, time,sys,subprocess
 import tkinter as tk
 import pandas as pd
 from datetime import datetime
@@ -29,7 +29,7 @@ class SAPApp:
     def __init__(self, root):
         self.root = root
         self.root.title("MBAutomator")
-        self.root.geometry("460x420")
+        self.root.geometry("510x420")
         self.root.resizable(False, False)
 
         try:
@@ -50,7 +50,7 @@ class SAPApp:
         style.configure("TProgressbar", thickness=10)
 
         ttk.Label(root, text="Automatización SAP", style="Title.TLabel").pack(pady=(8, 0))
-        ttk.Label(root, text="Procesamiento automático de modelos y mainboards", foreground="gray").pack(pady=(0, 6))
+        ttk.Label(root, text="Procesamiento automático para el BOM", foreground="gray").pack(pady=(0, 6))
 
         main = ttk.Frame(root, padding=6)
         main.pack(fill="both", expand=True)
@@ -69,6 +69,12 @@ class SAPApp:
         #! --- Botones ---
         fila_btn = ttk.Frame(main)
         fila_btn.pack(pady=4)
+        self.btn_mainboard = ttk.Button(
+        fila_btn,
+        text="🖥 Motherboard",
+        command=self.abrir_app_mainboard
+        )
+        self.btn_mainboard.pack(side="left", padx=4)
 
         self.btn_procesar = ttk.Button(fila_btn, text="▶ Procesar", command=self.iniciar, state="disabled")
         self.btn_procesar.pack(side="left", padx=4)
@@ -103,6 +109,13 @@ class SAPApp:
 
         #! --- Vigilar cambios en Excel ---
         self.excel_path.trace_add("write", lambda *args: self.verificar_habilitar_botones())
+        
+    def abrir_app_mainboard(self):
+        try:
+            ruta_script = os.path.join(os.getcwd(), "motherboard_app.py")
+            subprocess.Popen([sys.executable, ruta_script])
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo abrir la app:\n{e}")
         
     def limpiar_datos(self):
         #! Limpiar la consola
@@ -168,12 +181,18 @@ class SAPApp:
                 if hasattr(self, "internal_models") and self.internal_models:
                     if i < len(self.internal_models):
                         internal_model = self.internal_models[i]
+                        
+                plantas = ""
+                if hasattr(self, "plantas") and self.plantas:
+                    if i < len(self.plantas):
+                        plantas = self.plantas[i]
 
                 #! Llamar a la función principal de procesamiento
                 procesar_archivo_principal_mainboard_2(
                     ruta_excel,
                     salida_excel,
-                    internal_model
+                    internal_model,
+                    plantas
                 )
 
                 self.log_msg(f"[OK] Archivo procesado: PROCESADO_{f}\n")

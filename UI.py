@@ -6,7 +6,7 @@ from backend.utils.clean_excel import limpiar_excel_mainboard
 from backend.config.sap_login import abrir_sap_y_login
 from tkinter import ttk, filedialog, messagebox, scrolledtext
 from PIL import Image, ImageTk
-import os, re, time,sys,subprocess
+import os, re, time, sys,subprocess
 import tkinter as tk
 import pandas as pd
 from datetime import datetime
@@ -15,10 +15,14 @@ from backend.modules.cs11 import ejecutar_cs11
 from backend.utils.txt_to_xlsx import (
     exportar_bom_a_xls,
     convertir_xls_a_xlsx,
+    BASE_BOM_FOLDER,
+    TE1_FOLDER,
     MODEL_FILES_FOLDER,
     MAINBOARD_1_FILES_FOLDER,
     MAINBOARD_2_FILES_FOLDER,
-    BASE_BOM_FOLDER
+    MOTHERBOARD_FILES,
+    MOTHERBOARD_1_FILES_FOLDER,
+    MOTHERBOARD_2_FILES_FOLDER
 )
 from backend.config.sap_config import (
     DESCRIPCIONES,
@@ -111,12 +115,15 @@ class SAPApp:
         self.excel_path.trace_add("write", lambda *args: self.verificar_habilitar_botones())
         
     def abrir_app_mainboard(self):
+        if hasattr(self, "_mainboard_proc") and self._mainboard_proc.poll() is None:
+            return
         try:
             ruta_script = os.path.join(os.getcwd(), "motherboard_app.py")
-            subprocess.Popen([sys.executable, ruta_script])
+            self._mainboard_proc = subprocess.Popen([sys.executable, ruta_script])
+
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo abrir la app:\n{e}")
-        
+            
     def limpiar_datos(self):
         #! Limpiar la consola
         self.log.config(state="normal")
@@ -294,7 +301,7 @@ class SAPApp:
 
     #! ================= UI =================
     def seleccionar_excel(self):
-        f = filedialog.askopenfilename(filetypes=[("Excel", "*.xlsx")])
+        f = filedialog.askopenfilename(filetypes=[("Excel", "*")])
         if f:
             self.excel_path.set(f)
 
@@ -303,15 +310,6 @@ class SAPApp:
         if os.path.exists(path):
             os.startfile(path)
             
-    def reiniciar_app(self):
-        respuesta = messagebox.askyesno(
-            "Reiniciar",
-            "¿Seguro que deseas reiniciar la aplicación?"
-        )
-        if respuesta:
-            self.root.destroy()
-            os.execl(sys.executable, sys.executable, *sys.argv)
-
 
     #! ================= FLUJO =================
     def iniciar(self):
@@ -487,7 +485,7 @@ class SAPApp:
         self.set_status("Procesando mainboards")
 
         #! Crear carpetas si no existen
-        for folder in [BASE_BOM_FOLDER, MODEL_FILES_FOLDER, MAINBOARD_1_FILES_FOLDER, MAINBOARD_2_FILES_FOLDER]:
+        for folder in [BASE_BOM_FOLDER, MODEL_FILES_FOLDER, MAINBOARD_1_FILES_FOLDER, MAINBOARD_2_FILES_FOLDER,MOTHERBOARD_FILES, MOTHERBOARD_1_FILES_FOLDER, MOTHERBOARD_2_FILES_FOLDER]:
             os.makedirs(folder, exist_ok=True)
 
         #! Procesamiento de mainboards
@@ -537,7 +535,7 @@ class SAPApp:
                 self.log_msg(f"[ERROR] Mainboard {number}: {e}","ERROR")
 
         #! Eliminar archivos .xls residuales
-        for folder in [MAINBOARD_1_FILES_FOLDER, MAINBOARD_2_FILES_FOLDER, MODEL_FILES_FOLDER]:
+        for folder in [MAINBOARD_1_FILES_FOLDER, MAINBOARD_2_FILES_FOLDER, MODEL_FILES_FOLDER,TE1_FOLDER]:
             for f in os.listdir(folder):
                 ruta = os.path.join(folder, f)
                 if os.path.isfile(ruta) and f.lower().endswith(".xls"):

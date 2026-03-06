@@ -52,7 +52,7 @@ def convertir_xls_a_xlsx(ruta_xls: str, ruta_xlsx: str):
 #! Función: Exportar BOM desde SAP
 def exportar_bom_a_xls(session, material):
     nombre_limpio = re.sub(r'[\\/*?:"<>|]', "_", material)
-    fecha = datetime.now().strftime("%Y-%m-%d-%M-%S")
+    fecha = datetime.now().strftime("%Y-%m-%d")
     xls_name = f"{fecha}-{nombre_limpio}.XLS"
     carpeta_destino = MOTHERBOARD_1_FILES_FOLDER
     ruta_xls_final = os.path.join(carpeta_destino, xls_name)

@@ -2,7 +2,7 @@ import os
 import time
 import pandas as pd
 
-from backend.utils.xlsx_m2 import exportar_bom_a_xls, convertir_xls_a_xlsx
+from backend.utils.utils_2.xlsx_m2 import exportar_bom_a_xls, convertir_xls_a_xlsx
 from backend.utils.sap_utils import acceso_bom_exitoso
 from backend.config.sap_config import FILTRO, TRANSACCION, PAUSA
 

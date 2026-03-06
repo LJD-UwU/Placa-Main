@@ -1,23 +1,32 @@
 import tkinter as tk
 from tkinter import ttk, filedialog, scrolledtext
 from PIL import Image, ImageTk
-import os, re
+import os
 from datetime import datetime
 import pandas as pd
-import threading
+
 from backend.config.sap_login import abrir_sap_y_login
 from backend.config.sap_config import FILTRO
-from backend.utils.txt_to_xlsx import MOTHERBOARD_FILES,MOTHERBOARD_1_FILES_FOLDER,MOTHERBOARD_2_FILES_FOLDER
-from backend.Modules_2.procesar_motherboard import procesar_numbers_desde_listas
+from backend.utils.txt_to_xlsx import (
+    MOTHERBOARD_FILES,
+    MOTHERBOARD_1_FILES_FOLDER,
+    MOTHERBOARD_2_FILES_FOLDER
+)
+from backend.utils.clean_excel_p2 import procesar_archivo_principal_mainboard_2
+from backend.modules.Modules_2.prosesar_mainboard import procesar_material_desde_mainboard
+from backend.modules.Modules_2.procesar_motherboard import procesar_numbers_desde_listas
+from backend.utils.clean_excel import limpiar_excel_mainboard
+from backend.utils.utils_2.xlsx_m2 import convertir_xls_a_xlsx
+
 
 class MainboardApp:
+
     def __init__(self, root):
         self.root = root
         self.root.title("MBAutomator - Motherboard")
         self.root.geometry("410x420")
         self.root.resizable(False, False)
 
-        #! Icono
         try:
             img = Image.open("IMG/logo.png").resize((256, 256))
             icon = ImageTk.PhotoImage(img)
@@ -28,7 +37,6 @@ class MainboardApp:
         style = ttk.Style()
         style.theme_use("clam")
         style.configure("Title.TLabel", font=("Segoe UI", 14, "bold"))
-        style.configure("TProgressbar", thickness=10)
 
         ttk.Label(root, text="Automatización SAP", style="Title.TLabel").pack(pady=(8, 0))
         ttk.Label(root, text="Procesamiento de Excel para Mainboards", foreground="gray").pack(pady=(0, 6))
@@ -36,50 +44,68 @@ class MainboardApp:
         main = ttk.Frame(root, padding=6)
         main.pack(fill="both", expand=True)
 
-        #! Campo de selección de Excel
         fila_file = ttk.Frame(main)
         fila_file.pack(fill="x", pady=4)
+
         self.excel_path = tk.StringVar()
+
         ttk.Entry(fila_file, textvariable=self.excel_path).pack(side="left", fill="x", expand=True)
         ttk.Button(fila_file, text="📂", width=3, command=self.seleccionar_excels).pack(side="left", padx=4)
 
-        #! Barra de progreso opcional
-        self.progress = ttk.Progressbar(main, mode="determinate")
-        self.progress.pack(fill="x", pady=6)
-
-        #! Botones principales
         fila_btn = ttk.Frame(main)
         fila_btn.pack(pady=4)
-        self.btn_procesar = ttk.Button(fila_btn, text="▶ Procesar", command=self.iniciar_procesamiento, state="normal")
+
+        self.btn_procesar = ttk.Button(
+            fila_btn,
+            text="▶ Procesar",
+            command=self.iniciar_procesamiento
+        )
         self.btn_procesar.pack(side="left", padx=4)
-        self.btn_limpiar = ttk.Button(fila_btn, text="🧹 Limpiar", command=self.limpiar_log)
+
+        self.btn_limpiar = ttk.Button(
+            fila_btn,
+            text="🧹 Limpiar",
+            command=self.limpiar_log
+        )
         self.btn_limpiar.pack(side="left", padx=4)
-        self.btn_resultados = ttk.Button(fila_btn, text="📁 Resultados", command=self.abrir_resultados, state="disabled")
+
+        self.btn_resultados = ttk.Button(
+            fila_btn,
+            text="📁 Resultados",
+            command=self.abrir_resultados,
+            state="disabled"
+        )
         self.btn_resultados.pack(side="left", padx=4)
 
-        #! Consola
         frame_log = ttk.LabelFrame(main, text="CONSOLA")
         frame_log.pack(fill="both", expand=True, pady=(6, 0))
-        self.log = scrolledtext.ScrolledText(frame_log, height=10, font=("Consolas", 9))
+
+        self.log = scrolledtext.ScrolledText(
+            frame_log,
+            height=10,
+            font=("Consolas", 9)
+        )
         self.log.pack(fill="both", expand=True, padx=5, pady=5)
+
         self.log.config(state="disabled")
         self.log.tag_config("INFO", foreground="blue")
         self.log.tag_config("OK", foreground="green")
         self.log.tag_config("ERROR", foreground="red")
-        self.log.tag_config("WARNING", foreground="orange")
 
-        #! Estado
         self.status = tk.StringVar(value="Estado: Listo")
-        ttk.Label(root, textvariable=self.status, anchor="w").pack(fill="x", side="bottom", padx=6, pady=4)
 
-        #! Datos
+        ttk.Label(
+            root,
+            textvariable=self.status,
+            anchor="w"
+        ).pack(fill="x", side="bottom", padx=6, pady=4)
+
         self.session = None
         self.mother = []
         self.plants = []
-        self.altboms = []
-        self.intermodel = []
 
-    #! =================== Funciones UI ===================
+    #! ================= LOG =================
+
     def log_msg(self, msg, tag="INFO"):
         self.log.config(state="normal")
         self.log.insert(tk.END, msg + "\n", tag)
@@ -87,110 +113,124 @@ class MainboardApp:
         self.log.config(state="disabled")
         self.root.update()
 
+    #! ================= UI UTILS =================
+
     def seleccionar_excels(self):
-        files = filedialog.askopenfilenames(filetypes=[("Excel","*.xlsx")])
+        files = filedialog.askopenfilenames(filetypes=[("Excel", "*.xlsx")])
         if files:
             self.excel_paths = list(files)
-            self.log_msg(f"{len(files)} archivos seleccionados", "OK")
-            
+            self.log_msg(f"[OK] {len(files)} archivos seleccionados", "OK")
+
     def limpiar_log(self):
+
+        # Limpiar consola
         self.log.config(state="normal")
         self.log.delete("1.0", tk.END)
         self.log.config(state="disabled")
-        self.log_msg("Log limpiado", "INFO")
+        self.log_msg("[INFO] Log limpiado", "INFO")
+
+        folder = MOTHERBOARD_2_FILES_FOLDER
+
+        if not os.path.exists(folder):
+            self.log_msg(f"[ERROR] La carpeta {folder} no existe", "ERROR")
+            return
+
+        # Crear carpeta final
+        carpeta_final = os.path.join(folder, "ARCHIVOS_FINALES")
+        os.makedirs(carpeta_final, exist_ok=True)
+
+        self.log_msg(f"[INFO] Guardando resultados en: {carpeta_final}", "OK")
+
+        archivos = [
+            f for f in os.listdir(folder)
+            if os.path.isfile(os.path.join(folder, f)) and f.lower().endswith(".xlsx")
+        ]
+
+        archivos.sort(
+            key=lambda x: os.path.getmtime(os.path.join(folder, x)),
+            reverse=False
+        )
+
+        for i, f in enumerate(archivos):
+
+            ruta_excel = os.path.join(folder, f)
+            salida_excel = os.path.join(carpeta_final, f"MB-BMM-{f}")
+
+            try:
+                self.log_msg(f"[INFO] Procesando archivo: {f}", "INFO")
+
+                    
+                MOTHER_model = ""
+                if i < len(self.mother):
+                    MOTHER_model = self.mother[i]
+
+                plantas = ""
+                if i < len(self.plants):
+                    plantas = self.plants[i]
+                    
+
+                procesar_archivo_principal_mainboard_2(
+                    ruta_excel,
+                    salida_excel,
+                    MOTHER_model,
+                    plantas,
+                )
+
+                self.log_msg(f"[OK] Archivo procesado: {f}", "OK")
+
+            except Exception as e:
+                self.log_msg(f"[ERROR] No se pudo procesar {f}: {e}", "ERROR")
+
+        self.log_msg("[INFO] Todos los archivos Excel han sido procesados", "OK")
 
     def abrir_resultados(self):
-        os.makedirs(MOTHERBOARD_1_FILES_FOLDER, exist_ok=True)
-        os.startfile(os.path.abspath(MOTHERBOARD_1_FILES_FOLDER))
+        os.makedirs(MOTHERBOARD_2_FILES_FOLDER, exist_ok=True)
+        os.startfile(os.path.abspath(MOTHERBOARD_2_FILES_FOLDER))
 
-    #! =================== Funciones principales ===================
+    #! ================= SAP CONEXION =================
     def conectar_sap(self):
         if not self.session:
             try:
-                self.log_msg("Conectando a SAP...")
+                self.log_msg("[INFO] Conectando a SAP...")
                 self.session = abrir_sap_y_login()
-                self.log_msg("Conectado a SAP correctamente", "OK")
-                self.status.set("Estado: SAP conectado")
+                self.log_msg("[OK] Conectado a SAP", "OK")
             except Exception as e:
                 self.log_msg(f"[ERROR] {e}", "ERROR")
-                self.status.set("Estado: Error de conexión")
 
-    def cargar_excel_datos(self):
-        """Carga y valida Excel"""
-        if not self.excel_path.get():
-            self.log_msg("No hay Excel seleccionado", "ERROR")
-            return False
-        try:
-            df = pd.read_excel(self.excel_path.get())
-            df.columns = df.columns.str.strip().str.upper()
-            columnas_requeridas = ["MOTHERBOARD PART NUMBER", "PLANT", "INTERNAL MODEL"]
-            faltantes = [c for c in columnas_requeridas if c not in df.columns]
-            if faltantes:
-                raise ValueError(f"No se encontraron las columnas: {faltantes}")
+    #! ================= PROCESAMIENTO DE LA MOTHERBOARD=================
 
-            def limpiar_columna(nombre_columna):
-                return (
-                    df[nombre_columna]
-                    .dropna()
-                    .astype(str)
-                    .str.strip()
-                    .str.replace(r"\.0$", "", regex=True)
-                    .tolist()
-                )
-
-            self.mother = limpiar_columna("MOTHERBOARD PART NUMBER")
-            self.plants = limpiar_columna("PLANT")
-            self.intermodel = limpiar_columna("INTERNAL MODEL")
-            self.log_msg("Excel cargado y validado correctamente", "OK")
-            return True
-
-        except Exception as e:
-            self.log_msg(f"[ERROR] {e}", "ERROR")
-            return False
-
-    #! =================== Procesamiento ===================
     def iniciar_procesamiento(self):
-        """Inicia el procesamiento en el hilo principal (SAP no es thread-safe)"""
+        self.log_msg("[INFO] Automatización iniciada")
         self.procesar()
 
     def procesar(self):
-        if not hasattr(self, 'excel_paths') or not self.excel_paths:
-            self.log_msg("No hay archivos Excel seleccionados", "ERROR")
+        if not hasattr(self, "excel_paths"):
+            self.log_msg("[ERROR] No hay archivos Excel seleccionados", "ERROR")
             return
-
         self.conectar_sap()
         if not self.session:
             return
-
-        self.log_msg("Procesamiento iniciado...", "INFO")
         os.makedirs(MOTHERBOARD_1_FILES_FOLDER, exist_ok=True)
-
-        for i, excel_file in enumerate(self.excel_paths, start=1):
-            self.log_msg(f"[INFO] Procesando archivo {i}/{len(self.excel_paths)}: {os.path.basename(excel_file)}")
+        for i, excel_file in enumerate(self.excel_paths):
             try:
+                self.log_msg(f"\n▶ Archivo {i+1}/{len(self.excel_paths)}: {os.path.basename(excel_file)}", "OK")
+                self.log_msg("  • Leyendo Excel", "INFO")
                 df = pd.read_excel(excel_file)
                 df.columns = df.columns.str.strip().str.upper()
-
-                # Cargar listas
-                self.mother = df["MOTHERBOARD PART NUMBER"].dropna().astype(str).str.strip().tolist()
-                self.plants = df["PLANT"].dropna().astype(str).str.strip().tolist()
-                
-                excel_salida = os.path.join(MOTHERBOARD_1_FILES_FOLDER)
-                fecha = datetime.now().strftime("%Y-%m-%d")
-                nombre_base = os.path.splitext(os.path.basename(excel_file))[0]
-                nombre_base = re.sub(r'[\\/*?:"<>|]', "_", nombre_base)
-                nombre_base = re.sub(r'^(?:\d+-)+', '', nombre_base)
-
-                excel_salida = os.path.join(
-                    MOTHERBOARD_1_FILES_FOLDER,
-                    f"{fecha}-{nombre_base}.xlsx"
-)
-                
-                # Procesar cada motherboard UNO POR UNO
-                for idx, mother in enumerate(self.mother):
-                    plant = self.plants[idx]
+                self.mother = df["MOTHERBOARD PART NUMBER"].dropna().astype(str).tolist()
+                self.plants = df["PLANT"].dropna().astype(str).tolist()
+                self.internal_models = df["INTERNAL MODEL"].dropna().astype(str).tolist()
+                total = len(self.mother)
+                for idx, (mother, plant) in enumerate(zip(self.mother, self.plants), start=1):
                     try:
-                        self.log_msg(f"[INFO] Procesando {mother} en planta {plant}")
+                        self.log_msg(f"\n▶ Archivo {idx}/{total}: {mother}", "OK")
+                        self.log_msg(f"  • Planta {plant}")
+                        fecha = datetime.now().strftime("%Y-%m-%d")
+                        excel_salida = os.path.join(
+                            MOTHERBOARD_1_FILES_FOLDER,
+                            f"{fecha}-{mother}.xlsx"
+                        )
+                        
                         procesar_numbers_desde_listas(
                             session=self.session,
                             mother_list=[mother],
@@ -198,27 +238,79 @@ class MainboardApp:
                             excel_output=excel_salida,
                             capid=FILTRO
                         )
-                    except Exception as e:
-                        self.log_msg(f"[ERROR] Error procesando {mother} en planta {plant}: {e}", "ERROR")
+                        
+                        self.log_msg("    ✓ XLS generado", "OK")
+                        ruta_xls = os.path.join(
+                            MOTHERBOARD_1_FILES_FOLDER,
+                            f"{fecha}-{mother}.XLS"
+                        )
+                        
+                        ruta_xlsx = os.path.join(
+                            MOTHERBOARD_1_FILES_FOLDER,
+                            f"{fecha}-{mother}.xlsx"
+                        )
+                        
+                        ruta_convertida = convertir_xls_a_xlsx(ruta_xls, ruta_xlsx)
+                        if ruta_convertida:
+                            self.log_msg("    ✓ Convertido a XLSX", "OK")
+                            limpiar_excel_mainboard(ruta_convertida)
+                            self.log_msg("    ✓ Excel limpiado", "OK")
 
+                            #! ================= PROCESAMIENTO DE LAS MAIN BOARDS=================
+                            try:
+                                self.log_msg("    • Procesando nivel 2", "INFO")
+                                resultado = procesar_material_desde_mainboard(
+                                    session=self.session,
+                                    ruta_mainboard_xlsx=ruta_convertida,
+                                    uso=FILTRO,
+                                    planta=plant
+                                )
+                                
+                                if resultado:
+                                    self.log_msg(
+                                        f"    ✓ BOM nivel 2 generado: {os.path.basename(resultado)}",
+                                        "OK"
+                                    )
+                                else:
+                                    self.log_msg(
+                                        f"    [ERROR] No se pudo generar BOM nivel 2 para {mother}",
+                                        "ERROR"
+                                    )
+                                    
+                            except Exception as e:
+                                self.log_msg(
+                                    f"[ERROR] Segundo proceso {mother}: {e}",
+                                    "ERROR"
+                                )
+                                
+                    except Exception as e:
+                        self.log_msg(f"[ERROR] {mother}: {e}", "ERROR")
             except Exception as e:
-                self.log_msg(f"[ERROR] Falló procesamiento archivo {os.path.basename(excel_file)}: {e}", "ERROR")
-                
-    #! Eliminar archivos .xls residuales
-        for folder in [MOTHERBOARD_FILES, MOTHERBOARD_1_FILES_FOLDER, MOTHERBOARD_2_FILES_FOLDER]:
-            for f in os.listdir(folder):
-                ruta = os.path.join(folder, f)
-                if os.path.isfile(ruta) and f.lower().endswith(".xls"):
-                    try:
-                        os.remove(ruta)
-                    except Exception as e:
-                        self.log_msg(f"[ERROR] No se pudo eliminar {f}: {e}","ERROR")
+                self.log_msg(
+                    f"[ERROR] Falló procesamiento archivo {os.path.basename(excel_file)}: {e}",
+                    "ERROR"
+                )
 
-        self.log_msg("Todos los archivos procesados ✅", "OK")
+        #! ================= LIMPIAR XLS =================
+        for folder in [
+            MOTHERBOARD_FILES,
+            MOTHERBOARD_1_FILES_FOLDER,
+            MOTHERBOARD_2_FILES_FOLDER
+        ]:
+            if not os.path.exists(folder):
+                continue
+            for f in os.listdir(folder):
+                if f.lower().endswith(".xls"):
+                    try:
+                        os.remove(os.path.join(folder, f))
+                    except:
+                        pass
+        self.log_msg("\n[OK] Proceso completo", "OK")
         self.btn_resultados.config(state="normal")
-        self.status.set("Estado: Listo")
+
 
 if __name__ == "__main__":
+
     root = tk.Tk()
     app = MainboardApp(root)
     root.mainloop()

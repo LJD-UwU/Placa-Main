@@ -213,8 +213,8 @@ def agregar_submateriales(df_main, ws):
 def procesar_archivo_principal_mainboard_2(
     ruta_excel_principal: str, 
     ruta_salida_principal: str,
-    internal_model: str = "",
-    plantas: str = ""
+    MOTHER_model: str ="",
+    plantas: str ="",
     ):
     
     wb = openpyxl.load_workbook(ruta_excel_principal)
@@ -324,7 +324,7 @@ def procesar_archivo_principal_mainboard_2(
         ws["J3"] = "HIMEX"
         ws["G3"] = "PC"
 
-        texto_modelo = internal_model.strip() if internal_model else ""
+        texto_modelo = MOTHER_model.strip() if MOTHER_model else ""
 
         ws["E3"] = f"MAIN BOARD\\{texto_modelo}\\ROH"
         ws["E4"] = f"MAIN BOARD\\{texto_modelo}\\ROH"

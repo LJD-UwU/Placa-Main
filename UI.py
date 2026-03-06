@@ -10,9 +10,9 @@ import os, re, time, sys,subprocess
 import tkinter as tk
 import pandas as pd
 from datetime import datetime
-
+from backend.Helpers.helper import cargar_archivos_procesados,guardar_archivo_procesado
 from backend.modules.cs11 import ejecutar_cs11
-from backend.utils.txt_to_xlsx import (
+from backend.utils.txt_to_xlsx import(
     exportar_bom_a_xls,
     convertir_xls_a_xlsx,
     BASE_BOM_FOLDER,
@@ -24,6 +24,7 @@ from backend.utils.txt_to_xlsx import (
     MOTHERBOARD_1_FILES_FOLDER,
     MOTHERBOARD_2_FILES_FOLDER
 )
+
 from backend.config.sap_config import (
     DESCRIPCIONES,
     FILTRO,
@@ -125,22 +126,22 @@ class SAPApp:
             messagebox.showerror("Error", f"No se pudo abrir la app:\n{e}")
             
     def limpiar_datos(self):
-        #! Limpiar la consola
+        # Limpiar la consola
         self.log.config(state="normal")
         self.log.delete("1.0", tk.END)
         self.log.config(state="disabled")
-        self.log_msg("[INFO] Log limpiado", "INFO")
+        self.log_msg("[INFO] Limpieza iniciada", "INFO")
 
-        #! VALIDAR QUE HAYA EXCEL SELECCIONADO
+        # Validar que haya Excel seleccionado
         if not self.excel_path.get():
             messagebox.showwarning("Atención", "Selecciona un Excel primero")
             return
 
-        #! CARGAR DATOS DEL EXCEL
+        # Cargar datos del Excel
         if not self.cargar_excel_datos():
             return
 
-        #! Confirmar acción
+        # Confirmar acción
         respuesta = messagebox.askyesno(
             "Procesamiento de Excel",
             "¿Deseas procesar los archivos Excel?"
@@ -148,11 +149,10 @@ class SAPApp:
         if not respuesta:
             return
 
-        #! ---------------- PROCESAR ARCHIVOS MAINBOARD P2 ----------------
         try:
             from backend.utils.clean_excel_p2 import procesar_archivo_principal_mainboard_2
         except ImportError as e:
-            self.log_msg(f"[ERROR] No se pudo importar procesar_mainboard_P2.py: {e}","ERROR")
+            self.log_msg(f"[ERROR] No se pudo importar procesar_mainboard_P2.py: {e}", "ERROR")
             return
 
         folder = MAINBOARD_2_FILES_FOLDER
@@ -160,41 +160,34 @@ class SAPApp:
             self.log_msg(f"[ERROR] La carpeta {folder} no existe")
             return
 
-        #! Crear carpeta ARCHIVOS_FINALES si no existe
+        # Crear carpeta ARCHIVOS_FINALES si no existe
         carpeta_final = os.path.join(folder, "ARCHIVOS_FINALES")
         os.makedirs(carpeta_final, exist_ok=True)
-        self.log_msg(f"Los archivos procesados se guardarán en: {carpeta_final}\n","OK")
 
-        #! Obtener archivos XLSX ordenados por fecha de modificación (más antiguo primero)
+        # Obtener archivos XLSX ordenados por fecha de modificación
         archivos = [
             f for f in os.listdir(folder)
             if os.path.isfile(os.path.join(folder, f)) and f.lower().endswith(".xlsx")
         ]
-        archivos.sort(
-            key=lambda x: os.path.getmtime(os.path.join(folder, x)),
-            reverse=False  #! Más reciente
-        )
+        archivos.sort(key=lambda x: os.path.getmtime(os.path.join(folder, x)))
 
-        #! Procesar archivos en ese orden
+        # Cargar archivos ya procesados desde JSON
+        archivos_procesados = cargar_archivos_procesados()
+
+        # Procesar solo archivos no procesados
         for i, f in enumerate(archivos):
+            if f in archivos_procesados:
+                self.log_msg(f"[INFO] Archivo ya procesado, se omite: {f}\n", "INFO")
+                continue  # Saltar archivo ya procesado
+
             ruta_excel = os.path.join(folder, f)
             salida_excel = os.path.join(carpeta_final, f"MB-BMM-{f}")
 
             try:
-                self.log_msg(f"[INFO] Procesando archivo: {f}","OK")
+                self.log_msg(f"[INFO] Procesando archivo: {f}", "OK")
+                internal_model = self.internal_models[i] if i < len(self.internal_models) else ""
+                plantas = self.plantas[i] if i < len(self.plantas) else ""
 
-                #! Asignar el modelo interno correspondiente
-                internal_model = ""
-                if hasattr(self, "internal_models") and self.internal_models:
-                    if i < len(self.internal_models):
-                        internal_model = self.internal_models[i]
-                        
-                plantas = ""
-                if hasattr(self, "plantas") and self.plantas:
-                    if i < len(self.plantas):
-                        plantas = self.plantas[i]
-
-                #! Llamar a la función principal de procesamiento
                 procesar_archivo_principal_mainboard_2(
                     ruta_excel,
                     salida_excel,
@@ -202,12 +195,15 @@ class SAPApp:
                     plantas
                 )
 
+                # Marcar archivo como procesado
+                guardar_archivo_procesado(f)
+
                 self.log_msg(f"[OK] Archivo procesado: PROCESADO_{f}\n")
 
             except Exception as e:
-                self.log_msg(f"[ERROR] No se pudo procesar {f}: {e}","ERROR")
+                self.log_msg(f"[ERROR] No se pudo procesar {f}: {e}", "ERROR")
 
-        self.log_msg("[INFO] Todos los archivos Excel han sido procesados")
+        self.log_msg("[INFO] Todos los archivos nuevos han sido procesados")
         
     #! ================= VALIDACIÓN DE BOTONES =================
     def verificar_habilitar_botones(self):
@@ -393,7 +389,7 @@ class SAPApp:
             if not self.modelos:
                 raise ValueError("La columna 'MATERIAL' está vacía")
 
-            self.log_msg("Excel cargado correctamente:","OK")
+            self.log_msg("Excel cargado correctamente","OK")
             return True
 
         except Exception as e:

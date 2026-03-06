@@ -12,6 +12,7 @@ from backend.utils.txt_to_xlsx import (
     MOTHERBOARD_1_FILES_FOLDER,
     MOTHERBOARD_2_FILES_FOLDER
 )
+from backend.Helpers.helper2 import cargar_archivos_procesados,guardar_archivo_procesado
 from backend.utils.clean_excel_p2 import procesar_archivo_principal_mainboard_2
 from backend.modules.Modules_2.prosesar_mainboard import procesar_material_desde_mainboard
 from backend.modules.Modules_2.procesar_motherboard import procesar_numbers_desde_listas
@@ -65,7 +66,7 @@ class MainboardApp:
         self.btn_limpiar = ttk.Button(
             fila_btn,
             text="🧹 Limpiar",
-            command=self.limpiar_log
+            command=self.limpiar
         )
         self.btn_limpiar.pack(side="left", padx=4)
 
@@ -103,6 +104,7 @@ class MainboardApp:
         self.session = None
         self.mother = []
         self.plants = []
+        self.internal_models = []
 
     #! ================= LOG =================
 
@@ -121,13 +123,12 @@ class MainboardApp:
             self.excel_paths = list(files)
             self.log_msg(f"[OK] {len(files)} archivos seleccionados", "OK")
 
-    def limpiar_log(self):
-
+    def limpiar(self):
         # Limpiar consola
         self.log.config(state="normal")
         self.log.delete("1.0", tk.END)
         self.log.config(state="disabled")
-        self.log_msg("[INFO] Log limpiado", "INFO")
+        self.log_msg("[INFO] Limpieza iniciada", "INFO")
 
         folder = MOTHERBOARD_2_FILES_FOLDER
 
@@ -139,49 +140,48 @@ class MainboardApp:
         carpeta_final = os.path.join(folder, "ARCHIVOS_FINALES")
         os.makedirs(carpeta_final, exist_ok=True)
 
-        self.log_msg(f"[INFO] Guardando resultados en: {carpeta_final}", "OK")
+        # Cargar archivos ya procesados desde JSON
+        archivos_procesados = cargar_archivos_procesados()
 
+        # Obtener archivos XLSX ordenados por fecha
         archivos = [
             f for f in os.listdir(folder)
             if os.path.isfile(os.path.join(folder, f)) and f.lower().endswith(".xlsx")
+            and f not in archivos_procesados  # <-- solo archivos no procesados
         ]
+        archivos.sort(key=lambda x: os.path.getmtime(os.path.join(folder, x)))
 
-        archivos.sort(
-            key=lambda x: os.path.getmtime(os.path.join(folder, x)),
-            reverse=False
-        )
+        if not archivos:
+            self.log_msg("[INFO] No hay archivos nuevos para procesar", "INFO")
+            return
 
+        # Procesar archivos nuevos
         for i, f in enumerate(archivos):
-
             ruta_excel = os.path.join(folder, f)
             salida_excel = os.path.join(carpeta_final, f"MB-BMM-{f}")
 
             try:
                 self.log_msg(f"[INFO] Procesando archivo: {f}", "INFO")
 
-                    
-                MOTHER_model = ""
-                if i < len(self.mother):
-                    MOTHER_model = self.mother[i]
-
-                plantas = ""
-                if i < len(self.plants):
-                    plantas = self.plants[i]
-                    
+                internal = self.internal_models[i] if i < len(self.internal_models) else ""
+                plantas = self.plants[i] if i < len(self.plants) else ""
 
                 procesar_archivo_principal_mainboard_2(
                     ruta_excel,
                     salida_excel,
-                    MOTHER_model,
+                    internal,
                     plantas,
                 )
 
-                self.log_msg(f"[OK] Archivo procesado: {f}", "OK")
+                # Guardar archivo como procesado
+                guardar_archivo_procesado(f)
+
+                self.log_msg(f"[OK] Archivo procesado: {f}\n", "OK")
 
             except Exception as e:
                 self.log_msg(f"[ERROR] No se pudo procesar {f}: {e}", "ERROR")
 
-        self.log_msg("[INFO] Todos los archivos Excel han sido procesados", "OK")
+        self.log_msg("[INFO] Todos los archivos nuevos han sido procesados", "OK")
 
     def abrir_resultados(self):
         os.makedirs(MOTHERBOARD_2_FILES_FOLDER, exist_ok=True)

@@ -29,7 +29,7 @@ class MainboardApp:
         self.root.resizable(False, False)
 
         try:
-            img = Image.open("IMG/logo.png").resize((256, 256))
+            img = Image.open("backend/IMG/logo.png").resize((256, 256))
             icon = ImageTk.PhotoImage(img)
             self.root.iconphoto(True, icon)
         except:

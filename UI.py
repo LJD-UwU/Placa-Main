@@ -38,7 +38,7 @@ class SAPApp:
         self.root.resizable(False, False)
 
         try:
-            img = Image.open("IMG/logo.png") 
+            img = Image.open("backend/IMG/logo.png") 
             img = img.resize((256, 256))  
             icon = ImageTk.PhotoImage(img)
             self.root.iconphoto(True, icon)
@@ -74,23 +74,43 @@ class SAPApp:
         #! --- Botones ---
         fila_btn = ttk.Frame(main)
         fila_btn.pack(pady=4)
+
         self.btn_mainboard = ttk.Button(
-        fila_btn,
-        text="🖥 Motherboard",
-        command=self.abrir_app_mainboard
+            fila_btn,
+            text="🖥 Motherboard",
+            command=self.abrir_app_mainboard
         )
         self.btn_mainboard.pack(side="left", padx=4)
 
-        self.btn_procesar = ttk.Button(fila_btn, text="▶ Procesar", command=self.iniciar, state="disabled")
+        self.btn_procesar = ttk.Button(
+            fila_btn,
+            text="▶ Procesar",
+            command=self.iniciar,
+            state="disabled"
+        )
         self.btn_procesar.pack(side="left", padx=4)
 
-        self.btn_limpiar = ttk.Button(fila_btn, text="🧹 Limpiar", command=self.limpiar_datos)
+        self.btn_limpiar = ttk.Button(
+            fila_btn,
+            text="🧹 Limpiar",
+            command=self.limpiar_datos
+        )
         self.btn_limpiar.pack(side="left", padx=4)
 
-        self.btn_open = ttk.Button(fila_btn, text="📁 Resultados", command=self.abrir_resultados, state="disabled")
+        self.btn_open = ttk.Button(
+            fila_btn,
+            text="📁 Resultados",
+            command=self.abrir_resultados,
+            state="disabled"
+        )
         self.btn_open.pack(side="left", padx=4)
 
-        ttk.Button(fila_btn, text="🔐 Credenciales", command=self.abrir_credenciales).pack(side="left", padx=4)
+        self.btn_credenciales = ttk.Button(
+            fila_btn,
+            text="🔐 Credenciales",
+            command=self.abrir_credenciales
+        )
+        self.btn_credenciales.pack(side="left", padx=4)
 
         #! --- Consola ---
         frame_log = ttk.LabelFrame(main, text="CONSOLA")
@@ -114,14 +134,18 @@ class SAPApp:
 
         #! --- Vigilar cambios en Excel ---
         self.excel_path.trace_add("write", lambda *args: self.verificar_habilitar_botones())
-        
+        self.verificar_habilitar_botones()
+
     def abrir_app_mainboard(self):
         if hasattr(self, "_mainboard_proc") and self._mainboard_proc.poll() is None:
             return
-        try:
-            ruta_script = os.path.join(os.getcwd(), "motherboard_app.py")
-            self._mainboard_proc = subprocess.Popen([sys.executable, ruta_script])
 
+        try:
+            # Ejecutar como módulo desde la raíz
+            self._mainboard_proc = subprocess.Popen([
+                sys.executable,
+                "-m", "backend.UI.motherboard_app"
+            ])
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo abrir la app:\n{e}")
             
@@ -208,13 +232,37 @@ class SAPApp:
     #! ================= VALIDACIÓN DE BOTONES =================
     def verificar_habilitar_botones(self):
         cred = cargar_credenciales()
+
+        cred_ok = all(cred.get(k) for k in [
+            "SAP_SYSTEM_NAME",
+            "SAP_USER",
+            "SAP_PASSWORD"
+        ])
+
         excel = self.excel_path.get().strip()
-        if all(cred.get(k) for k in ["SAP_SYSTEM_NAME", "SAP_USER", "SAP_PASSWORD"]) and excel:
-            self.btn_procesar.config(state="normal")
-        else:
+
+        if not cred_ok:
+            # 🔒 Bloquear todo si no hay credenciales
+            self.btn_mainboard.config(state="disabled")
             self.btn_procesar.config(state="disabled")
-        #! Resultados siempre inicia deshabilitado
+            self.btn_limpiar.config(state="disabled")
+            self.btn_open.config(state="disabled")
+
+            self.status.set("Estado: Ingrese credenciales SAP 🔐")
+
+        else:
+            # 🔓 Habilitar botones
+            self.btn_mainboard.config(state="normal")
+            self.btn_limpiar.config(state="normal")
+
+            if excel:
+                self.btn_procesar.config(state="normal")
+            else:
+                self.btn_procesar.config(state="disabled")
+
+        # Resultados solo se habilita al final
         self.btn_open.config(state="disabled")
+
 
     #! ================= CREDENCIALES =================
     def abrir_credenciales(self):
@@ -227,7 +275,7 @@ class SAPApp:
         win.grab_set()
 
         try:
-            img = Image.open("IMG/logo.png")
+            img = Image.open("backend/IMG/logo.png")
             img = img.resize((256, 256))
             icon = ImageTk.PhotoImage(img)
             win.iconphoto(True, icon)

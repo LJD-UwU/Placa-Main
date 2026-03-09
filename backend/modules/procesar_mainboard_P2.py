@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 import shutil
-
+from openpyxl import load_workbook
 from backend.utils.txt_to_xlsx import (
     exportar_bom_a_xls,
     convertir_xls_a_xlsx,
@@ -28,6 +28,43 @@ def leer_excel_sap_fallback(ruta_xls):
                 print(f"[WARNING] No se pudo leer XLS original: {e}")
                 return pd.DataFrame()
 
+from openpyxl import load_workbook
+
+
+def actualizar_excel_mainboard(ruta_excel, materiales):
+    """
+    Actualiza el Excel agregando los Mainboard Part Number detectados
+    sin sobrescribir estilos ni fórmulas.
+    """
+
+    wb = load_workbook(ruta_excel)
+    ws = wb.active
+
+    col_mainboard = None
+
+    # Buscar columna "Mainboard Part Number"
+    for i, cell in enumerate(ws[1], start=1):
+        if str(cell.value).strip().upper() == "MAINBOARD PART NUMBER":
+            col_mainboard = i
+            break
+
+    if not col_mainboard:
+        raise Exception("No se encontró la columna 'Mainboard Part Number'")
+
+    row = 2  # empezar después del header
+
+    # Buscar primera celda vacía
+    while ws.cell(row=row, column=col_mainboard).value:
+        row += 1
+
+    if materiales:
+        for mat in materiales:
+            ws.cell(row=row, column=col_mainboard).value = mat
+            row += 1
+    else:
+        ws.cell(row=row, column=col_mainboard).value = "NOT FOUND"
+
+    wb.save(ruta_excel)
 
 def procesar_material_desde_mainboard(session, ruta_mainboard_xlsx, uso, planta):
     """
@@ -55,7 +92,10 @@ def procesar_material_desde_mainboard(session, ruta_mainboard_xlsx, uso, planta)
         raise Exception("Material detectado vacío")
 
     print(f"[INFO] Material detectado desde mainboard: {material}, Planta: {planta}")
+    materiales_detectados = []
 
+    if material:
+        materiales_detectados.append(material)
     try:
         #! ===== ENTRAR A TRANSACCIÓN SAP =====
         session.findById("wnd[0]/tbar[0]/okcd").text = TRANSACCION
@@ -113,7 +153,7 @@ def procesar_material_desde_mainboard(session, ruta_mainboard_xlsx, uso, planta)
             df_temp.to_excel(ruta_xlsx, index=False)
 
         print(f"[INFO] BOM procesado correctamente: {ruta_xlsx}")
-        return ruta_xlsx
+        return material
 
     except Exception as e:
         print(f"[ERROR] Planta {planta}: {e}")

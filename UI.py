@@ -1,5 +1,5 @@
 from backend.config.credenciales_loader import cargar_credenciales, guardar_credenciales
-from backend.modules.prosesar_mainboard_P2 import procesar_material_desde_mainboard
+from backend.modules.procesar_mainboard_P2 import procesar_material_desde_mainboard
 from backend.modules.extract_mainboard import extract_descripcion_numbers
 from backend.modules.procesar_motherboard_P1 import procesar_number
 from backend.utils.clean_excel import limpiar_excel_mainboard
@@ -7,6 +7,7 @@ from backend.config.sap_login import abrir_sap_y_login
 from tkinter import ttk, filedialog, messagebox, scrolledtext
 from PIL import Image, ImageTk
 import os, re, time, sys,subprocess
+from openpyxl import load_workbook
 import tkinter as tk
 import pandas as pd
 from datetime import datetime
@@ -24,7 +25,7 @@ from backend.utils.txt_to_xlsx import(
     MOTHERBOARD_1_FILES_FOLDER,
     MOTHERBOARD_2_FILES_FOLDER
 )
-
+from backend.modules.procesar_mainboard_P2 import actualizar_excel_mainboard
 from backend.config.sap_config import (
     DESCRIPCIONES,
     FILTRO,
@@ -162,7 +163,7 @@ class SAPApp:
             return
 
         # Cargar datos del Excel
-        if not self.cargar_excel_datos():
+        if not self.cargar_excel_datos(ignorar_process=True):
             return
 
         # Confirmar acción
@@ -404,24 +405,30 @@ class SAPApp:
         self.log_msg("[OK] Conectado a SAP", "OK")
         self.idx = 0
         self.root.after(200, self.procesar_modelo)
-        
-    def cargar_excel_datos(self):
+            
+    def cargar_excel_datos(self, ignorar_process=False):
         try:
             df = pd.read_excel(self.excel_path.get())
-
             df.columns = df.columns.str.strip().str.upper()
 
-            columnas_requeridas = ["MATERIAL", "PLANT", "ALTBOM", "INTERNAL MODEL"]
-
+            columnas_requeridas = ["MATERIAL", "PLANT", "ALTBOM", "INTERNAL MODEL", "PROCESS"]
             faltantes = [c for c in columnas_requeridas if c not in df.columns]
             if faltantes:
-                raise ValueError(
-                    f"No se encontraron las columnas: {faltantes}"
-                )
+                raise ValueError(f"No se encontraron las columnas: {faltantes}")
+
+            df["PROCESS"] = df["PROCESS"].apply(lambda x: True if str(x).upper() == "TRUE" else False)
+
+            # 🔹 Si es limpieza → NO filtrar
+            if ignorar_process:
+                df_filtrado = df
+            else:
+                df_filtrado = df[df["PROCESS"] == False]
+                if df_filtrado.empty:
+                    raise ValueError("No hay filas nuevas para procesar (todas son TRUE)")
 
             def limpiar_columna(nombre_columna):
                 return (
-                    df[nombre_columna]
+                    df_filtrado[nombre_columna]
                     .dropna()
                     .astype(str)
                     .str.strip()
@@ -434,26 +441,23 @@ class SAPApp:
             self.altboms = limpiar_columna("ALTBOM")
             self.internal_models = limpiar_columna("INTERNAL MODEL")
 
-            if not self.modelos:
-                raise ValueError("La columna 'MATERIAL' está vacía")
+            self.df_no_procesadas = df_filtrado
 
-            self.log_msg("Excel cargado correctamente","OK")
+            self.log_msg("Excel cargado correctamente", "OK")
             return True
 
         except Exception as e:
-            self.log_msg(f"[ERROR] {e}","ERROR")
+            self.log_msg(f"[ERROR] {e}", "ERROR")
             return False
-        
+
     def procesar_modelo(self):
         total = len(self.modelos)
 
-        #! Protección extra
         if total == 0:
-            self.log_msg("[ERROR] No hay materiales para procesar","ERROR")
+            self.log_msg("[ERROR] No hay materiales para procesar", "ERROR")
             self.btn_procesar.config(state="normal")
             return
 
-        #! Verificar si ya terminamos
         if self.idx >= total:
             self.log_msg("\n[INFO] Iniciando procesamiento de las mainboards\n")
             self.guardar_excel_final()
@@ -461,13 +465,42 @@ class SAPApp:
             self.progress["value"] = 100
             self.btn_open.config(state="normal")
             self.btn_procesar.config(state="normal")
-            self.log_msg("[OK] Proceso completo", "OK")
+            
+            #! Actualizar solo la columna PROCESS en Excel usando openpyxl
+            try:
+                wb = load_workbook(self.excel_path.get())
+                ws = wb.active
+
+                #! Buscar la columna "PROCESS" (mayúsculas por seguridad)
+                col_process = None
+                for i, cell in enumerate(ws[1], start=1):
+                    if str(cell.value).strip().upper() == "PROCESS":
+                        col_process = i
+                    if str(cell.value).strip().upper() == "MATERIAL":
+                        col_material = i
+
+                if col_process is None or col_material is None:
+                    raise ValueError("No se encontraron las columnas 'MATERIAL' o 'PROCESS' en el Excel")
+
+                #! Actualizar filas procesadas
+                materiales_procesados = [str(m).strip() for m in self.modelos]
+                for row in ws.iter_rows(min_row=2):
+                    material = str(row[col_material - 1].value).strip()
+                    if material in materiales_procesados:
+                        row[col_process - 1].value = True  #! Actualizamos solo el valor
+
+                wb.save(self.excel_path.get())
+                self.log_msg("[OK] Excel actualizado", "OK")
+
+            except Exception as e:
+                self.log_msg(f"[ERROR] No se pudo actualizar el Excel: {e}", "ERROR")
+
             return
         
         internal_models = self.internal_models[self.idx]
         modelo = self.modelos[self.idx]
         self.set_status(f"Modelo {self.idx + 1}/{total}")
-        self.log_msg(f"\n▶ Modelo {self.idx + 1}/{total}: {modelo}","OK")
+        self.log_msg(f"\n▶ Modelo {self.idx + 1}/{total}: {modelo}", "OK")
 
         try:
             self.log_msg("  • Ejecutando CS11...\n", "INFO")
@@ -480,16 +513,16 @@ class SAPApp:
             )
 
             if not resultados:
-                self.log_msg(f"[INFO] No se encontraron plantas para {modelo}" )
+                self.log_msg(f"[INFO] No se encontraron plantas para {modelo}")
 
             for planta, _ in resultados:
                 self.log_msg(f"  • Planta {planta}: exportando BOM")
                 ruta_xls = exportar_bom_a_xls(
-                self.session, 
-                modelo, 
-                mainboard=False
+                    self.session,
+                    modelo,
+                    mainboard=False
                 )
-                
+
                 self.log_msg("    ✓ BOM exportado")
                 fecha = datetime.now().strftime("%Y-%m-%d")
                 nombre_base = os.path.splitext(os.path.basename(ruta_xls))[0]
@@ -506,20 +539,19 @@ class SAPApp:
 
                 convertir_xls_a_xlsx(ruta_xls, ruta_xlsx)
                 self.log_msg("    ✓ Convertido a XLSX")
-                
 
-                self.log_msg("    • Analizando descripciones","OK")
+                self.log_msg("    • Analizando descripciones", "OK")
                 df_modelo = extract_descripcion_numbers(ruta_xlsx, internal_models, DESCRIPCIONES)
                 if df_modelo.empty:
-                    self.log_msg(f"[INFO] No se encontro mainboard para {modelo}", )
+                    self.log_msg(f"[INFO] No se encontro mainboard para {modelo}")
                 else:
                     df_modelo["Modelo"] = modelo
                     df_modelo["Planta"] = planta
                     self.df_todos = pd.concat([self.df_todos, df_modelo], ignore_index=True)
 
         except Exception as e:
-            self.log_msg(f"[ERROR] {e}","ERROR")
-            
+            self.log_msg(f"[ERROR] {e}", "ERROR")
+
         #! Incrementar índice y continuar
         self.idx += 1
         self.root.after(200, self.procesar_modelo)
@@ -535,10 +567,13 @@ class SAPApp:
         #! Procesamiento de mainboards
         for _, row in self.df_todos.iterrows():
             number = str(row["Number"]).strip()
+
             if any(number in f for f in os.listdir(MAINBOARD_1_FILES_FOLDER)):
                 continue
+
             try:
                 ruta_xls = None
+
                 for planta in self.plantas:
                     ruta_xls = procesar_number(
                         session=self.session,
@@ -551,42 +586,47 @@ class SAPApp:
 
                 if not ruta_xls:
                     continue
+
                 ruta_xlsx = os.path.join(
                     MAINBOARD_1_FILES_FOLDER,
                     re.sub(r'[\\/*?:"<>|]', "_", os.path.basename(ruta_xls).rsplit(".", 1)[0]) + ".xlsx"
                 )
+
                 convertir_xls_a_xlsx(ruta_xls, ruta_xlsx)
                 limpiar_excel_mainboard(ruta_xlsx)
 
                 materiales_detectados = []
 
                 for planta in set(self.plantas):
-                    ruta = procesar_material_desde_mainboard(
+                    material = procesar_material_desde_mainboard(
                         session=self.session,
                         ruta_mainboard_xlsx=ruta_xlsx,
                         uso=FILTRO,
                         planta=planta
                     )
-                    if ruta:
-                        materiales_detectados.append(ruta)
 
-                print("Archivos generados:", materiales_detectados)
+                    if material:
+                        materiales_detectados.append(material)
 
-                if materiales_detectados:
-                    pass
+                print("Materiales detectados:", materiales_detectados)
+
+                try:
+                    actualizar_excel_mainboard(self.excel_path.get(), materiales_detectados)
+                except Exception as e:
+                    self.log_msg(f"[ERROR] No se pudo actualizar Excel mainboard: {e}", "ERROR")
 
             except Exception as e:
-                self.log_msg(f"[ERROR] Mainboard {number}: {e}","ERROR")
+                self.log_msg(f"[ERROR] Mainboard {number}: {e}", "ERROR")
 
-        #! Eliminar archivos .xls residuales
-        for folder in [MAINBOARD_1_FILES_FOLDER, MAINBOARD_2_FILES_FOLDER, MODEL_FILES_FOLDER,TE1_FOLDER]:
-            for f in os.listdir(folder):
-                ruta = os.path.join(folder, f)
-                if os.path.isfile(ruta) and f.lower().endswith(".xls"):
-                    try:
-                        os.remove(ruta)
-                    except Exception as e:
-                        self.log_msg(f"[ERROR] No se pudo eliminar {f}: {e}","ERROR")
+            #! Eliminar archivos .xls residuales
+            for folder in [MAINBOARD_1_FILES_FOLDER, MAINBOARD_2_FILES_FOLDER, MODEL_FILES_FOLDER,TE1_FOLDER]:
+                for f in os.listdir(folder):
+                    ruta = os.path.join(folder, f)
+                    if os.path.isfile(ruta) and f.lower().endswith(".xls"):
+                        try:
+                            os.remove(ruta)
+                        except Exception as e:
+                            self.log_msg(f"[ERROR] No se pudo eliminar {f}: {e}","ERROR")
 
 
 if __name__ == "__main__":

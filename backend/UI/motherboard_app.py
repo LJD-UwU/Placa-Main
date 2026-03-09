@@ -4,7 +4,6 @@ from PIL import Image, ImageTk
 import os
 from datetime import datetime
 import pandas as pd
-
 from backend.config.sap_login import abrir_sap_y_login
 from backend.config.sap_config import FILTRO
 from backend.utils.txt_to_xlsx import (
@@ -14,7 +13,7 @@ from backend.utils.txt_to_xlsx import (
 )
 from backend.Helpers.helper2 import cargar_archivos_procesados,guardar_archivo_procesado
 from backend.utils.clean_excel_p2 import procesar_archivo_principal_mainboard_2
-from backend.modules.Modules_2.prosesar_mainboard import procesar_material_desde_mainboard
+from backend.modules.Modules_2.procesar_mainboard import procesar_material_desde_mainboard
 from backend.modules.Modules_2.procesar_motherboard import procesar_numbers_desde_listas
 from backend.utils.clean_excel import limpiar_excel_mainboard
 from backend.utils.utils_2.xlsx_m2 import convertir_xls_a_xlsx

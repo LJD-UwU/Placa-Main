@@ -28,41 +28,49 @@ def leer_excel_sap_fallback(ruta_xls):
                 print(f"[WARNING] No se pudo leer XLS original: {e}")
                 return pd.DataFrame()
 
-from openpyxl import load_workbook
-
-
-def actualizar_excel_mainboard(ruta_excel, materiales):
+def actualizar_excel_mainboard_2(ruta_excel, modelo, materiales):
     """
-    Actualiza el Excel agregando los Mainboard Part Number detectados
-    sin sobrescribir estilos ni fórmulas.
+    Actualiza el Excel agregando el Mainboard Part Number
+    en la misma fila del modelo procesado.
     """
 
     wb = load_workbook(ruta_excel)
     ws = wb.active
 
+    col_material = None
     col_mainboard = None
 
-    # Buscar columna "Mainboard Part Number"
+    #! Buscar columnas
     for i, cell in enumerate(ws[1], start=1):
-        if str(cell.value).strip().upper() == "MAINBOARD PART NUMBER":
+        nombre = str(cell.value).strip().upper()
+
+        if nombre == "MATERIAL":
+            col_material = i
+
+        if nombre == "MAINBOARD PART NUMBER":
             col_mainboard = i
+
+    if not col_material or not col_mainboard:
+        raise Exception("No se encontraron las columnas MATERIAL o MAINBOARD PART NUMBER")
+
+    fila_objetivo = None
+
+    #! Buscar la fila del modelo
+    for row in ws.iter_rows(min_row=2):
+        valor = str(row[col_material - 1].value).strip()
+
+        if valor == str(modelo).strip():
+            fila_objetivo = row[0].row
             break
 
-    if not col_mainboard:
-        raise Exception("No se encontró la columna 'Mainboard Part Number'")
+    if not fila_objetivo:
+        raise Exception(f"No se encontró el modelo {modelo} en el Excel")
 
-    row = 2  # empezar después del header
-
-    # Buscar primera celda vacía
-    while ws.cell(row=row, column=col_mainboard).value:
-        row += 1
-
+    #! Escribir resultado
     if materiales:
-        for mat in materiales:
-            ws.cell(row=row, column=col_mainboard).value = mat
-            row += 1
+        ws.cell(row=fila_objetivo, column=col_mainboard).value = ", ".join(materiales)
     else:
-        ws.cell(row=row, column=col_mainboard).value = "NOT FOUND"
+        ws.cell(row=fila_objetivo, column=col_mainboard).value = "NOT FOUND"
 
     wb.save(ruta_excel)
 

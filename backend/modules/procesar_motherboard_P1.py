@@ -2,6 +2,7 @@ import os
 import time
 import pandas as pd
 from openpyxl.styles import PatternFill
+from openpyxl import load_workbook
 from backend.utils.txt_to_xlsx import exportar_bom_a_xls, convertir_xls_a_xlsx
 from backend.utils.sap_utils import acceso_bom_exitoso
 from backend.config.sap_config import (
@@ -130,6 +131,51 @@ def procesar_number_mainboard(session, number, capid):
 
     raise Exception(f"No se pudo acceder al BOM de {number} en ninguna planta")
 
+def actualizar_excel_mainboard_1(ruta_excel, modelo, number):
+    """
+    Actualiza el Excel agregando el Mainboard Part Number
+    en la misma fila del modelo procesado.
+    """
+
+    wb = load_workbook(ruta_excel)
+    ws = wb.active
+
+    col_material = None
+    col_mainboard = None
+
+    #! Buscar columnas
+    for i, cell in enumerate(ws[1], start=1):
+        nombre = str(cell.value).strip().upper()
+
+        if nombre == "MATERIAL":
+            col_material = i
+
+        if nombre == "MOTHERBOARD PART NUMBER":
+            col_mainboard = i
+
+    if not col_material or not col_mainboard:
+        raise Exception("No se encontraron las columnas MATERIAL o MOTHERBOARD PART NUMBER")
+
+    fila_objetivo = None
+
+    #! Buscar la fila del modelo
+    for row in ws.iter_rows(min_row=2):
+        valor = str(row[col_material - 1].value).strip()
+
+        if valor == str(modelo).strip():
+            fila_objetivo = row[0].row
+            break
+
+    if not fila_objetivo:
+        raise Exception(f"No se encontró el modelo {modelo} en el Excel")
+
+    #! Escribir resultado
+    if number:
+        ws.cell(row=fila_objetivo, column=col_mainboard).value = ", ".join(number)
+    else:
+        ws.cell(row=fila_objetivo, column=col_mainboard).value = "NOT FOUND"
+
+    wb.save(ruta_excel)
 
 #! FUNCION PARA PROCESAR EXCEL COMPLETO
 def procesar_numbers_desde_excel(session, excel_input, excel_output, plantas=None, capid=FILTRO):
@@ -162,6 +208,7 @@ def procesar_numbers_desde_excel(session, excel_input, excel_output, plantas=Non
         for planta in plantas:
             if procesar_number(session, number, planta, capid):
                 exito = True
+
         if not exito:
             print(f"[WARNING] No se procesó ningún modelo interno para {number}")
             continue
@@ -169,6 +216,7 @@ def procesar_numbers_desde_excel(session, excel_input, excel_output, plantas=Non
         #! --- Mainboard ---
         try:
             ruta_xlsx = procesar_number_mainboard(session, number, capid)
+
             if not ruta_xlsx or not os.path.exists(ruta_xlsx):
                 print(f"[WARNING] No se generó Mainboard para {number}")
                 continue
@@ -180,7 +228,13 @@ def procesar_numbers_desde_excel(session, excel_input, excel_output, plantas=Non
                 "Ruta_XLSX": ruta_xlsx
             }])], ignore_index=True)
 
-            print(f"[OK] Mainboard procesado: {number} | XLSX: {ruta_xlsx}")
+            #! Actualizar Excel original
+            try:
+                actualizar_excel_mainboard_1(excel_input, number, [number])
+            except Exception as e:
+                print(f"[WARNING] No se pudo actualizar el Excel para {number}: {e}")
+
+            print(f"[OK] Mainboard procesado y Excel actualizado: {number}")
 
         except Exception as e:
             print(f"[ERROR] No se pudo generar Mainboard para {number}: {e}")

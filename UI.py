@@ -25,7 +25,8 @@ from backend.utils.txt_to_xlsx import(
     MOTHERBOARD_1_FILES_FOLDER,
     MOTHERBOARD_2_FILES_FOLDER
 )
-from backend.modules.procesar_mainboard_P2 import actualizar_excel_mainboard
+from backend.modules.procesar_motherboard_P1 import actualizar_excel_mainboard_1
+from backend.modules.procesar_mainboard_P2 import actualizar_excel_mainboard_2
 from backend.config.sap_config import (
     DESCRIPCIONES,
     FILTRO,
@@ -142,7 +143,7 @@ class SAPApp:
             return
 
         try:
-            # Ejecutar como módulo desde la raíz
+            #! Ejecutar como módulo desde la raíz
             self._mainboard_proc = subprocess.Popen([
                 sys.executable,
                 "-m", "backend.UI.motherboard_app"
@@ -151,22 +152,22 @@ class SAPApp:
             messagebox.showerror("Error", f"No se pudo abrir la app:\n{e}")
             
     def limpiar_datos(self):
-        # Limpiar la consola
+        #! Limpiar la consola
         self.log.config(state="normal")
         self.log.delete("1.0", tk.END)
         self.log.config(state="disabled")
         self.log_msg("[INFO] Limpieza iniciada", "INFO")
 
-        # Validar que haya Excel seleccionado
+        #! Validar que haya Excel seleccionado
         if not self.excel_path.get():
             messagebox.showwarning("Atención", "Selecciona un Excel primero")
             return
 
-        # Cargar datos del Excel
+        #! Cargar datos del Excel
         if not self.cargar_excel_datos(ignorar_process=True):
             return
 
-        # Confirmar acción
+        #! Confirmar acción
         respuesta = messagebox.askyesno(
             "Procesamiento de Excel",
             "¿Deseas procesar los archivos Excel?"
@@ -185,25 +186,25 @@ class SAPApp:
             self.log_msg(f"[ERROR] La carpeta {folder} no existe")
             return
 
-        # Crear carpeta ARCHIVOS_FINALES si no existe
+        #! Crear carpeta ARCHIVOS_FINALES si no existe
         carpeta_final = os.path.join(folder, "ARCHIVOS_FINALES")
         os.makedirs(carpeta_final, exist_ok=True)
 
-        # Obtener archivos XLSX ordenados por fecha de modificación
+        #! Obtener archivos XLSX ordenados por fecha de modificación
         archivos = [
             f for f in os.listdir(folder)
             if os.path.isfile(os.path.join(folder, f)) and f.lower().endswith(".xlsx")
         ]
         archivos.sort(key=lambda x: os.path.getmtime(os.path.join(folder, x)))
 
-        # Cargar archivos ya procesados desde JSON
+        #! Cargar archivos ya procesados desde JSON
         archivos_procesados = cargar_archivos_procesados()
 
-        # Procesar solo archivos no procesados
+        #! Procesar solo archivos no procesados
         for i, f in enumerate(archivos):
             if f in archivos_procesados:
                 self.log_msg(f"[INFO] Archivo ya procesado, se omite: {f}\n", "INFO")
-                continue  # Saltar archivo ya procesado
+                continue  #! Saltar archivo ya procesado
 
             ruta_excel = os.path.join(folder, f)
             salida_excel = os.path.join(carpeta_final, f"MB-BMM-{f}")
@@ -220,7 +221,7 @@ class SAPApp:
                     plantas
                 )
 
-                # Marcar archivo como procesado
+                #! Marcar archivo como procesado
                 guardar_archivo_procesado(f)
 
                 self.log_msg(f"[OK] Archivo procesado: PROCESADO_{f}\n")
@@ -243,7 +244,7 @@ class SAPApp:
         excel = self.excel_path.get().strip()
 
         if not cred_ok:
-            # 🔒 Bloquear todo si no hay credenciales
+            #! Bloquear todo si no hay credenciales
             self.btn_mainboard.config(state="disabled")
             self.btn_procesar.config(state="disabled")
             self.btn_limpiar.config(state="disabled")
@@ -252,7 +253,7 @@ class SAPApp:
             self.status.set("Estado: Ingrese credenciales SAP 🔐")
 
         else:
-            # 🔓 Habilitar botones
+            #! Habilitar botones
             self.btn_mainboard.config(state="normal")
             self.btn_limpiar.config(state="normal")
 
@@ -261,7 +262,7 @@ class SAPApp:
             else:
                 self.btn_procesar.config(state="disabled")
 
-        # Resultados solo se habilita al final
+        #! Resultados solo se habilita al final
         self.btn_open.config(state="disabled")
 
 
@@ -418,7 +419,7 @@ class SAPApp:
 
             df["PROCESS"] = df["PROCESS"].apply(lambda x: True if str(x).upper() == "TRUE" else False)
 
-            # 🔹 Si es limpieza → NO filtrar
+            #! Si es limpieza → NO filtrar
             if ignorar_process:
                 df_filtrado = df
             else:
@@ -561,7 +562,11 @@ class SAPApp:
         self.set_status("Procesando mainboards")
 
         #! Crear carpetas si no existen
-        for folder in [BASE_BOM_FOLDER, MODEL_FILES_FOLDER, MAINBOARD_1_FILES_FOLDER, MAINBOARD_2_FILES_FOLDER,MOTHERBOARD_FILES, MOTHERBOARD_1_FILES_FOLDER, MOTHERBOARD_2_FILES_FOLDER]:
+        for folder in [
+            BASE_BOM_FOLDER, MODEL_FILES_FOLDER, MAINBOARD_1_FILES_FOLDER,
+            MAINBOARD_2_FILES_FOLDER, MOTHERBOARD_FILES,
+            MOTHERBOARD_1_FILES_FOLDER, MOTHERBOARD_2_FILES_FOLDER
+        ]:
             os.makedirs(folder, exist_ok=True)
 
         #! Procesamiento de mainboards
@@ -595,6 +600,18 @@ class SAPApp:
                 convertir_xls_a_xlsx(ruta_xls, ruta_xlsx)
                 limpiar_excel_mainboard(ruta_xlsx)
 
+                try:
+                    modelo = row["Modelo"]
+
+                    actualizar_excel_mainboard_1(
+                        self.excel_path.get(),
+                        modelo,
+                        [number]   # mainboard detectado
+                    )
+
+                except Exception as e:
+                    self.log_msg(f"[ERROR] No se pudo actualizar Excel mainboard 1: {e}", "ERROR")
+
                 materiales_detectados = []
 
                 for planta in set(self.plantas):
@@ -611,22 +628,34 @@ class SAPApp:
                 print("Materiales detectados:", materiales_detectados)
 
                 try:
-                    actualizar_excel_mainboard(self.excel_path.get(), materiales_detectados)
+                    modelo = row["Modelo"]
+
+                    actualizar_excel_mainboard_2(
+                        self.excel_path.get(),
+                        modelo,
+                        materiales_detectados
+                    )
+
                 except Exception as e:
-                    self.log_msg(f"[ERROR] No se pudo actualizar Excel mainboard: {e}", "ERROR")
+                    self.log_msg(f"[ERROR] No se pudo actualizar Excel mainboard 2: {e}", "ERROR")
 
             except Exception as e:
                 self.log_msg(f"[ERROR] Mainboard {number}: {e}", "ERROR")
 
             #! Eliminar archivos .xls residuales
-            for folder in [MAINBOARD_1_FILES_FOLDER, MAINBOARD_2_FILES_FOLDER, MODEL_FILES_FOLDER,TE1_FOLDER]:
+            for folder in [
+                MAINBOARD_1_FILES_FOLDER,
+                MAINBOARD_2_FILES_FOLDER,
+                MODEL_FILES_FOLDER,
+                TE1_FOLDER
+            ]:
                 for f in os.listdir(folder):
                     ruta = os.path.join(folder, f)
                     if os.path.isfile(ruta) and f.lower().endswith(".xls"):
                         try:
                             os.remove(ruta)
                         except Exception as e:
-                            self.log_msg(f"[ERROR] No se pudo eliminar {f}: {e}","ERROR")
+                            self.log_msg(f"[ERROR] No se pudo eliminar {f}: {e}", "ERROR")
 
 
 if __name__ == "__main__":

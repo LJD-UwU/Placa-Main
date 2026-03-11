@@ -214,12 +214,14 @@ def procesar_archivo_principal_mainboard_2(
     ruta_excel_principal: str, 
     ruta_salida_principal: str,
     internal_model: str = "",
-    plantas: str = ""
-    ):
-    
+    plantas: str = "",
+    df_no_procesadas: pd.DataFrame = None
+):
+    ...
     wb = openpyxl.load_workbook(ruta_excel_principal)
     ws = wb.active
 
+    # Limpiar columnas y filas innecesarias
     ws.delete_cols(1)
     ws.delete_cols(9, 26)
     ws.delete_rows(1, 9)
@@ -246,6 +248,7 @@ def procesar_archivo_principal_mainboard_2(
 
     aplicar_logica_x(ws)
 
+    # Detectar chino y colorear amarillo
     amarillo = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
     col_indices = {ws.cell(row=1, column=c).value: c for c in range(1, ws.max_column + 1)}
     for row in range(2, ws.max_row + 1):
@@ -261,17 +264,19 @@ def procesar_archivo_principal_mainboard_2(
             for col in range(1, ws.max_column + 1):
                 ws.cell(row=row, column=col).fill = amarillo
 
-    #! ===== DataFrame =====
+    # Convertir a DataFrame
     df_main = pd.DataFrame(ws.values)
     df_main.columns = df_main.iloc[0]
     df_main = df_main[1:].reset_index(drop=True)
 
+    # Agregar submateriales
     df_main = agregar_submateriales(df_main, ws)
 
-    filas_protegidas = {0,1,2}
+    filas_protegidas = {0, 1, 2}
     df_main["ITEM"] = df_main["ITEM"].apply(lambda v: str(v).strip() if v else "")
     df_main.loc[~df_main.index.isin(filas_protegidas), "LEVEL"] = 0
 
+    # Numeración por bloques
     contador_bloque = 10
     for i, val in df_main["ITEM"].items():
         if i in filas_protegidas:
@@ -282,6 +287,7 @@ def procesar_archivo_principal_mainboard_2(
         df_main.at[i, "ITEM"] = str(contador_bloque)
         contador_bloque += 10
 
+    # LEVEL jerárquico
     nivel_actual = 1
     for i in range(len(df_main)):
         if i in filas_protegidas:
@@ -297,8 +303,8 @@ def procesar_archivo_principal_mainboard_2(
         if df_main.at[i, "LEVEL"] == 0:
             df_main.at[i, "LEVEL"] = df_main.at[i - 1, "LEVEL"]
 
+    # Aplicar submaterial gris
     gris_submaterial = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
-
     for r_idx, fila in enumerate(df_main.itertuples(index=False), start=2):
         is_submaterial = getattr(fila, "_SUBMATERIAL", False)
         for c_idx, val in enumerate(fila, start=1):
@@ -309,6 +315,7 @@ def procesar_archivo_principal_mainboard_2(
     if "_SUBMATERIAL" in df_main.columns:
         df_main.drop(columns=["_SUBMATERIAL"], inplace=True)
 
+    # Negritas en X
     bold_font = Font(bold=True)
     col_indices = {ws.cell(row=1, column=c).value: c for c in range(1, ws.max_column + 1)}
     col_item = col_indices.get("ITEM")
@@ -318,29 +325,33 @@ def procesar_archivo_principal_mainboard_2(
                 for col in range(1, ws.max_column + 1):
                     ws.cell(row=row, column=col).font = bold_font
 
-        ws.title = "BOMlist"
-        ws["A2"] = "0"
-        ws["F3"] = "1000"
-        ws["J3"] = "HIMEX"
-        ws["G3"] = "PC"
+    ws.title = "BOMlist"
+    ws["A2"] = "0"
+    ws["F3"] = "1000"
+    ws["J3"] = "HIMEX"
+    ws["G3"] = "PC"
 
-        texto_modelo = internal_model.strip() if internal_model else ""
+    # ===== Mainboard Part Number seguro =====
+    mainboard_num = str(ws["C3"].value).strip()  # La celda donde está la Mainboard Part Number
+    # Comparación exacta
+    fila_match = df_no_procesadas[
+        df_no_procesadas["MAINBOARD PART NUMBER"].astype(str).str.strip() == mainboard_num
+    ]
+    texto_modelo = fila_match.iloc[0]["INTERNAL MODEL"] if not fila_match.empty else ""
 
-        ws["E3"] = f"MAIN BOARD\\{texto_modelo}\\ROH"
-        ws["E4"] = f"MAIN BOARD\\{texto_modelo}\\ROH"
-        
-        texto_planta = plantas.strip() if plantas else ""
-        
-        ws["D3"] = f"{texto_planta}"
+    ws["E3"] = f"MAIN BOARD\\{texto_modelo}\\ROH"
+    ws["E4"] = f"MAIN BOARD\\{texto_modelo}\\ROH"
+    ws["D3"] = plantas.strip() if plantas else ""
 
-        valor = ws["D5"].value
+    # Ajuste D5/E5
+    valor = ws["D5"].value
+    if valor and "\\" in valor:
+        parte = valor.split("\\", 1)[1]
+        ws["E5"] = "MAINBOARD SMT PART\\" + parte
+    else:
+        ws["E5"] = "MAINBOARD SMT PART\\"
 
-        if valor and "\\" in valor:
-            parte = valor.split("\\", 1)[1]   
-            ws["E5"] = "MAINBOARD SMT PART\\" + parte
-        else:
-            ws["E5"] = "MAINBOARD SMT PART\\"
-    
+    # Crear hojas BOMHeader y BOMItem si no existen
     if "BOMHeader" not in wb.sheetnames:
         ws_header = wb.create_sheet("BOMHeader")
         encabezados_header = ["BOMID","MATNR","WERKS","STLAN","STLAL","ZTEXT","BMENG","STKTX"]
@@ -352,25 +363,26 @@ def procesar_archivo_principal_mainboard_2(
         for col, header in enumerate(encabezados_item, start=1):
             ws_item.cell(row=1, column=col).value = header
 
+    # Columnas numéricas
     columnas_numericas = ["LEVEL", "ITEM", "QTY","MATERIAL","DESCRIPTION IN CHINESE"]
     mapa_columnas = {str(ws.cell(row=1, column=c).value).strip().upper(): openpyxl.utils.get_column_letter(c)
                      for c in range(1, ws.max_column + 1)
                      if str(ws.cell(row=1, column=c).value).strip().upper() in columnas_numericas}
-    
-    for nombre, letra in mapa_columnas.items():
-            for cell in ws[letra][1:]:
-                if cell.value is not None:
-                    valor = str(cell.value).strip()
-                    if valor != "":
-                        try:
-                            cell.value = float(valor.replace(",", ""))
-                        except:
-                            pass
 
-        # Alinear todo el texto a la izquierda
+    for nombre, letra in mapa_columnas.items():
+        for cell in ws[letra][1:]:
+            if cell.value is not None:
+                valor = str(cell.value).strip()
+                if valor != "":
+                    try:
+                        cell.value = float(valor.replace(",", ""))
+                    except:
+                        pass
+
+    # Alinear texto a la izquierda
     for fila in ws.iter_rows():
-            for celda in fila:
-                celda.alignment = Alignment(horizontal="left")
+        for celda in fila:
+            celda.alignment = Alignment(horizontal="left")
 
     wb.save(ruta_salida_principal)
     print(f"[OK] Proceso completo {ruta_salida_principal}")

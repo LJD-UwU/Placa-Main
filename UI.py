@@ -215,11 +215,12 @@ class SAPApp:
                 plantas = self.plantas[i] if i < len(self.plantas) else ""
 
                 procesar_archivo_principal_mainboard_2(
-                    ruta_excel,
-                    salida_excel,
-                    internal_model,
-                    plantas
-                )
+                ruta_excel_principal=ruta_excel,
+                ruta_salida_principal=salida_excel,
+                internal_model=internal_model,
+                plantas=plantas,
+                df_no_procesadas=self.df_no_procesadas  # <-- PASAMOS el DF desde la UI
+            )
 
                 #! Marcar archivo como procesado
                 guardar_archivo_procesado(f)
@@ -412,7 +413,7 @@ class SAPApp:
             df = pd.read_excel(self.excel_path.get())
             df.columns = df.columns.str.strip().str.upper()
 
-            columnas_requeridas = ["MATERIAL", "PLANT", "ALTBOM", "INTERNAL MODEL", "PROCESS"]
+            columnas_requeridas = ["MATERIAL", "PLANT", "ALTBOM", "INTERNAL MODEL", "PROCESS", "MAINBOARD PART NUMBER"]
             faltantes = [c for c in columnas_requeridas if c not in df.columns]
             if faltantes:
                 raise ValueError(f"No se encontraron las columnas: {faltantes}")
@@ -441,6 +442,7 @@ class SAPApp:
             self.plantas = limpiar_columna("PLANT")
             self.altboms = limpiar_columna("ALTBOM")
             self.internal_models = limpiar_columna("INTERNAL MODEL")
+            self.mainboard_numbers = df_filtrado["MAINBOARD PART NUMBER"].astype(str).str.strip().tolist()
 
             self.df_no_procesadas = df_filtrado
 

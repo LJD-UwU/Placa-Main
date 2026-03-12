@@ -462,7 +462,7 @@ class SAPApp:
             return
 
         if self.idx >= total:
-            self.log_msg("\n[INFO] Iniciando procesamiento de las mainboards\n")
+            self.log_msg("\n[INFO] Iniciando procesamiento de las motherboards y mainboards\n")
             self.guardar_excel_final()
             self.set_status("Finalizado ✅")
             self.progress["value"] = 100
@@ -546,7 +546,7 @@ class SAPApp:
                 self.log_msg("    • Analizando descripciones", "OK")
                 df_modelo = extract_descripcion_numbers(ruta_xlsx, internal_models, DESCRIPCIONES)
                 if df_modelo.empty:
-                    self.log_msg(f"[INFO] No se encontro mainboard para {modelo}")
+                    self.log_msg(f"[ERROR] No se encontro motherboard para {modelo}")
                 else:
                     df_modelo["Modelo"] = modelo
                     df_modelo["Planta"] = planta

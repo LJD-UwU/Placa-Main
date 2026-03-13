@@ -10,23 +10,23 @@ from backend.config.sap_config import EXPORT_FINAL_PATH
 BASE_BOM_FOLDER = os.path.join(EXPORT_FINAL_PATH, "BOM_FILES")
 #! CARPETAS PRINCIPALES
 TE1_FOLDER = os. path.join (BASE_BOM_FOLDER,"1TE_FOLDER")
-MOTHERBOARD_FILES = os. path.join (BASE_BOM_FOLDER,"MOTHERBOARD_FOLDER")
+#MOTHERBOARD_FILES = os. path.join (BASE_BOM_FOLDER,"MOTHERBOARD_FOLDER")
 
 #! CARPETAS SECUNDARIAS
-MODEL_FILES_FOLDER = os.path.join(TE1_FOLDER, "MODEL_INTERN")
+MODEL_FILES_FOLDER = os.path.join(TE1_FOLDER, "1TE_FILES")
 MAINBOARD_1_FILES_FOLDER = os.path.join(TE1_FOLDER, "MOTHERBOARD")
 MAINBOARD_2_FILES_FOLDER = os.path.join(TE1_FOLDER, "MAIN_BOARD_FINAL")
 
-MOTHERBOARD_1_FILES_FOLDER = os.path.join(MOTHERBOARD_FILES, "MOTHERBOARD")
-MOTHERBOARD_2_FILES_FOLDER = os.path.join(MOTHERBOARD_FILES, "MAIN_BOARD_FINAL")
+#MOTHERBOARD_1_FILES_FOLDER = os.path.join(MOTHERBOARD_FILES, "MOTHERBOARD")
+#MOTHERBOARD_2_FILES_FOLDER = os.path.join(MOTHERBOARD_FILES, "MAIN_BOARD_FINAL")
 
 os.makedirs(TE1_FOLDER, exist_ok=True)
 os.makedirs(MODEL_FILES_FOLDER, exist_ok=True)
 os.makedirs(MAINBOARD_1_FILES_FOLDER, exist_ok=True)
 os.makedirs(MAINBOARD_2_FILES_FOLDER, exist_ok=True)
-os.makedirs(MOTHERBOARD_FILES, exist_ok=True)
-os.makedirs(MOTHERBOARD_1_FILES_FOLDER, exist_ok=True)
-os.makedirs(MOTHERBOARD_2_FILES_FOLDER, exist_ok=True)
+#os.makedirs(MOTHERBOARD_FILES, exist_ok=True)
+#os.makedirs(MOTHERBOARD_1_FILES_FOLDER, exist_ok=True)
+#os.makedirs(MOTHERBOARD_2_FILES_FOLDER, exist_ok=True)
 
 def convertir_xls_a_xlsx(ruta_xls: str, ruta_xlsx: str):
     if not os.path.exists(ruta_xls):

@@ -21,9 +21,9 @@ from backend.utils.txt_to_xlsx import(
     MODEL_FILES_FOLDER,
     MAINBOARD_1_FILES_FOLDER,
     MAINBOARD_2_FILES_FOLDER,
-    MOTHERBOARD_FILES,
-    MOTHERBOARD_1_FILES_FOLDER,
-    MOTHERBOARD_2_FILES_FOLDER
+    #MOTHERBOARD_FILES,
+    #MOTHERBOARD_1_FILES_FOLDER,
+    #MOTHERBOARD_2_FILES_FOLDER
 )
 from backend.modules.procesar_motherboard_P1 import actualizar_excel_mainboard_1
 from backend.modules.procesar_mainboard_P2 import actualizar_excel_mainboard_2
@@ -571,7 +571,7 @@ class SAPApp:
             self.log_msg(f"[ERROR] {e}", "ERROR")
 
         else:
-            # solo si terminó correctamente
+            #! solo si terminó correctamente
             self.materiales_procesados_ok.append(modelo)
                 
         #! Incrementar índice y continuar
@@ -585,8 +585,8 @@ class SAPApp:
         #! Crear carpetas si no existen
         for folder in [
             BASE_BOM_FOLDER, MODEL_FILES_FOLDER, MAINBOARD_1_FILES_FOLDER,
-            MAINBOARD_2_FILES_FOLDER, MOTHERBOARD_FILES,
-            MOTHERBOARD_1_FILES_FOLDER, MOTHERBOARD_2_FILES_FOLDER
+            MAINBOARD_2_FILES_FOLDER, #MOTHERBOARD_FILES,
+            #MOTHERBOARD_1_FILES_FOLDER, MOTHERBOARD_2_FILES_FOLDER
         ]:
             os.makedirs(folder, exist_ok=True)
 
@@ -627,7 +627,7 @@ class SAPApp:
                     actualizar_excel_mainboard_1(
                         self.excel_path.get(),
                         modelo,
-                        [number]   # mainboard detectado
+                        [number]   #! mainboard detectado
                     )
 
                 except Exception as e:

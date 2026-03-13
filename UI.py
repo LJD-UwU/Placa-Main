@@ -78,10 +78,11 @@ class SAPApp:
         fila_btn.pack(pady=4)
 
         self.btn_mainboard = ttk.Button(
-            fila_btn,
-            text="🖥 Motherboard",
-            command=self.abrir_app_mainboard
-        )
+        fila_btn,
+        text="🖥 Motherboard",
+        command=self.abrir_app_mainboard,
+        state="disabled"
+    )
         self.btn_mainboard.pack(side="left", padx=4)
 
         self.btn_procesar = ttk.Button(
@@ -133,6 +134,7 @@ class SAPApp:
         self.idx = 0
         self.session = None
         self.df_todos = pd.DataFrame(columns=["Modelo", "Planta", "Number", "Descripcion"])
+        self.materiales_procesados_ok = []
 
         #! --- Vigilar cambios en Excel ---
         self.excel_path.trace_add("write", lambda *args: self.verificar_habilitar_botones())
@@ -219,7 +221,7 @@ class SAPApp:
                 ruta_salida_principal=salida_excel,
                 internal_model=internal_model,
                 plantas=plantas,
-                df_no_procesadas=self.df_no_procesadas  # <-- PASAMOS el DF desde la UI
+                df_no_procesadas=self.df_no_procesadas  #! <-- PASAMOS el DF desde la UI
             )
 
                 #! Marcar archivo como procesado
@@ -255,7 +257,7 @@ class SAPApp:
 
         else:
             #! Habilitar botones
-            self.btn_mainboard.config(state="normal")
+            self.btn_mainboard.config(state="disabled")
             self.btn_limpiar.config(state="normal")
 
             if excel:
@@ -486,7 +488,7 @@ class SAPApp:
                     raise ValueError("No se encontraron las columnas 'MATERIAL' o 'PROCESS' en el Excel")
 
                 #! Actualizar filas procesadas
-                materiales_procesados = [str(m).strip() for m in self.modelos]
+                materiales_procesados = [str(m).strip() for m in self.materiales_procesados_ok]
                 for row in ws.iter_rows(min_row=2):
                     material = str(row[col_material - 1].value).strip()
                     if material in materiales_procesados:
@@ -507,6 +509,7 @@ class SAPApp:
 
         try:
             self.log_msg("  • Ejecutando CS11...\n", "INFO")
+
             resultados = ejecutar_cs11(
                 self.session,
                 material=modelo,
@@ -520,6 +523,7 @@ class SAPApp:
 
             for planta, _ in resultados:
                 self.log_msg(f"  • Planta {planta}: exportando BOM")
+
                 ruta_xls = exportar_bom_a_xls(
                     self.session,
                     modelo,
@@ -527,11 +531,14 @@ class SAPApp:
                 )
 
                 self.log_msg("    ✓ BOM exportado")
+
                 fecha = datetime.now().strftime("%Y-%m-%d")
                 nombre_base = os.path.splitext(os.path.basename(ruta_xls))[0]
                 nombre_base = re.sub(r'[\\/*?:"<>|]', "_", nombre_base)
                 nombre_base = re.sub(r'^(?:\d+-)+', '', nombre_base)
+
                 altboms = self.altboms[self.idx]
+
                 ruta_xlsx = os.path.join(
                     MODEL_FILES_FOLDER,
                     f"{fecha}-{nombre_base}-ALTBOM{altboms}.xlsx"
@@ -541,12 +548,20 @@ class SAPApp:
                     os.remove(ruta_xlsx)
 
                 convertir_xls_a_xlsx(ruta_xls, ruta_xlsx)
+
                 self.log_msg("    ✓ Convertido a XLSX")
 
                 self.log_msg("    • Analizando descripciones", "OK")
-                df_modelo = extract_descripcion_numbers(ruta_xlsx, internal_models, DESCRIPCIONES)
+
+                df_modelo = extract_descripcion_numbers(
+                    ruta_xlsx,
+                    internal_models,
+                    DESCRIPCIONES
+                )
+
                 if df_modelo.empty:
                     self.log_msg(f"[ERROR] No se encontro motherboard para {modelo}")
+
                 else:
                     df_modelo["Modelo"] = modelo
                     df_modelo["Planta"] = planta
@@ -555,6 +570,10 @@ class SAPApp:
         except Exception as e:
             self.log_msg(f"[ERROR] {e}", "ERROR")
 
+        else:
+            # solo si terminó correctamente
+            self.materiales_procesados_ok.append(modelo)
+                
         #! Incrementar índice y continuar
         self.idx += 1
         self.root.after(200, self.procesar_modelo)

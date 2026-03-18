@@ -551,7 +551,7 @@ class SAPApp:
 
                 self.log_msg("    ✓ Convertido a XLSX")
 
-                self.log_msg("    • Analizando descripciones", "OK")
+                self.log_msg("    • Buscando motherboard", "OK")
 
                 df_modelo = extract_descripcion_numbers(
                     ruta_xlsx,
@@ -582,17 +582,15 @@ class SAPApp:
     def guardar_excel_final(self):
         self.set_status("Procesando mainboards")
 
-        #! Crear carpetas si no existen
         for folder in [
             BASE_BOM_FOLDER, MODEL_FILES_FOLDER, MAINBOARD_1_FILES_FOLDER,
-            MAINBOARD_2_FILES_FOLDER, #MOTHERBOARD_FILES,
-            #MOTHERBOARD_1_FILES_FOLDER, MOTHERBOARD_2_FILES_FOLDER
+            MAINBOARD_2_FILES_FOLDER,
         ]:
             os.makedirs(folder, exist_ok=True)
 
-        #! Procesamiento de mainboards
         for _, row in self.df_todos.iterrows():
-            number = str(row["Number"]).strip()
+            number = str(row["Number"]).strip().replace(".0", "")
+            modelo = str(row["Modelo"]).strip()
 
             if any(number in f for f in os.listdir(MAINBOARD_1_FILES_FOLDER)):
                 continue
@@ -600,7 +598,7 @@ class SAPApp:
             try:
                 ruta_xls = None
 
-                for planta in self.plantas:
+                for planta in set(self.plantas):
                     ruta_xls = procesar_number(
                         session=self.session,
                         number=number,
@@ -621,18 +619,17 @@ class SAPApp:
                 convertir_xls_a_xlsx(ruta_xls, ruta_xlsx)
                 limpiar_excel_mainboard(ruta_xlsx)
 
+                #! MAINBOARD 1
                 try:
-                    modelo = row["Modelo"]
-
                     actualizar_excel_mainboard_1(
                         self.excel_path.get(),
                         modelo,
-                        [number]   #! mainboard detectado
+                        [number]
                     )
-
                 except Exception as e:
                     self.log_msg(f"[ERROR] No se pudo actualizar Excel mainboard 1: {e}", "ERROR")
 
+                #! MAINBOARD 2
                 materiales_detectados = []
 
                 for planta in set(self.plantas):
@@ -644,26 +641,26 @@ class SAPApp:
                     )
 
                     if material:
-                        materiales_detectados.append(material)
+                        materiales_detectados.append(str(material).strip())
+                        
+                materiales_detectados = list(set(materiales_detectados))
 
                 print("Materiales detectados:", materiales_detectados)
 
-                try:
-                    modelo = row["Modelo"]
-
-                    actualizar_excel_mainboard_2(
-                        self.excel_path.get(),
-                        modelo,
-                        materiales_detectados
-                    )
-
-                except Exception as e:
-                    self.log_msg(f"[ERROR] No se pudo actualizar Excel mainboard 2: {e}", "ERROR")
+                if materiales_detectados:  #! evitar escribir vacío
+                    try:
+                        actualizar_excel_mainboard_2(
+                            self.excel_path.get(),
+                            modelo,
+                            materiales_detectados
+                        )
+                    except Exception as e:
+                        self.log_msg(f"[ERROR] No se pudo actualizar Excel mainboard 2: {e}", "ERROR")
 
             except Exception as e:
                 self.log_msg(f"[ERROR] Mainboard {number}: {e}", "ERROR")
 
-            #! Eliminar archivos .xls residuales
+            #! limpiar .xls basura
             for folder in [
                 MAINBOARD_1_FILES_FOLDER,
                 MAINBOARD_2_FILES_FOLDER,

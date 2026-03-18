@@ -114,9 +114,12 @@ def agregar_submateriales(df_main, ws):
         df_bom = df_bom[df_bom["USE/NO USE"] != "NO USE"]
 
     #! ===== Filtrar submateriales relacionados con PCB =====
-    mask = df_bom["PCB_clean"].apply(lambda x: any(code in x for code in lista_pcb))
     cols_interes = ["PCB","Part #","ZH Description","EN Description","QTY","UNIT"]
-    df_filtrado = df_bom.loc[mask, cols_interes].reset_index(drop=True)
+
+    df_bom["PCB_clean"] = df_bom["PCB"].astype(str).str.strip()
+    lista_pcb = [str(x).strip() for x in lista_pcb]
+
+    df_filtrado = df_bom[df_bom["PCB_clean"].isin(lista_pcb)][cols_interes].reset_index(drop=True)
 
     #! ===== Separar finales y normales =====
     finales = {"L600022","1063182"}

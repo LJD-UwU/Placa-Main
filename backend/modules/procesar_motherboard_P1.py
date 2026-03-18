@@ -132,44 +132,38 @@ def procesar_number_mainboard(session, number, capid):
     raise Exception(f"No se pudo acceder al BOM de {number} en ninguna planta")
 
 def actualizar_excel_mainboard_1(ruta_excel, modelo, number):
-    """
-    Actualiza el Excel agregando el Mainboard Part Number
-    en la misma fila del modelo procesado.
-    """
-
     wb = load_workbook(ruta_excel)
     ws = wb.active
 
     col_material = None
     col_mainboard = None
 
-    #! Buscar columnas
     for i, cell in enumerate(ws[1], start=1):
         nombre = str(cell.value).strip().upper()
 
         if nombre == "MATERIAL":
             col_material = i
-
         if nombre == "MOTHERBOARD PART NUMBER":
             col_mainboard = i
 
     if not col_material or not col_mainboard:
-        raise Exception("No se encontraron las columnas MATERIAL o MOTHERBOARD PART NUMBER")
+        raise Exception("No se encontraron columnas")
 
     fila_objetivo = None
 
-    #! Buscar la fila del modelo
+    #! BUSCAR FILA VACÍA DEL MISMO MODELO
     for row in ws.iter_rows(min_row=2):
-        valor = str(row[col_material - 1].value).strip()
+        material = str(row[col_material - 1].value).strip()
+        valor_actual = row[col_mainboard - 1].value
 
-        if valor == str(modelo).strip():
-            fila_objetivo = row[0].row
-            break
+        if material == str(modelo).strip():
+            if not valor_actual:
+                fila_objetivo = row[0].row
+                break
 
     if not fila_objetivo:
-        raise Exception(f"No se encontró el modelo {modelo} en el Excel")
+        raise Exception(f"No hay fila disponible para {modelo}")
 
-    #! Escribir resultado
     if number:
         ws.cell(row=fila_objetivo, column=col_mainboard).value = ", ".join(number)
     else:

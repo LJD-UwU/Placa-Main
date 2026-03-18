@@ -2,5 +2,4 @@ pandas
 openpyxl
 xlwings
 pywin32
-PIL
-tkinter
+Pillow

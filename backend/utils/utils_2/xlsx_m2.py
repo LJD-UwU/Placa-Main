@@ -5,7 +5,7 @@ import pandas as pd
 import xlwings as xw
 
 from datetime import datetime
-from backend.utils.txt_to_xlsx import MOTHERBOARD_1_FILES_FOLDER
+from backend.utils.txt_to_xlsx import MAINBOARD_1_FILES_FOLDER
 
 
 def convertir_xls_a_xlsx(ruta_xls: str, ruta_xlsx: str):
@@ -54,7 +54,7 @@ def exportar_bom_a_xls(session, material):
     nombre_limpio = re.sub(r'[\\/*?:"<>|]', "_", material)
     fecha = datetime.now().strftime("%Y-%m-%d")
     xls_name = f"{fecha}-{nombre_limpio}.XLS"
-    carpeta_destino = MOTHERBOARD_1_FILES_FOLDER
+    carpeta_destino = MAINBOARD_1_FILES_FOLDER
     ruta_xls_final = os.path.join(carpeta_destino, xls_name)
     try:
 

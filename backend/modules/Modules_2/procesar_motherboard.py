@@ -57,7 +57,7 @@ def procesar_numbers_desde_listas(session, mother_list, plant_list, excel_output
 
                 continue
 
-            # Exportar BOM (ya guarda en MOTHERBOARD_2_FILES_FOLDER)
+            # Exportar BOM (ya guarda en MAINBOARD_2_FILES_FOLDER)
             ruta_xls = exportar_bom_a_xls(session, mother)
 
             if not ruta_xls or not os.path.exists(ruta_xls):

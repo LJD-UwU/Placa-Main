@@ -17,13 +17,9 @@ from backend.utils.txt_to_xlsx import(
     exportar_bom_a_xls,
     convertir_xls_a_xlsx,
     BASE_BOM_FOLDER,
-    TE1_FOLDER,
     MODEL_FILES_FOLDER,
     MAINBOARD_1_FILES_FOLDER,
     MAINBOARD_2_FILES_FOLDER,
-    #MOTHERBOARD_FILES,
-    #MOTHERBOARD_1_FILES_FOLDER,
-    #MOTHERBOARD_2_FILES_FOLDER
 )
 from backend.modules.procesar_motherboard_P1 import actualizar_excel_mainboard_1
 from backend.modules.procesar_mainboard_P2 import actualizar_excel_mainboard_2
@@ -270,7 +266,7 @@ class SAPApp:
 
         else:
             #! Habilitar botones
-            self.btn_mainboard.config(state="disabled")
+            self.btn_mainboard.config(state="normal")
             self.btn_limpiar.config(state="normal")
 
             if excel:
@@ -677,8 +673,7 @@ class SAPApp:
             for folder in [
                 MAINBOARD_1_FILES_FOLDER,
                 MAINBOARD_2_FILES_FOLDER,
-                MODEL_FILES_FOLDER,
-                TE1_FOLDER
+                MODEL_FILES_FOLDER
             ]:
                 for f in os.listdir(folder):
                     ruta = os.path.join(folder, f)

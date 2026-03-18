@@ -5,7 +5,7 @@ import shutil
 from backend.utils.txt_to_xlsx import (
     exportar_bom_a_xls,
     convertir_xls_a_xlsx,
-    MOTHERBOARD_2_FILES_FOLDER
+    MAINBOARD_2_FILES_FOLDER
 )
 
 from backend.config.sap_config import TRANSACCION
@@ -75,8 +75,8 @@ def procesar_material_desde_mainboard(session, ruta_mainboard_xlsx, uso, planta)
         nombre_xls = f"{material}_{planta}.xls"
         nombre_xlsx = f"{material}.xlsx"
 
-        ruta_xls_destino = os.path.join(MOTHERBOARD_2_FILES_FOLDER, nombre_xls)
-        ruta_xlsx = os.path.join(MOTHERBOARD_2_FILES_FOLDER, nombre_xlsx)
+        ruta_xls_destino = os.path.join(MAINBOARD_2_FILES_FOLDER, nombre_xls)
+        ruta_xlsx = os.path.join(MAINBOARD_2_FILES_FOLDER, nombre_xlsx)
 
         # ===== VERIFICAR SI YA EXISTE =====
         if os.path.exists(ruta_xls_destino):

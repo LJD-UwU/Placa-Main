@@ -36,100 +36,84 @@ class SAPApp:
     def __init__(self, root):
         self.root = root
         self.root.title("MBAutomator")
-        self.root.geometry("510x420")
+        self.root.geometry("550x480")  #! Un poco más grande para comodidad
         self.root.resizable(False, False)
 
+        #! Icono
         try:
             img = Image.open("backend/IMG/logo.png") 
-            img = img.resize((256, 256))  
+            img = img.resize((64, 64))  
             icon = ImageTk.PhotoImage(img)
             self.root.iconphoto(True, icon)
         except Exception as e:
             print(f"No se pudo cargar el icono: {e}")
 
+        #! Animación y tiempo
         self.animando = False
         self.anim_dots = 0
         self.start_time = None
 
+        #! Estilo
         style = ttk.Style()
         style.theme_use("clam")
         style.configure("Title.TLabel", font=("Segoe UI", 14, "bold"))
-        style.configure("TProgressbar", thickness=10)
+        style.configure("TProgressbar", thickness=12)
 
+        #! --- Títulos ---
         ttk.Label(root, text="Automatización SAP", style="Title.TLabel").pack(pady=(8, 0))
-        ttk.Label(root, text="Procesamiento automático para el BOM", foreground="gray").pack(pady=(0, 6))
+        ttk.Label(root, text="Procesamiento automático para el BOM", foreground="gray").pack(pady=(0, 8))
 
+        #! --- Frame principal ---
         main = ttk.Frame(root, padding=6)
         main.pack(fill="both", expand=True)
 
-        #! --- Campo de inserciocion del Excel ---
+        #! --- Selección de Excel ---
         fila_file = ttk.Frame(main)
         fila_file.pack(fill="x", pady=4)
         self.excel_path = tk.StringVar()
         ttk.Entry(fila_file, textvariable=self.excel_path).pack(side="left", fill="x", expand=True)
         ttk.Button(fila_file, text="📂", width=3, command=self.seleccionar_excel).pack(side="left", padx=4)
 
-        #! --- Progreso del sistema ---
+        #! --- Barra de progreso ---
         self.progress = ttk.Progressbar(main, mode="determinate")
         self.progress.pack(fill="x", pady=6)
 
-        #! --- Botones ---
+        #! --- Botones principales ---
         fila_btn = ttk.Frame(main)
-        fila_btn.pack(pady=4)
+        fila_btn.pack(pady=6)
 
-        self.btn_mainboard = ttk.Button(
-        fila_btn,
-        text="🖥 Motherboard",
-        command=self.abrir_app_mainboard,
-        state="disabled"
-    )
+        self.btn_mainboard = ttk.Button(fila_btn, text="🖥 Motherboard (Pruebas)", command=self.abrir_app_mainboard, state="disabled")
         self.btn_mainboard.pack(side="left", padx=4)
 
-        self.btn_procesar = ttk.Button(
-            fila_btn,
-            text="▶ Procesar",
-            command=self.iniciar,
-            state="disabled"
-        )
+        self.btn_procesar = ttk.Button(fila_btn, text="▶ Procesar", command=self.iniciar, state="disabled")
         self.btn_procesar.pack(side="left", padx=4)
 
-        self.btn_limpiar = ttk.Button(
-            fila_btn,
-            text="🧹 Limpiar",
-            command=self.limpiar_datos
-        )
+        self.btn_limpiar = ttk.Button(fila_btn, text="🧹 Limpiar", command=self.limpiar_datos)
         self.btn_limpiar.pack(side="left", padx=4)
 
-        self.btn_open = ttk.Button(
-            fila_btn,
-            text="📁 Resultados",
-            command=self.abrir_resultados,
-            state="disabled"
-        )
+        self.btn_open = ttk.Button(fila_btn, text="📁 Resultados", command=self.abrir_resultados, state="disabled")
         self.btn_open.pack(side="left", padx=4)
 
-        self.btn_credenciales = ttk.Button(
-            fila_btn,
-            text="🔐 Credenciales",
-            command=self.abrir_credenciales
-        )
+        self.btn_credenciales = ttk.Button(fila_btn, text="🔐 Login SAP", command=self.abrir_credenciales)
         self.btn_credenciales.pack(side="left", padx=4)
 
         #! --- Consola ---
         frame_log = ttk.LabelFrame(main, text="CONSOLA")
         frame_log.pack(fill="both", expand=True, pady=(6, 0))
-        self.log = scrolledtext.ScrolledText(frame_log, height=9, font=("Consolas", 9))
+        self.log = scrolledtext.ScrolledText(frame_log, height=10, font=("Consolas", 10))
         self.log.pack(fill="both", expand=True, padx=5, pady=5)
         self.log.config(state="disabled")
         self.log.tag_config("INFO", foreground="blue")
-        self.log.tag_config("OK", foreground="green")
-        self.log.tag_config("ERROR", foreground="red")
-        self.log.tag_config("WARNING", foreground="orange")
+        self.log.tag_config("OK", foreground="green", font=("Consolas", 10, "bold"))
+        self.log.tag_config("ERROR", foreground="red", font=("Consolas", 10, "bold"))
+        self.log.tag_config("WARNING", foreground="orange", font=("Consolas", 10, "italic"))
 
+        #! --- Estado con porcentaje ---
         self.status = tk.StringVar(value="Estado: Listo")
-        ttk.Label(root, textvariable=self.status, anchor="w").pack(fill="x", side="bottom", padx=6, pady=4)
+        self.progress_label = ttk.Label(root, textvariable=self.status, anchor="w")
+        self.progress_label.pack(fill="x", side="bottom", padx=6, pady=4)
 
-        #! --- Datos ---
+        #! --- Datos internos ---
         self.modelos = []
         self.idx = 0
         self.session = None
@@ -139,6 +123,35 @@ class SAPApp:
         #! --- Vigilar cambios en Excel ---
         self.excel_path.trace_add("write", lambda *args: self.verificar_habilitar_botones())
         self.verificar_habilitar_botones()
+
+        #! --- Tooltips de botones ---
+        self._crear_tooltips()
+        
+    def _crear_tooltips(self):
+            tooltips = {
+                self.btn_mainboard: "Función en pruebas, no disponible actualmente",
+                self.btn_procesar: "Procesar archivo excel",
+                self.btn_limpiar: "Limpiar la consola y archivos finales",
+                self.btn_open: "Abrir carpeta de los archivo",
+                self.btn_credenciales: "Iniciar sesion para SAP"
+            }
+
+            for widget, text in tooltips.items():
+                self._add_tooltip(widget, text)
+
+    def _add_tooltip(self, widget, text):
+            tooltip = tk.Toplevel(widget)
+            tooltip.withdraw()
+            tooltip.overrideredirect(True)
+            label = tk.Label(tooltip, text=text, background="white", relief="solid", borderwidth=1)
+            label.pack()
+            def enter(event):
+                tooltip.geometry(f"+{event.x_root+10}+{event.y_root+10}")
+                tooltip.deiconify()
+            def leave(event):
+                tooltip.withdraw()
+            widget.bind("<Enter>", enter)
+            widget.bind("<Leave>", leave)
 
     def abrir_app_mainboard(self):
         if hasattr(self, "_mainboard_proc") and self._mainboard_proc.poll() is None:

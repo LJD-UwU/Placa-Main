@@ -78,7 +78,7 @@ def procesar_material_desde_mainboard(session, ruta_mainboard_xlsx, uso, planta)
     if not os.path.exists(ruta_mainboard_xlsx):
         raise FileNotFoundError(f"No existe el archivo mainboard: {ruta_mainboard_xlsx}")
 
-    #! ===== LEER MAINBOARD NIVEL 1 =====
+    #!  LEER MAINBOARD NIVEL 1 
     df = pd.read_excel(ruta_mainboard_xlsx, engine="openpyxl")
     if df.empty:
         raise Exception("El archivo mainboard está vacío")
@@ -99,7 +99,7 @@ def procesar_material_desde_mainboard(session, ruta_mainboard_xlsx, uso, planta)
     if material:
         materiales_detectados.append(material)
     try:
-        #! ===== ENTRAR A TRANSACCIÓN SAP =====
+        #!  ENTRAR A TRANSACCIÓN SAP 
         session.findById("wnd[0]/tbar[0]/okcd").text = TRANSACCION
         session.findById("wnd[0]").sendVKey(0)
 
@@ -112,7 +112,7 @@ def procesar_material_desde_mainboard(session, ruta_mainboard_xlsx, uso, planta)
             print(f"[WARNING] No se pudo acceder al BOM de {material} en planta {planta}")
             return None
 
-        #! ===== VERIFICAR SI YA EXISTE XLS =====
+        #!  VERIFICAR SI YA EXISTE XLS 
         nombre_xls_esperado = f"{material}_{planta}.xls"
         ruta_xls_destino = os.path.join(MAINBOARD_2_FILES_FOLDER, nombre_xls_esperado)
 
@@ -121,7 +121,7 @@ def procesar_material_desde_mainboard(session, ruta_mainboard_xlsx, uso, planta)
             ruta_xls = ruta_xls_destino
 
         else:
-            #! ===== EXPORTAR BOM DESDE SAP =====
+            #!  EXPORTAR BOM DESDE SAP 
             ruta_xls = exportar_bom_a_xls(
                 session=session,
                 material=material,
@@ -132,7 +132,7 @@ def procesar_material_desde_mainboard(session, ruta_mainboard_xlsx, uso, planta)
                 print(f"[WARNING] Falló exportación BOM planta {planta}")
                 return None
 
-            #! ===== MOVER XLS A MAINBOARD_2_FILES_FOLDER =====
+            #!  MOVER XLS A MAINBOARD_2_FILES_FOLDER 
             try:
                 shutil.move(ruta_xls, ruta_xls_destino)
                 ruta_xls = ruta_xls_destino
@@ -140,7 +140,7 @@ def procesar_material_desde_mainboard(session, ruta_mainboard_xlsx, uso, planta)
             except Exception as e:
                 print(f"[WARNING] No se pudo mover el XLS: {e}")
 
-        #! ===== CONVERTIR XLS → XLSX =====
+        #!  CONVERTIR XLS → XLSX 
         nombre_base = f"{material}"
         ruta_xlsx = os.path.join(MAINBOARD_2_FILES_FOLDER, f"{nombre_base}.xlsx")
 

@@ -9,7 +9,7 @@ from backend.config.sap_config import FILTRO, TRANSACCION, PAUSA
 
 def procesar_numbers_desde_listas(session, mother_list, plant_list, excel_output, capid=FILTRO, loop_multiple=False):
     
-    # Detectar si es lista de listas
+    #! Detectar si es lista de listas
     if loop_multiple:
         for i, (m_list, p_list) in enumerate(zip(mother_list, plant_list)):
             print(f"\n[INFO] Iniciando batch {i+1}/{len(mother_list)}")
@@ -23,7 +23,7 @@ def procesar_numbers_desde_listas(session, mother_list, plant_list, excel_output
             )
         return
 
-    # Validación básica
+    #! Validación básica
     if len(mother_list) != len(plant_list):
         raise ValueError("Las listas mother_list y plant_list deben tener la misma longitud")
 
@@ -37,11 +37,11 @@ def procesar_numbers_desde_listas(session, mother_list, plant_list, excel_output
 
         try:
 
-            # Abrir transacción SAP
+            #! Abrir transacción SAP
             session.findById("wnd[0]/tbar[0]/okcd").text = TRANSACCION
             session.findById("wnd[0]").sendVKey(0)
 
-            # Ingresar datos
+            #! Ingresar datos
             session.findById("wnd[0]/usr/ctxtRC29L-MATNR").text = mother
             session.findById("wnd[0]/usr/ctxtRC29L-WERKS").text = plant
             session.findById("wnd[0]/usr/ctxtRC29L-CAPID").text = capid
@@ -50,14 +50,14 @@ def procesar_numbers_desde_listas(session, mother_list, plant_list, excel_output
 
             time.sleep(PAUSA)
 
-            # Validación BOM
+            #! Validación BOM
             if not acceso_bom_exitoso(session):
 
                 print(f"[INFO] No se accedió al BOM para {mother} en planta {plant}")
 
                 continue
 
-            # Exportar BOM (ya guarda en MAINBOARD_2_FILES_FOLDER)
+            #! Exportar BOM (ya guarda en MAINBOARD_2_FILES_FOLDER)
             ruta_xls = exportar_bom_a_xls(session, mother)
 
             if not ruta_xls or not os.path.exists(ruta_xls):
@@ -66,7 +66,7 @@ def procesar_numbers_desde_listas(session, mother_list, plant_list, excel_output
 
                 continue
 
-            # Convertir a XLSX
+            #! Convertir a XLSX
             base, _ = os.path.splitext(ruta_xls)
             ruta_xlsx = base + ".xlsx"
 
@@ -76,7 +76,7 @@ def procesar_numbers_desde_listas(session, mother_list, plant_list, excel_output
 
             print(f"[ERROR] Error procesando {mother} en planta {plant}: {e}")
 
-    # Guardar Excel final
+    #! Guardar Excel final
     if not df_final.empty:
 
         df_final.to_excel(excel_output, index=False, engine="openpyxl")

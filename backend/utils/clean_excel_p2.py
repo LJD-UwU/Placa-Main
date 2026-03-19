@@ -21,7 +21,7 @@ def extraer_codigo_pcb(texto, siguiente_celda=None):
                 return match.group(1)
     return None
 
-#! ================== LÓGICA DE LAS X ==================
+#!  LÓGICA DE LAS X 
 def aplicar_logica_x(ws):
     """Aplica la lógica de marcar ITEM vacíos con 'X', numeración por bloques y LEVEL jerárquico."""
     col_indices = {ws.cell(row=1, column=c).value: c for c in range(1, ws.max_column + 1)}
@@ -73,7 +73,7 @@ def aplicar_logica_x(ws):
         if ws.cell(row=row, column=col_level).value in (None, ""):
             ws.cell(row=row, column=col_level).value = ws.cell(row=row - 1, column=col_level).value
 
-#! ================== SUBMATERIALES ==================
+#!  SUBMATERIALES 
 def agregar_submateriales(df_main, ws):
     """
     Agrega submateriales de BOM y manuales dentro del LEVEL 2 antes de la X correspondiente.
@@ -82,7 +82,7 @@ def agregar_submateriales(df_main, ws):
     gris_submaterial = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
     fuente_normal = Font(name="Calibri", size=11, bold=False)
 
-    #! ===== Extraer códigos PCB =====
+    #!  Extraer códigos PCB 
     df_main["PCB_CODE"] = df_main.apply(
         lambda row: extraer_codigo_pcb(row["MATERIAL"], row["DESCRIPTION IN CHINESE"]), axis=1
     )
@@ -91,7 +91,7 @@ def agregar_submateriales(df_main, ws):
         df_main.drop(columns=["PCB_CODE"], inplace=True, errors="ignore")
         return df_main
 
-    #! ===== Cargar archivo mas reciente de los sudmateriales =====
+    #!  Cargar archivo mas reciente de los sudmateriales 
     archivos = [f for f in glob(os.path.join(EXTRAER_ARCHIVO, "*.xlsx")) if not os.path.basename(f).startswith("~$")]
     if len(archivos) < 2:
         print("[WARN] No hay suficientes archivos BOM para tomar el anterior al más reciente.")
@@ -107,13 +107,13 @@ def agregar_submateriales(df_main, ws):
         df_main.drop(columns=["PCB_CODE"], inplace=True, errors="ignore")
         return df_main
 
-    #! ===== Filtrar USE =====
+    #!  Filtrar USE 
     df_bom["PCB_clean"] = df_bom["PCB"].astype(str).str.strip()
     if "USE/NO USE" in df_bom.columns:
         df_bom["USE/NO USE"] = df_bom["USE/NO USE"].astype(str).str.strip().str.upper()
         df_bom = df_bom[df_bom["USE/NO USE"] != "NO USE"]
 
-    #! ===== Filtrar submateriales relacionados con PCB =====
+    #!  Filtrar submateriales relacionados con PCB 
     cols_interes = ["PCB","Part #","ZH Description","EN Description","QTY","UNIT"]
 
     df_bom["PCB_clean"] = df_bom["PCB"].astype(str).str.strip()
@@ -121,13 +121,13 @@ def agregar_submateriales(df_main, ws):
 
     df_filtrado = df_bom[df_bom["PCB_clean"].isin(lista_pcb)][cols_interes].reset_index(drop=True)
 
-    #! ===== Separar finales y normales =====
+    #!  Separar finales y normales 
     finales = {"L600022","1063182"}
     df_filtrado["Part #"] = df_filtrado["Part #"].astype(str)
     df_finales = df_filtrado[df_filtrado["Part #"].isin(finales)]
     df_normales = df_filtrado[~df_filtrado["Part #"].isin(finales)]
 
-    #! ===== Mapear columnas BOM → Excel =====
+    #!  Mapear columnas BOM → Excel 
     col_map = {
         "PCB": "ITEM",
         "Part #": "MATERIAL",
@@ -149,7 +149,7 @@ def agregar_submateriales(df_main, ws):
     df_sub_normales = mapear_filas(df_normales)
     df_sub_finales = mapear_filas(df_finales)
 
-    #! ===== Filas manuales =====
+    #!  Filas manuales 
     filas_manuales = [
         {
             "ITEM": "73467",
@@ -175,7 +175,7 @@ def agregar_submateriales(df_main, ws):
     df_manuales = pd.DataFrame(filas_manuales, columns=df_sub_normales.columns)
     df_sub_normales = pd.concat([df_sub_normales, df_manuales], ignore_index=True)
 
-    #! ===== Insertar submateriales antes de X del bloque LEVEL 2 =====
+    #!  Insertar submateriales antes de X del bloque LEVEL 2 
     indices_level2 = [i for i, v in enumerate(df_main["LEVEL"]) if v == 2]
     for idx in reversed(indices_level2):
         x_index = None
@@ -198,7 +198,7 @@ def agregar_submateriales(df_main, ws):
                     ws.cell(row=fila_excel, column=c).font = fuente_normal
             break
 
-    #! ===== Agregar submateriales finales al final =====
+    #!  Agregar submateriales finales al final 
     df_main = pd.concat([df_main, df_sub_finales], ignore_index=True)
     fila_inicio = len(df_main) - len(df_sub_finales) + 2
     for i in range(len(df_sub_finales)):
@@ -207,12 +207,12 @@ def agregar_submateriales(df_main, ws):
             ws.cell(row=fila_excel, column=c).fill = gris_submaterial
             ws.cell(row=fila_excel, column=c).font = fuente_normal
 
-    #! ===== Limpiar columna temporal =====
+    #!  Limpiar columna temporal 
     df_main.drop(columns=["PCB_CODE","_SUBMATERIAL"], inplace=True, errors="ignore")
 
     return df_main
 
-#! ================== PROCESO PRINCIPAL ==================
+#!  PROCESO PRINCIPAL 
 def procesar_archivo_principal_mainboard_2(
     ruta_excel_principal: str, 
     ruta_salida_principal: str,

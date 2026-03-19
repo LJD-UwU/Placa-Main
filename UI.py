@@ -32,7 +32,7 @@ class SAPApp:
     def __init__(self, root):
         self.root = root
         self.root.title("MBAutomator")
-        self.root.geometry("550x480")  #! Un poco más grande para comodidad
+        self.root.geometry("570x480") 
         self.root.resizable(False, False)
 
         #! Icono
@@ -55,33 +55,33 @@ class SAPApp:
         style.configure("Title.TLabel", font=("Segoe UI", 14, "bold"))
         style.configure("TProgressbar", thickness=12)
 
-        #! --- Títulos ---
+        #!  Títulos 
         ttk.Label(root, text="Automatización SAP", style="Title.TLabel").pack(pady=(8, 0))
         ttk.Label(root, text="Procesamiento automático para el BOM", foreground="gray").pack(pady=(0, 8))
 
-        #! --- Frame principal ---
+        #!  Frame principal 
         main = ttk.Frame(root, padding=6)
         main.pack(fill="both", expand=True)
 
-        #! --- Selección de Excel ---
+        #!  Selección de Excel 
         fila_file = ttk.Frame(main)
         fila_file.pack(fill="x", pady=4)
         self.excel_path = tk.StringVar()
         ttk.Entry(fila_file, textvariable=self.excel_path).pack(side="left", fill="x", expand=True)
         ttk.Button(fila_file, text="📂", width=3, command=self.seleccionar_excel).pack(side="left", padx=4)
 
-        #! --- Barra de progreso ---
+        #!  Barra de progreso 
         self.progress = ttk.Progressbar(main, mode="determinate")
         self.progress.pack(fill="x", pady=6)
 
-        #! --- Botones principales ---
+        #!  Botones principales 
         fila_btn = ttk.Frame(main)
         fila_btn.pack(pady=6)
 
-        self.btn_mainboard = ttk.Button(fila_btn, text="🖥 Motherboard (Pruebas)", command=self.abrir_app_mainboard, state="disabled")
+        self.btn_mainboard = ttk.Button(fila_btn, text="🖥 Procesar Motherboard", command=self.abrir_app_mainboard, state="disabled")
         self.btn_mainboard.pack(side="left", padx=4)
 
-        self.btn_procesar = ttk.Button(fila_btn, text="▶ Procesar", command=self.iniciar, state="disabled")
+        self.btn_procesar = ttk.Button(fila_btn, text="▶ Procesar 1TE", command=self.iniciar, state="disabled")
         self.btn_procesar.pack(side="left", padx=4)
 
         self.btn_limpiar = ttk.Button(fila_btn, text="🧹 Limpiar", command=self.limpiar_datos)
@@ -93,7 +93,7 @@ class SAPApp:
         self.btn_credenciales = ttk.Button(fila_btn, text="🔐 Login SAP", command=self.abrir_credenciales)
         self.btn_credenciales.pack(side="left", padx=4)
 
-        #! --- Consola ---
+        #!  Consola 
         frame_log = ttk.LabelFrame(main, text="CONSOLA")
         frame_log.pack(fill="both", expand=True, pady=(6, 0))
         self.log = scrolledtext.ScrolledText(frame_log, height=10, font=("Consolas", 10))
@@ -104,29 +104,29 @@ class SAPApp:
         self.log.tag_config("ERROR", foreground="red", font=("Consolas", 10, "bold"))
         self.log.tag_config("WARNING", foreground="orange", font=("Consolas", 10, "italic"))
 
-        #! --- Estado con porcentaje ---
+        #!  Estado con porcentaje 
         self.status = tk.StringVar(value="Estado: Listo")
         self.progress_label = ttk.Label(root, textvariable=self.status, anchor="w")
         self.progress_label.pack(fill="x", side="bottom", padx=6, pady=4)
 
-        #! --- Datos internos ---
+        #!  Datos internos 
         self.modelos = []
         self.idx = 0
         self.session = None
         self.df_todos = pd.DataFrame(columns=["Modelo", "Planta", "Number", "Descripcion"])
         self.materiales_procesados_ok = []
 
-        #! --- Vigilar cambios en Excel ---
+        #!  Vigilar cambios en Excel 
         self.excel_path.trace_add("write", lambda *args: self.verificar_habilitar_botones())
         self.verificar_habilitar_botones()
 
-        #! --- Tooltips de botones ---
+        #!  Tooltips de botones 
         self._crear_tooltips()
         
     def _crear_tooltips(self):
             tooltips = {
-                self.btn_mainboard: "Función en pruebas, no disponible actualmente",
-                self.btn_procesar: "Procesar archivo excel",
+                self.btn_mainboard: "Procesar archivo desde las motherboard",
+                self.btn_procesar: "Procesar archivo con 1TE",
                 self.btn_limpiar: "Limpiar la consola y archivos finales",
                 self.btn_open: "Abrir carpeta de los archivo",
                 self.btn_credenciales: "Iniciar sesion para SAP"
@@ -243,7 +243,7 @@ class SAPApp:
 
         self.log_msg("[INFO] Todos los archivos nuevos han sido procesados")
         
-    #! ================= VALIDACIÓN DE BOTONES =================
+    #!  VALIDACIÓN DE BOTONES 
     def verificar_habilitar_botones(self):
         cred = cargar_credenciales()
 
@@ -278,7 +278,7 @@ class SAPApp:
         self.btn_open.config(state="disabled")
 
 
-    #! ================= CREDENCIALES =================
+    #!  CREDENCIALES 
     def abrir_credenciales(self):
         cred = cargar_credenciales()
         win = tk.Toplevel(self.root)
@@ -322,7 +322,7 @@ class SAPApp:
             self.verificar_habilitar_botones()
         ttk.Button(win, text="Guardar", command=guardar).pack(pady=18)
 
-    #! ================= LOG =================
+    #!  LOG 
     def log_msg(self, msg, tag="INFO"):
         self.log.config(state="normal")
         self.log.insert(tk.END, msg + "\n", tag)
@@ -330,7 +330,7 @@ class SAPApp:
         self.log.config(state="disabled")
         self.root.update()
 
-    #! ================= ESTADO DE LA APP =================
+    #!  ESTADO DE LA APP 
     def set_status(self, msg, animar=False):
         self.animando = False
         self.anim_dots = 0
@@ -357,7 +357,7 @@ class SAPApp:
         if self.btn_procesar["state"] == "disabled":
             self.root.after(1000, self.actualizar_tiempo)
 
-    #! ================= UI =================
+    #! UI
     def seleccionar_excel(self):
         f = filedialog.askopenfilename(filetypes=[("Excel", "*")])
         if f:
@@ -369,7 +369,7 @@ class SAPApp:
             os.startfile(path)
             
 
-    #! ================= FLUJO =================
+    #! FLUJO 
     def iniciar(self):
         #! Validar credenciales antes de iniciar
         cred = cargar_credenciales()

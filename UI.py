@@ -163,22 +163,18 @@ class SAPApp:
             messagebox.showerror("Error", f"No se pudo abrir la app:\n{e}")
             
     def limpiar_datos(self):
-        #! Limpiar la consola
         self.log.config(state="normal")
         self.log.delete("1.0", tk.END)
         self.log.config(state="disabled")
         self.log_msg("[INFO] Limpieza iniciada", "INFO")
 
-        #! Validar que haya Excel seleccionado
         if not self.excel_path.get():
             messagebox.showwarning("Atención", "Selecciona un Excel primero")
             return
 
-        #! Cargar datos del Excel
         if not self.cargar_excel_datos(ignorar_process=True):
             return
 
-        #! Confirmar acción
         respuesta = messagebox.askyesno(
             "Procesamiento de Excel",
             "¿Deseas procesar los archivos Excel?"
@@ -197,25 +193,21 @@ class SAPApp:
             self.log_msg(f"[ERROR] La carpeta {folder} no existe")
             return
 
-        #! Crear carpeta ARCHIVOS_FINALES si no existe
         carpeta_final = os.path.join(folder, "ARCHIVOS_FINALES")
         os.makedirs(carpeta_final, exist_ok=True)
 
-        #! Obtener archivos XLSX ordenados por fecha de modificación
         archivos = [
             f for f in os.listdir(folder)
             if os.path.isfile(os.path.join(folder, f)) and f.lower().endswith(".xlsx")
         ]
         archivos.sort(key=lambda x: os.path.getmtime(os.path.join(folder, x)))
 
-        #! Cargar archivos ya procesados desde JSON
         archivos_procesados = cargar_archivos_procesados()
 
-        #! Procesar solo archivos no procesados
         for i, f in enumerate(archivos):
             if f in archivos_procesados:
                 self.log_msg(f"[INFO] Archivo ya procesado, se omite: {f}\n", "INFO")
-                continue  #! Saltar archivo ya procesado
+                continue
 
             ruta_excel = os.path.join(folder, f)
             salida_excel = os.path.join(carpeta_final, f"MB-BMM-{f}")
@@ -230,18 +222,22 @@ class SAPApp:
                 ruta_salida_principal=salida_excel,
                 internal_model=internal_model,
                 plantas=plantas,
-                df_no_procesadas=self.df_no_procesadas  #! <-- PASAMOS el DF desde la UI
+                df_no_procesadas=self.df_no_procesadas
             )
 
-                #! Marcar archivo como procesado
                 guardar_archivo_procesado(f)
-
                 self.log_msg(f"[OK] Archivo procesado: PROCESADO_{f}\n")
 
             except Exception as e:
                 self.log_msg(f"[ERROR] No se pudo procesar {f}: {e}", "ERROR")
 
         self.log_msg("[INFO] Todos los archivos nuevos han sido procesados")
+        
+        #! Mensaje de limpieza finalizado 
+        messagebox.showinfo(
+            "Limpieza finalizada",
+            "Los archivos han sido limpiados y procesados correctamente 🧹"
+        )
         
     #!  VALIDACIÓN DE BOTONES 
     def verificar_habilitar_botones(self):
@@ -376,8 +372,8 @@ class SAPApp:
         if not cred.get("SAP_SYSTEM_NAME") or not cred.get("SAP_USER") or not cred.get("SAP_PASSWORD"):
             messagebox.showerror(
                 "Credenciales incompletas",
-                "No se han ingresado las credenciales SAP.\n"
-                "Por favor ve a 🔐 Credenciales e ingrésalas antes de continuar."
+                "No se han iniciado sesionn en SAP.\n"
+                "Por favor ve a 🔐 usuario y contraseña e ingrésalas antes de continuar."
             )
             return  #! No continuar hasta que estén completas
 
@@ -479,7 +475,14 @@ class SAPApp:
             self.progress["value"] = 100
             self.btn_open.config(state="normal")
             self.btn_procesar.config(state="normal")
-            
+
+            #! Mensaje de proceso compeltado
+            messagebox.showinfo(
+                "Proceso finalizado",
+                "El procesamiento de los 1TE ha terminado correctamente ✅"
+                "y el Excel se ha actualido correctamente ✅"
+            )
+
             #! Actualizar solo la columna PROCESS en Excel usando openpyxl
             try:
                 wb = load_workbook(self.excel_path.get())
@@ -487,6 +490,7 @@ class SAPApp:
 
                 #! Buscar la columna "PROCESS" (mayúsculas por seguridad)
                 col_process = None
+                col_material = None
                 for i, cell in enumerate(ws[1], start=1):
                     if str(cell.value).strip().upper() == "PROCESS":
                         col_process = i
@@ -586,8 +590,6 @@ class SAPApp:
         #! Incrementar índice y continuar
         self.idx += 1
         self.root.after(200, self.procesar_modelo)
-
-
     def guardar_excel_final(self):
         self.set_status("Procesando mainboards")
 
@@ -693,8 +695,8 @@ if __name__ == "__main__":
     if not cred.get("SAP_SYSTEM_NAME") or not cred.get("SAP_USER") or not cred.get("SAP_PASSWORD"):
         messagebox.showinfo(
             "Atención",
-            "No se han ingresado las credenciales SAP.\n"
-            "Ve a 🔐 Credenciales para completarlas antes de iniciar cualquier proceso."
+            "No se han iniciado sesionn en SAP.\n"
+            "Ve a 🔐 inicar sesion para habilitar cualquier proceso."
         )
 
     root.mainloop()

@@ -1,9 +1,7 @@
-import time
 import re
 import os
-from backend.config.sap_config import (
-    PAUSA
-)
+import time
+from backend.config.sap_config import (PAUSA)
 
 timeout=15
 

@@ -4,9 +4,8 @@ import subprocess
 import win32com.client
 
 from backend.config.sap_config import SAP_LOGON_PATH
-from backend.config.credenciales_loader import cargar_credenciales
 from backend.utils.sap_utils import esperar_sap, escribir_campo
-
+from backend.config.credenciales_loader import cargar_credenciales
 
 def abrir_sap_y_login(timeout=60, max_intentos=3):
 

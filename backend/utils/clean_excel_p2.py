@@ -1,11 +1,10 @@
 import os
+import re
 import openpyxl
-from openpyxl.styles import PatternFill, Font
 import pandas as pd
 from glob import glob
 from backend.config.sap_config import EXTRAER_ARCHIVO
 from openpyxl.styles import PatternFill, Font, Alignment
-import re
 
 
 def contiene_chino(texto):

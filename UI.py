@@ -1,32 +1,23 @@
-from backend.config.credenciales_loader import cargar_credenciales, guardar_credenciales
-from backend.modules.procesar_mainboard_P2 import procesar_material_desde_mainboard
-from backend.modules.extract_mainboard import extract_descripcion_numbers
-from backend.modules.procesar_motherboard_P1 import procesar_number
-from backend.utils.clean_excel import limpiar_excel_mainboard
-from backend.config.sap_login import abrir_sap_y_login
-from tkinter import ttk, filedialog, messagebox, scrolledtext
-from PIL import Image, ImageTk
-import os, re, time, sys,subprocess
-from openpyxl import load_workbook
-import tkinter as tk
 import pandas as pd
+import tkinter as tk
 from datetime import datetime
-from backend.Helpers.helper import cargar_archivos_procesados,guardar_archivo_procesado
+from PIL import Image, ImageTk
+from openpyxl import load_workbook
+import os, re, time, sys,subprocess
+from tkinter import ttk, filedialog, messagebox, scrolledtext
+
 from backend.modules.cs11 import ejecutar_cs11
-from backend.utils.txt_to_xlsx import(
-    exportar_bom_a_xls,
-    convertir_xls_a_xlsx,
-    BASE_BOM_FOLDER,
-    MODEL_FILES_FOLDER,
-    MAINBOARD_1_FILES_FOLDER,
-    MAINBOARD_2_FILES_FOLDER,
-)
-from backend.modules.procesar_motherboard_P1 import actualizar_excel_mainboard_1
+from backend.config.sap_login import abrir_sap_y_login
+from backend.config.sap_config import (DESCRIPCIONES,FILTRO)
+from backend.utils.clean_excel import limpiar_excel_mainboard
+from backend.modules.procesar_motherboard_P1 import procesar_number
+from backend.modules.extract_mainboard import extract_descripcion_numbers
 from backend.modules.procesar_mainboard_P2 import actualizar_excel_mainboard_2
-from backend.config.sap_config import (
-    DESCRIPCIONES,
-    FILTRO,
-)
+from backend.modules.procesar_motherboard_P1 import actualizar_excel_mainboard_1
+from backend.modules.procesar_mainboard_P2 import procesar_material_desde_mainboard
+from backend.Helpers.helper import cargar_archivos_procesados,guardar_archivo_procesado
+from backend.config.credenciales_loader import cargar_credenciales, guardar_credenciales
+from backend.utils.txt_to_xlsx import(exportar_bom_a_xls,convertir_xls_a_xlsx,BASE_BOM_FOLDER,MODEL_FILES_FOLDER,MAINBOARD_1_FILES_FOLDER,MAINBOARD_2_FILES_FOLDER,)
 
 class SAPApp:
     def __init__(self, root):
@@ -35,7 +26,7 @@ class SAPApp:
         self.root.geometry("570x480") 
         self.root.resizable(False, False)
 
-        #! Icono
+        #! LOGO DE LA UI
         try:
             img = Image.open("backend/IMG/logo.png") 
             img = img.resize((64, 64))  
@@ -44,37 +35,36 @@ class SAPApp:
         except Exception as e:
             print(f"No se pudo cargar el icono: {e}")
 
-        #! Animación y tiempo
+        #! ANIMACIONES
         self.animando = False
         self.anim_dots = 0
         self.start_time = None
 
-        #! Estilo
+        #! ESTILOS
         style = ttk.Style()
         style.theme_use("clam")
         style.configure("Title.TLabel", font=("Segoe UI", 14, "bold"))
         style.configure("TProgressbar", thickness=12)
 
-        #!  Títulos 
+        #! ENCABESADOS
         ttk.Label(root, text="Automatización SAP", style="Title.TLabel").pack(pady=(8, 0))
         ttk.Label(root, text="Procesamiento automático para el BOM", foreground="gray").pack(pady=(0, 8))
 
-        #!  Frame principal 
         main = ttk.Frame(root, padding=6)
         main.pack(fill="both", expand=True)
 
-        #!  Selección de Excel 
+        #!  CAMPO DE SELECCION DEL EXCEL
         fila_file = ttk.Frame(main)
         fila_file.pack(fill="x", pady=4)
         self.excel_path = tk.StringVar()
         ttk.Entry(fila_file, textvariable=self.excel_path).pack(side="left", fill="x", expand=True)
         ttk.Button(fila_file, text="📂", width=3, command=self.seleccionar_excel).pack(side="left", padx=4)
 
-        #!  Barra de progreso 
+        #! BARRA DE PROGRESO (NO FUNCIONA)
         self.progress = ttk.Progressbar(main, mode="determinate")
         self.progress.pack(fill="x", pady=6)
 
-        #!  Botones principales 
+        #!  BOTONES DE LA UI 
         fila_btn = ttk.Frame(main)
         fila_btn.pack(pady=6)
 
@@ -93,7 +83,7 @@ class SAPApp:
         self.btn_credenciales = ttk.Button(fila_btn, text="🔐 Login SAP", command=self.abrir_credenciales)
         self.btn_credenciales.pack(side="left", padx=4)
 
-        #!  Consola 
+        #! CONSOLA DE PROCESOS
         frame_log = ttk.LabelFrame(main, text="CONSOLA")
         frame_log.pack(fill="both", expand=True, pady=(6, 0))
         self.log = scrolledtext.ScrolledText(frame_log, height=10, font=("Consolas", 10))
@@ -104,23 +94,21 @@ class SAPApp:
         self.log.tag_config("ERROR", foreground="red", font=("Consolas", 10, "bold"))
         self.log.tag_config("WARNING", foreground="orange", font=("Consolas", 10, "italic"))
 
-        #!  Estado con porcentaje 
+        #!  ESTADO DE LA UI
         self.status = tk.StringVar(value="Estado: Listo")
         self.progress_label = ttk.Label(root, textvariable=self.status, anchor="w")
         self.progress_label.pack(fill="x", side="bottom", padx=6, pady=4)
 
-        #!  Datos internos 
         self.modelos = []
         self.idx = 0
         self.session = None
         self.df_todos = pd.DataFrame(columns=["Modelo", "Planta", "Number", "Descripcion"])
         self.materiales_procesados_ok = []
 
-        #!  Vigilar cambios en Excel 
+        #!  VIGILAR LOS CAMBIOS 
         self.excel_path.trace_add("write", lambda *args: self.verificar_habilitar_botones())
         self.verificar_habilitar_botones()
 
-        #!  Tooltips de botones 
         self._crear_tooltips()
         
     def _crear_tooltips(self):
@@ -154,7 +142,7 @@ class SAPApp:
             return
 
         try:
-            #! Ejecutar como módulo desde la raíz
+            #! EJECUTAR VENTANA SECUNDARIA
             self._mainboard_proc = subprocess.Popen([
                 sys.executable,
                 "-m", "backend.UI.motherboard_app"
@@ -233,7 +221,7 @@ class SAPApp:
 
         self.log_msg("[INFO] Todos los archivos nuevos han sido procesados")
         
-        #! Mensaje de limpieza finalizado 
+        #! MENSAJE DE QUE LA LIMPOIEZA FINALIZO
         messagebox.showinfo(
             "Limpieza finalizada",
             "Los archivos han sido limpiados y procesados correctamente 🧹"
@@ -252,7 +240,7 @@ class SAPApp:
         excel = self.excel_path.get().strip()
 
         if not cred_ok:
-            #! Bloquear todo si no hay credenciales
+            #! MANTENER BLOQUEADO HASTA QUE SE REALIZE EL LOGIN 
             self.btn_mainboard.config(state="disabled")
             self.btn_procesar.config(state="disabled")
             self.btn_limpiar.config(state="disabled")
@@ -270,7 +258,7 @@ class SAPApp:
             else:
                 self.btn_procesar.config(state="disabled")
 
-        #! Resultados solo se habilita al final
+        #! SOLO SE HABILITA HASTA EL FINAL DEL PROCESO 
         self.btn_open.config(state="disabled")
 
 
@@ -367,7 +355,7 @@ class SAPApp:
 
     #! FLUJO 
     def iniciar(self):
-        #! Validar credenciales antes de iniciar
+        #! VALIDAR EL INICIO DE SESION
         cred = cargar_credenciales()
         if not cred.get("SAP_SYSTEM_NAME") or not cred.get("SAP_USER") or not cred.get("SAP_PASSWORD"):
             messagebox.showerror(
@@ -375,14 +363,14 @@ class SAPApp:
                 "No se han iniciado sesionn en SAP.\n"
                 "Por favor ve a 🔐 usuario y contraseña e ingrésalas antes de continuar."
             )
-            return  #! No continuar hasta que estén completas
+            return  #! NO CONTUNUAR HASTA QUE SE COMPLETE
 
-        #! Validar que haya un Excel seleccionado
+        #! VALIDAR SI SE CARGO EL EXCEL
         if not self.excel_path.get():
             messagebox.showwarning("Atención", "Selecciona un Excel")
             return
 
-        #! Deshabilitar botones y preparar progreso
+        #! DESABILITAR BOTONES
         self.btn_procesar.config(state="disabled")
         self.btn_open.config(state="disabled")
         self.progress["value"] = 0
@@ -427,7 +415,7 @@ class SAPApp:
 
             df["PROCESS"] = df["PROCESS"].apply(lambda x: True if str(x).upper() == "TRUE" else False)
 
-            #! Si es limpieza → NO filtrar
+            #! SI ES LIMPIEZA NO FILTRAR
             if ignorar_process:
                 df_filtrado = df
             else:
@@ -476,19 +464,19 @@ class SAPApp:
             self.btn_open.config(state="normal")
             self.btn_procesar.config(state="normal")
 
-            #! Mensaje de proceso compeltado
+            #! MENSAJE DE QUE EL PROCESO FUE COMPLETO
             messagebox.showinfo(
                 "Proceso finalizado",
                 "El procesamiento de los 1TE ha terminado correctamente ✅"
                 "y el Excel se ha actualido correctamente ✅"
             )
 
-            #! Actualizar solo la columna PROCESS en Excel usando openpyxl
+            #! ACTUALIZAR COLUMNA PROCESS EN EXCEL
             try:
                 wb = load_workbook(self.excel_path.get())
                 ws = wb.active
 
-                #! Buscar la columna "PROCESS" (mayúsculas por seguridad)
+                #! BUCAS COLUMNA "PROCESS" (mayúsculas por seguridad)
                 col_process = None
                 col_material = None
                 for i, cell in enumerate(ws[1], start=1):
@@ -500,12 +488,12 @@ class SAPApp:
                 if col_process is None or col_material is None:
                     raise ValueError("No se encontraron las columnas 'MATERIAL' o 'PROCESS' en el Excel")
 
-                #! Actualizar filas procesadas
+                #! ACTUALIZAR SOLO LAS FILAS RPOCESADAS
                 materiales_procesados = [str(m).strip() for m in self.materiales_procesados_ok]
                 for row in ws.iter_rows(min_row=2):
                     material = str(row[col_material - 1].value).strip()
                     if material in materiales_procesados:
-                        row[col_process - 1].value = True  #! Actualizamos solo el valor
+                        row[col_process - 1].value = True  #! ACTUALIOZAR SOLO EL VALOR
 
                 wb.save(self.excel_path.get())
                 self.log_msg("[OK] Excel actualizado", "OK")
@@ -584,10 +572,10 @@ class SAPApp:
             self.log_msg(f"[ERROR] {e}", "ERROR")
 
         else:
-            #! solo si terminó correctamente
+            #! SOLO SI SE COMPLETO CONTINUA
             self.materiales_procesados_ok.append(modelo)
                 
-        #! Incrementar índice y continuar
+        #! INCREMNETAR EL INDICE PARA CONTINUAR
         self.idx += 1
         self.root.after(200, self.procesar_modelo)
     def guardar_excel_final(self):
@@ -630,7 +618,7 @@ class SAPApp:
                 convertir_xls_a_xlsx(ruta_xls, ruta_xlsx)
                 limpiar_excel_mainboard(ruta_xlsx)
 
-                #! MAINBOARD 1
+                #! ACTUALIZAR DATOD DE MAINBOARD EN EXCEL ORIGINAL
                 try:
                     actualizar_excel_mainboard_1(
                         self.excel_path.get(),
@@ -640,7 +628,7 @@ class SAPApp:
                 except Exception as e:
                     self.log_msg(f"[ERROR] No se pudo actualizar Excel mainboard 1: {e}", "ERROR")
 
-                #! MAINBOARD 2
+                #! PROCESAR MAINBOARD
                 materiales_detectados = []
 
                 for planta in set(self.plantas):
@@ -658,7 +646,7 @@ class SAPApp:
 
                 print("Materiales detectados:", materiales_detectados)
 
-                if materiales_detectados:  #! evitar escribir vacío
+                if materiales_detectados:  #! EVITAR ESCRIBIR VACIOS
                     try:
                         actualizar_excel_mainboard_2(
                             self.excel_path.get(),
@@ -671,7 +659,7 @@ class SAPApp:
             except Exception as e:
                 self.log_msg(f"[ERROR] Mainboard {number}: {e}", "ERROR")
 
-            #! limpiar .xls basura
+            #! ELIMINAR .XLS BASURA
             for folder in [
                 MAINBOARD_1_FILES_FOLDER,
                 MAINBOARD_2_FILES_FOLDER,
@@ -690,7 +678,7 @@ if __name__ == "__main__":
     root = tk.Tk()
     app = SAPApp(root)
     
-    #! Validación inmediata de credenciales
+    #! VALIDACION INICAL PARA QUE EL USUARIO INGRESE LAS CREDENCIALES
     cred = cargar_credenciales()
     if not cred.get("SAP_SYSTEM_NAME") or not cred.get("SAP_USER") or not cred.get("SAP_PASSWORD"):
         messagebox.showinfo(

@@ -1,5 +1,5 @@
-import json
 import os
+import json
 from backend.utils.txt_to_xlsx import MAINBOARD_2_FILES_FOLDER
 
 PROCESADOS_FILE = os.path.join(MAINBOARD_2_FILES_FOLDER, "archivos_procesados.json")

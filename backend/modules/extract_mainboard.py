@@ -1,8 +1,9 @@
-import pandas as pd
 import re
-from backend.config.sap_config import (
-    RESULT_COLUMNS,
-)
+import pandas as pd
+
+from backend.config.sap_config import (RESULT_COLUMNS,)
+
+
 def extract_descripcion_numbers(input_xlsx, internal_models, descripcion_a_buscar, skiprows=0):
     if isinstance(descripcion_a_buscar, str):
         descripcion_a_buscar = [descripcion_a_buscar]

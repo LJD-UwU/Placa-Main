@@ -1,13 +1,5 @@
-from backend.utils.sap_utils import (
-    ejecutar_busqueda,
-    esperar_cs11_completo,
-    pausar
-)
-from backend.config.sap_config import (
-    TRANSACCION,
-    FILTRO,
-    PAUSA
-)
+from backend.config.sap_config import (TRANSACCION,FILTRO,PAUSA)
+from backend.utils.sap_utils import (ejecutar_busqueda,esperar_cs11_completo,pausar)
 
 def ejecutar_cs11(session, material, plantas, altboms, uso=FILTRO, pausa_entre_acciones=PAUSA):
     if isinstance(plantas, str):

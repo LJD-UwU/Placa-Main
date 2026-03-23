@@ -1,18 +1,12 @@
 import os
-import pandas as pd
 import shutil
-from backend.utils.txt_to_xlsx import (
-    exportar_bom_a_xls,
-    convertir_xls_a_xlsx,
-    MAINBOARD_2_FILES_FOLDER
-)
+import pandas as pd
 from tkinter import filedialog
 from openpyxl import load_workbook
 from backend.config.sap_config import TRANSACCION
 from backend.utils.sap_utils import acceso_bom_exitoso
+from backend.utils.txt_to_xlsx import (exportar_bom_a_xls,convertir_xls_a_xlsx,MAINBOARD_2_FILES_FOLDER)
 
-
-from openpyxl import load_workbook
 
 def actualizar_excel_mainboard(mother, materiales, ruta_excel):
     """

@@ -2,10 +2,22 @@ import os
 import re
 import openpyxl
 import pandas as pd
+import xlwings as xw
 from glob import glob
 from backend.config.sap_config import EXTRAER_ARCHIVO
 from openpyxl.styles import PatternFill, Font, Alignment
 
+def limpiar_valor(valor):
+    """Normaliza valores para comparación segura."""
+    if pd.isna(valor):
+        return ""
+    valor = str(valor).strip()
+    
+    #! quitar .0 típico de Excel
+    if valor.endswith(".0"):
+        valor = valor[:-2]
+
+    return valor
 
 def contiene_chino(texto):
     """Detecta si un texto contiene caracteres chinos."""
@@ -81,7 +93,7 @@ def agregar_submateriales(df_main, ws):
     gris_submaterial = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
     fuente_normal = Font(name="Calibri", size=11, bold=False)
 
-    #!  Extraer códigos PCB 
+    #! Extraer códigos PCB
     df_main["PCB_CODE"] = df_main.apply(
         lambda row: extraer_codigo_pcb(row["MATERIAL"], row["DESCRIPTION IN CHINESE"]), axis=1
     )
@@ -90,43 +102,73 @@ def agregar_submateriales(df_main, ws):
         df_main.drop(columns=["PCB_CODE"], inplace=True, errors="ignore")
         return df_main
 
-    #!  Cargar archivo mas reciente de los sudmateriales 
+    #! Cargar archivo más reciente de los submateriales
     archivos = [f for f in glob(os.path.join(EXTRAER_ARCHIVO, "*.xlsx")) if not os.path.basename(f).startswith("~$")]
     if len(archivos) < 2:
         print("[WARN] No hay suficientes archivos BOM para tomar el anterior al más reciente.")
         df_main.drop(columns=["PCB_CODE"], inplace=True, errors="ignore")
         return df_main
+
     archivo_bom = sorted(archivos, key=os.path.getmtime)[-1]
     print(f"[INFO] Archivo BOM tomado: {archivo_bom}")
 
+    #! 🔥 LECTURA ROBUSTA (pandas + xlwings fallback)
     try:
-        df_bom = pd.read_excel(archivo_bom, engine="openpyxl")
+        try:
+            df_bom = pd.read_excel(archivo_bom)
+        except Exception:
+            print("[INFO] Pandas no pudo leer el archivo. Intentando con xlwings...")
+
+            app = None
+            try:
+                app = xw.App(visible=False)
+                app.display_alerts = False
+                app.screen_updating = False
+
+                wb = app.books.open(archivo_bom)
+                sheet = wb.sheets[0]
+
+                data = sheet.used_range.value
+
+                # ! convertir manualmente (más confiable)
+                df_bom = pd.DataFrame(data[1:], columns=data[0])
+
+                wb.close()
+
+                df_bom.dropna(how="all", inplace=True)
+                df_bom.columns = df_bom.columns.astype(str).str.strip()
+
+            finally:
+                if app:
+                    app.quit()
+
     except Exception as e:
         print(f"[ERROR] No se pudo leer {archivo_bom}: {e}")
         df_main.drop(columns=["PCB_CODE"], inplace=True, errors="ignore")
         return df_main
+    
+    #! Filtrar USE
+    df_bom["PCB_clean"] = df_bom["PCB"].apply(limpiar_valor)
 
-    #!  Filtrar USE 
-    df_bom["PCB_clean"] = df_bom["PCB"].astype(str).str.strip()
     if "USE/NO USE" in df_bom.columns:
         df_bom["USE/NO USE"] = df_bom["USE/NO USE"].astype(str).str.strip().str.upper()
         df_bom = df_bom[df_bom["USE/NO USE"] != "NO USE"]
 
-    #!  Filtrar submateriales relacionados con PCB 
+    #! Filtrar submateriales relacionados con PCB
     cols_interes = ["PCB","Part #","ZH Description","EN Description","QTY","UNIT"]
 
-    df_bom["PCB_clean"] = df_bom["PCB"].astype(str).str.strip()
-    lista_pcb = [str(x).strip() for x in lista_pcb]
+    lista_pcb = [limpiar_valor(x) for x in lista_pcb]
 
     df_filtrado = df_bom[df_bom["PCB_clean"].isin(lista_pcb)][cols_interes].reset_index(drop=True)
 
-    #!  Separar finales y normales 
+    #! Separar finales y normales
     finales = {"L600022","1063182"}
     df_filtrado["Part #"] = df_filtrado["Part #"].astype(str)
+
     df_finales = df_filtrado[df_filtrado["Part #"].isin(finales)]
     df_normales = df_filtrado[~df_filtrado["Part #"].isin(finales)]
 
-    #!  Mapear columnas BOM → Excel 
+    #! Mapear columnas BOM → Excel
     col_map = {
         "PCB": "ITEM",
         "Part #": "MATERIAL",

@@ -7,8 +7,7 @@ Practicante-Placa-Main/
 │   │   ├── credenciales_loader.py
 │   │   └── sap_login.py
 │   ├── Helpers/
-│   │   ├── helper.py
-│   │   └── helper2.py
+│   │   └── helper.py
 │   ├── modules/
 │   │   ├── Modules_2/ 
 │   │   │   ├── procesar_motherboard.py
@@ -17,9 +16,10 @@ Practicante-Placa-Main/
 │   │   ├── extract_mainboard.py                       
 │   │   ├── procesar_motherboard_P1.py
 │   │   └── prosesar_mainboard_P2.py
+│   ├── UI/
+│   │   └──motherboard_app.py
 │   ├── utils/
 │   │    ├── utils_2/ 
-│   │    │   ├── clean_excel_m.py
 │   │    │   └── xlsx_m2.py
 │   │    ├── clean_excel_p2.py
 │   │    ├── clean_excel.py

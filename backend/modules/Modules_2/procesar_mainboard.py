@@ -1,57 +1,82 @@
 import os
 import shutil
 import pandas as pd
+import xlwings as xw
 from tkinter import filedialog
 from openpyxl import load_workbook
 from backend.config.sap_config import TRANSACCION
 from backend.utils.sap_utils import acceso_bom_exitoso
 from backend.utils.txt_to_xlsx import (exportar_bom_a_xls,convertir_xls_a_xlsx,MAINBOARD_2_FILES_FOLDER)
 
+def limpiar_valor(valor):
+    
+    if valor is None:
+        return ""
+    valor = str(valor).strip()
+    if valor.endswith(".0"):
+        valor = valor[:-2]
+    return valor
 
-def actualizar_excel_mainboard(mother, materiales, ruta_excel):
-    """
-    Actualiza un archivo Excel en la columna 'MAINBOARD PART NUMBER' para el modelo dado.
 
-    Args:
-        mother (str): Modelo a actualizar.
-        materiales (list): Lista de materiales a poner en la celda.
-        ruta_excel (str): Ruta del archivo Excel a actualizar.
-    """
-    wb = load_workbook(ruta_excel)
-    ws = wb.active
+def actualizar_excel_mainboard(mother, materiales, ruta_excel, app=None):
+    import xlwings as xw
 
-    col_material = None
-    col_mainboard = None
+    cerrar_app = False
 
-    # Buscar las columnas necesarias
-    for i, cell in enumerate(ws[1], start=1):
-        nombre = str(cell.value).strip().upper()
-        if nombre == "MOTHERBOARD PART NUMBER":
-            col_material = i
-        if nombre == "MAINBOARD PART NUMBER":
-            col_mainboard = i
+    if app is None:
+        app = xw.App(visible=False)
+        cerrar_app = True
 
-    if not col_material or not col_mainboard:
-        raise Exception("No se encontraron las columnas necesarias en el Excel.")
+    try:
+        wb = app.books.open(ruta_excel)
+        sheet = wb.sheets.active
 
-    fila_objetivo = None
+        data = sheet.used_range.value
 
-    # Buscar fila vacía correspondiente al modelo
-    for row in ws.iter_rows(min_row=2):
-        material = str(row[col_material - 1].value).strip()
-        valor_actual = row[col_mainboard - 1].value
-        if material == str(mother).strip() and not valor_actual:
-            fila_objetivo = row[0].row
-            break
+        if not data:
+            raise ValueError("El archivo Excel está vacío")
 
-    if not fila_objetivo:
-        raise Exception(f"No hay fila disponible para el modelo '{mother}'.")
+        #! Forzar estructura lista de listas
+        if not isinstance(data[0], list):
+            data = [data]
 
-    # Escribir materiales o "NOT FOUND"
-    ws.cell(row=fila_objetivo, column=col_mainboard).value = ", ".join(materiales) if materiales else "NOT FOUND"
+        header = [limpiar_valor(h).upper() for h in data[0]]
 
-    wb.save(ruta_excel)
-    print(f"[OK] Archivo actualizado: {ruta_excel}")
+        try:
+            col_material = header.index("MOTHERBOARD PART NUMBER") + 1
+            col_mainboard = header.index("MAINBOARD PART NUMBER") + 1
+        except ValueError:
+            raise Exception("No se encontraron las columnas necesarias.")
+
+        fila_objetivo = None
+
+        for i, row in enumerate(data[1:], start=2):
+            if not row:
+                continue
+
+            material = limpiar_valor(row[col_material - 1])
+            valor_actual = row[col_mainboard - 1]
+
+            if material == limpiar_valor(mother):
+                if not valor_actual:
+                    fila_objetivo = i
+                    break
+
+        if not fila_objetivo:
+            raise Exception(f"No hay fila disponible para el modelo '{mother}'.")
+
+        #! Escritura optimizada
+        resultado = ", ".join(materiales) if materiales else "NOT FOUND"
+        sheet.cells(fila_objetivo, col_mainboard).value = resultado
+
+        wb.save()
+        wb.close()
+
+        print(f"[OK] Archivo actualizado: {ruta_excel}")
+
+    finally:
+        if cerrar_app:
+            app.quit()
 
 def leer_excel_sap_fallback(ruta_xls):
     """
@@ -108,7 +133,7 @@ def procesar_material_desde_mainboard(session, ruta_mainboard_xlsx, uso, planta,
             print(f"[WARNING] No se pudo acceder al BOM {material}")
             return None
 
-        # Generación de XLS/XLSX del BOM
+        #! Generación de XLS/XLSX del BOM
         nombre_xls = f"{material}_{planta}.xls"
         nombre_xlsx = f"{material}.xlsx"
         ruta_xls_destino = os.path.join(MAINBOARD_2_FILES_FOLDER, nombre_xls)
@@ -132,7 +157,7 @@ def procesar_material_desde_mainboard(session, ruta_mainboard_xlsx, uso, planta,
 
         print(f"[INFO] BOM generado correctamente: {ruta_xlsx}")
 
-        # Extraer componentes
+        #! Extraer componentes
         materiales_extraidos = []
         try:
             df_bom = pd.read_excel(ruta_xlsx, engine="openpyxl")

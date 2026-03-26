@@ -1,6 +1,8 @@
 import os
 import time
+import pandas as pd
 import tkinter as tk
+import xlwings as xw
 from datetime import datetime
 from PIL import Image, ImageTk
 from openpyxl import load_workbook
@@ -15,6 +17,37 @@ from backend.modules.Modules_2.procesar_mainboard import actualizar_excel_mainbo
 from backend.modules.Modules_2.procesar_motherboard import procesar_numbers_desde_listas
 from backend.utils.txt_to_xlsx import (MAINBOARD_1_FILES_FOLDER,MAINBOARD_2_FILES_FOLDER)
 from backend.modules.Modules_2.procesar_mainboard import procesar_material_desde_mainboard
+
+
+def limpiar_valor(valor):
+    if valor is None:
+        return ""
+    valor = str(valor).strip()
+    if valor.endswith(".0"):
+        valor = valor[:-2]
+    return valor
+
+def abrir_excel_seguro(path_excel):
+    """
+    Abre Excel con fallback:
+    1. openpyxl (rápido)
+    2. xlwings (soporta cifrado)
+    """
+    try:
+        wb = load_workbook(path_excel)
+        return wb, "openpyxl"
+    except Exception:
+        # fallback a xlwings
+        app = xw.App(visible=False)
+        app.display_alerts = False
+        app.screen_updating = False
+
+        try:
+            wb_xw = app.books.open(path_excel)
+            return (app, wb_xw), "xlwings"
+        except Exception as e:
+            app.quit()
+            raise Exception(f"No se pudo abrir el archivo (ni openpyxl ni xlwings): {e}")
 
 #!  FILTRO POR COLOR 
 def es_amarillo(celda):
@@ -33,63 +66,123 @@ def es_amarillo(celda):
     return False
 
 def leer_filas_amarillas(path_excel):
-    wb = load_workbook(path_excel)
-    ws = wb.active
 
-    headers = {}
-    for col in range(1, ws.max_column + 1):
-        nombre = ws.cell(row=1, column=col).value
-        if nombre:
-            headers[str(nombre).strip().upper()] = col
-
-    required = ["MOTHERBOARD PART NUMBER", "PLANT", "INTERNAL MODEL"]
-    for r in required:
-        if r not in headers:
-            raise Exception(f"No se encontró la columna: {r}")
-
-    col_mother = headers["MOTHERBOARD PART NUMBER"]
-    col_plant = headers["PLANT"]
-    col_internal = headers["INTERNAL MODEL"]
+    obj, engine = abrir_excel_seguro(path_excel)
 
     mothers, plants, internals = [], [], []
 
-    for row in range(2, ws.max_row + 1):
-        celda_mother = ws.cell(row=row, column=col_mother)
-        if es_amarillo(celda_mother) and celda_mother.value:
-            mother = str(celda_mother.value).strip()
-            plant = ws.cell(row=row, column=col_plant).value
-            internal = ws.cell(row=row, column=col_internal).value
-            mothers.append(mother)
-            plants.append(str(plant) if plant else "")
-            internals.append(str(internal) if internal else "")
+    try:
+        # 🔹 OPENPYXL (rápido)
+        if engine == "openpyxl":
+            wb = obj
+            ws = wb.active
+
+            headers = {}
+            for col in range(1, ws.max_column + 1):
+                nombre = ws.cell(row=1, column=col).value
+                if nombre:
+                    headers[str(nombre).strip().upper()] = col
+
+            required = ["MOTHERBOARD PART NUMBER", "PLANT", "INTERNAL MODEL"]
+            for r in required:
+                if r not in headers:
+                    raise Exception(f"No se encontró la columna: {r}")
+
+            col_mother = headers["MOTHERBOARD PART NUMBER"]
+            col_plant = headers["PLANT"]
+            col_internal = headers["INTERNAL MODEL"]
+
+            for row in range(2, ws.max_row + 1):
+                celda = ws.cell(row=row, column=col_mother)
+
+                if es_amarillo(celda) and celda.value:
+                    mothers.append(limpiar_valor(celda.value))
+                    plants.append(limpiar_valor(ws.cell(row=row, column=col_plant).value))
+                    internals.append(limpiar_valor(ws.cell(row=row, column=col_internal).value))
+
+        # 🔹 XLWINGS (cifrado)
+        else:
+            app, wb = obj
+            sheet = wb.sheets[0]
+
+            data = sheet.used_range.value
+            if not data:
+                raise Exception("Excel vacío")
+
+            headers = [str(h).strip().upper() for h in data[0]]
+
+            def col_idx(name):
+                if name not in headers:
+                    raise Exception(f"No se encontró la columna: {name}")
+                return headers.index(name)
+
+            col_mother = col_idx("MOTHERBOARD PART NUMBER")
+            col_plant = col_idx("PLANT")
+            col_internal = col_idx("INTERNAL MODEL")
+
+            # Leer colores con xlwings
+            for i in range(2, len(data) + 1):
+                celda = sheet.cells(i, col_mother + 1)
+
+                color = celda.color  # RGB tuple
+
+                es_amarillo_xw = color and (
+                    (color[0] > 200 and color[1] > 200 and color[2] < 100)
+                )
+
+                if es_amarillo_xw:
+                    row = data[i - 1]
+
+                    mother = limpiar_valor(row[col_mother])
+                    plant = limpiar_valor(row[col_plant])
+                    internal = limpiar_valor(row[col_internal])
+
+                    if mother:
+                        mothers.append(mother)
+                        plants.append(plant)
+                        internals.append(internal)
+
+    finally:
+        #  limpieza segura
+        if engine == "openpyxl":
+            obj.close()
+        else:
+            app, wb = obj
+            try:
+                wb.close()
+            except:
+                pass
+            app.quit()
 
     return mothers, plants, internals
 
 #!  MARCAR MOTHERBOARD PROCESADA 
 def marcar_procesado(path_excel, mother_name):
     try:
-        wb = load_workbook(path_excel)
-        ws = wb.active
+        app = xw.App(visible=False)
+        wb = app.books.open(path_excel)
+        sheet = wb.sheets[0]
 
-        col_mother = None
-        for col in range(1, ws.max_column + 1):
-            header = ws.cell(row=1, column=col).value
-            if header and str(header).strip().upper() == "MOTHERBOARD PART NUMBER":
-                col_mother = col
+        data = sheet.used_range.value
+        headers = [str(h).strip().upper() for h in data[0]]
+
+        col_mother = headers.index("MOTHERBOARD PART NUMBER")
+
+        for i in range(2, len(data) + 1):
+            celda = sheet.cells(i, col_mother + 1)
+
+            if limpiar_valor(celda.value) == limpiar_valor(mother_name):
+                
+                #! VERDE CORRECTO
+                celda.color = (198, 224, 180)
                 break
 
-        if not col_mother:
-            raise Exception("No se encontró la columna 'MOTHERBOARD PART NUMBER'")
+        wb.save()
+        wb.close()
+        app.quit()
 
-        for row in range(2, ws.max_row + 1):
-            celda = ws.cell(row=row, column=col_mother)
-            if str(celda.value).strip() == str(mother_name).strip():
-                celda.fill = PatternFill(start_color="C6E0B4", end_color="C6E0B4", fill_type="solid")
-                break
-
-        wb.save(path_excel)
     except Exception as e:
-        print(f"[ERROR] No se pudo marcar motherboard como procesada: {e}")
+        print(f"[ERROR] {e}")
 
 #!  ELIMINAR ARCHIVOS XLS 
 def eliminar_xls_carpeta(carpeta):

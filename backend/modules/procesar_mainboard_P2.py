@@ -24,44 +24,49 @@ def leer_excel_sap_fallback(ruta_xls):
                 return pd.DataFrame()
 
 def actualizar_excel_mainboard_2(ruta_excel, modelo, materiales):
-    wb = load_workbook(ruta_excel)
-    ws = wb.active
+    import xlwings as xw
+    app = xw.App(visible=False)
+    try:
+        wb = app.books.open(ruta_excel)
+        sheet = wb.sheets.active
+        
+        # Leer datos para buscar columnas
+        data = sheet.used_range.value
+        if not data:
+            raise ValueError("El archivo Excel está vacío")
+            
+        header = [str(h).strip().upper() for h in data[0]]
+        try:
+            col_material = header.index("MATERIAL") + 1
+            col_mainboard = header.index("MAINBOARD PART NUMBER") + 1
+        except ValueError:
+            raise ValueError("No se encontraron columnas 'MATERIAL' o 'MAINBOARD PART NUMBER'")
 
-    col_material = None
-    col_mainboard = None
+        fila_objetivo = None
+        # Buscar fila vacía del mismo modelo
+        for i, row in enumerate(data[1:], start=2):
+            material = str(row[col_material - 1]).strip()
+            # row index matches enumerate start=2
+            valor_actual = row[col_mainboard - 1]
 
-    for i, cell in enumerate(ws[1], start=1):
-        nombre = str(cell.value).strip().upper()
+            if material == str(modelo).strip():
+                if not valor_actual:
+                    fila_objetivo = i
+                    break
 
-        if nombre == "MATERIAL":
-            col_material = i
-        if nombre == "MAINBOARD PART NUMBER":
-            col_mainboard = i
+        if not fila_objetivo:
+            app.quit()
+            raise Exception(f"No hay fila disponible para {modelo}")
 
-    if not col_material or not col_mainboard:
-        raise Exception("No se encontraron columnas")
+        if materiales:
+            sheet.cells(fila_objetivo, col_mainboard).value = ", ".join(materiales)
+        else:
+            sheet.cells(fila_objetivo, col_mainboard).value = "NOT FOUND"
 
-    fila_objetivo = None
-
-    #! BUSCAR FILA VACÍA DEL MISMO MODELO
-    for row in ws.iter_rows(min_row=2):
-        material = str(row[col_material - 1].value).strip()
-        valor_actual = row[col_mainboard - 1].value
-
-        if material == str(modelo).strip():
-            if not valor_actual:
-                fila_objetivo = row[0].row
-                break
-
-    if not fila_objetivo:
-        raise Exception(f"No hay fila disponible para {modelo}")
-
-    if materiales:
-        ws.cell(row=fila_objetivo, column=col_mainboard).value = ", ".join(materiales)
-    else:
-        ws.cell(row=fila_objetivo, column=col_mainboard).value = "NOT FOUND"
-
-    wb.save(ruta_excel)
+        wb.save()
+        wb.close()
+    finally:
+        app.quit()
 
 def procesar_material_desde_mainboard(session, ruta_mainboard_xlsx, uso, planta):
     """

@@ -1,23 +1,33 @@
-import pandas as pd
-import tkinter as tk
-from datetime import datetime
-from PIL import Image, ImageTk
-from openpyxl import load_workbook
-import os, re, time, sys,subprocess
-from tkinter import ttk, filedialog, messagebox, scrolledtext
-
-from backend.modules.cs11 import ejecutar_cs11
-from backend.config.sap_login import abrir_sap_y_login
-from backend.config.sap_config import (DESCRIPCIONES,FILTRO)
-from backend.utils.clean_excel import limpiar_excel_mainboard
-from backend.modules.procesar_motherboard_P1 import procesar_number
-from backend.modules.extract_mainboard import extract_descripcion_numbers
-from backend.modules.procesar_mainboard_P2 import actualizar_excel_mainboard_2
-from backend.modules.procesar_motherboard_P1 import actualizar_excel_mainboard_1
-from backend.modules.procesar_mainboard_P2 import procesar_material_desde_mainboard
-from backend.Helpers.helper import cargar_archivos_procesados,guardar_archivo_procesado
 from backend.config.credenciales_loader import cargar_credenciales, guardar_credenciales
-from backend.utils.txt_to_xlsx import(exportar_bom_a_xls,convertir_xls_a_xlsx,BASE_BOM_FOLDER,MODEL_FILES_FOLDER,MAINBOARD_1_FILES_FOLDER,MAINBOARD_2_FILES_FOLDER,)
+from backend.modules.procesar_mainboard_P2 import procesar_material_desde_mainboard
+from backend.modules.extract_mainboard import extract_descripcion_numbers
+from backend.modules.procesar_motherboard_P1 import procesar_number
+from backend.utils.clean_excel import limpiar_excel_mainboard
+from backend.config.sap_login import abrir_sap_y_login
+from tkinter import ttk, filedialog, messagebox, scrolledtext
+from PIL import Image, ImageTk
+import os, re, time, sys,subprocess
+from openpyxl import load_workbook
+import tkinter as tk
+import xlwings as xw
+import pandas as pd
+from datetime import datetime
+from backend.Helpers.helper import cargar_archivos_procesados,guardar_archivo_procesado
+from backend.modules.cs11 import ejecutar_cs11
+from backend.utils.txt_to_xlsx import(
+    exportar_bom_a_xls,
+    convertir_xls_a_xlsx,
+    BASE_BOM_FOLDER,
+    MODEL_FILES_FOLDER,
+    MAINBOARD_1_FILES_FOLDER,
+    MAINBOARD_2_FILES_FOLDER,
+)
+from backend.modules.procesar_motherboard_P1 import actualizar_excel_mainboard_1
+from backend.modules.procesar_mainboard_P2 import actualizar_excel_mainboard_2
+from backend.config.sap_config import (
+    DESCRIPCIONES,
+    FILTRO,
+)
 
 class SAPApp:
     def __init__(self, root):
@@ -68,13 +78,13 @@ class SAPApp:
         fila_btn = ttk.Frame(main)
         fila_btn.pack(pady=6)
 
-        self.btn_mainboard = ttk.Button(fila_btn, text="🖥 Procesar Motherboard", command=self.abrir_app_mainboard, state="disabled")
+        self.btn_mainboard = ttk.Button(fila_btn, text="🖥 Motherboard", command=self.abrir_app_mainboard, state="disabled")
         self.btn_mainboard.pack(side="left", padx=4)
 
         self.btn_procesar = ttk.Button(fila_btn, text="▶ Procesar 1TE", command=self.iniciar, state="disabled")
         self.btn_procesar.pack(side="left", padx=4)
 
-        self.btn_limpiar = ttk.Button(fila_btn, text="🧹 Limpiar", command=self.limpiar_datos)
+        self.btn_limpiar = ttk.Button(fila_btn, text="🧹 Porcesar Archivos", command=self.limpiar_datos)
         self.btn_limpiar.pack(side="left", padx=4)
 
         self.btn_open = ttk.Button(fila_btn, text="📁 Resultados", command=self.abrir_resultados, state="disabled")
@@ -115,7 +125,7 @@ class SAPApp:
             tooltips = {
                 self.btn_mainboard: "Procesar archivo desde las motherboard",
                 self.btn_procesar: "Procesar archivo con 1TE",
-                self.btn_limpiar: "Limpiar la consola y archivos finales",
+                self.btn_limpiar: "Limpiar la consola y archivos exportados",
                 self.btn_open: "Abrir carpeta de los archivo",
                 self.btn_credenciales: "Iniciar sesion para SAP"
             }
@@ -405,9 +415,26 @@ class SAPApp:
             
     def cargar_excel_datos(self, ignorar_process=False):
         try:
-            df = pd.read_excel(self.excel_path.get())
-            df.columns = df.columns.str.strip().str.upper()
+            ruta = self.excel_path.get()
+            self.log_msg(f"[INFO] Intentando cargar Excel: {os.path.basename(ruta)}")
 
+            # Intentar primero con pandas/openpyxl (rápido)
+            try:
+                df = pd.read_excel(ruta)
+            except Exception as e:
+                self.log_msg(f"[INFO] Pandas no pudo leer el archivo (posible cifrado). Intentando con Excel Interop (xlwings)...", "WARNING")
+                # Fallback a xlwings para archivos cifrados/protegidos
+                app = xw.App(visible=False)
+                try:
+                    wb = app.books.open(ruta)
+                    sheet = wb.sheets[0]
+                    # Convertir el rango usado a DataFrame conservando cabeceras
+                    df = sheet.used_range.options(pd.DataFrame, index=False, header=True).value
+                    wb.close()
+                finally:
+                    app.quit()
+
+            df.columns = df.columns.str.strip().str.upper()
             columnas_requeridas = ["MATERIAL", "PLANT", "ALTBOM", "INTERNAL MODEL", "PROCESS", "MAINBOARD PART NUMBER"]
             faltantes = [c for c in columnas_requeridas if c not in df.columns]
             if faltantes:
@@ -473,33 +500,44 @@ class SAPApp:
 
             #! ACTUALIZAR COLUMNA PROCESS EN EXCEL
             try:
-                wb = load_workbook(self.excel_path.get())
-                ws = wb.active
+                    ruta_excel = self.excel_path.get()
+                    self.log_msg("[INFO] Actualizando columna PROCESS en el Excel original...")
+                    
+                    app = xw.App(visible=False)
+                    try:
+                        wb = app.books.open(ruta_excel)
+                        sheet = wb.sheets.active
+                        
+                        # Cargar los datos de la hoja para buscar columnas
+                        data = sheet.used_range.value
+                        if not data:
+                            raise ValueError("El archivo Excel está vacío")
+                        
+                        header = [str(h).strip().upper() for h in data[0]]
+                        try:
+                            col_process = header.index("PROCESS") + 1
+                            col_material = header.index("MATERIAL") + 1
+                        except ValueError:
+                            raise ValueError("No se encontraron las columnas 'MATERIAL' o 'PROCESS' en el Excel")
 
-                #! BUCAS COLUMNA "PROCESS" (mayúsculas por seguridad)
-                col_process = None
-                col_material = None
-                for i, cell in enumerate(ws[1], start=1):
-                    if str(cell.value).strip().upper() == "PROCESS":
-                        col_process = i
-                    if str(cell.value).strip().upper() == "MATERIAL":
-                        col_material = i
+                        # Actualizar solo las filas procesadas
+                        materiales_procesados = [str(m).strip() for m in self.materiales_procesados_ok]
+                        
+                        # Iterar sobre los datos (empezando por la fila 2)
+                        for i, row in enumerate(data[1:], start=2):
+                            material = str(row[col_material - 1]).strip()
+                            if material in materiales_procesados:
+                                sheet.cells(i, col_process).value = True
 
-                if col_process is None or col_material is None:
-                    raise ValueError("No se encontraron las columnas 'MATERIAL' o 'PROCESS' en el Excel")
-
-                #! ACTUALIZAR SOLO LAS FILAS RPOCESADAS
-                materiales_procesados = [str(m).strip() for m in self.materiales_procesados_ok]
-                for row in ws.iter_rows(min_row=2):
-                    material = str(row[col_material - 1].value).strip()
-                    if material in materiales_procesados:
-                        row[col_process - 1].value = True  #! ACTUALIOZAR SOLO EL VALOR
-
-                wb.save(self.excel_path.get())
-                self.log_msg("[OK] Excel actualizado", "OK")
+                        wb.save()
+                        wb.close()
+                    finally:
+                        app.quit()
+                        
+                    self.log_msg("[OK] Excel actualizado", "OK")
 
             except Exception as e:
-                self.log_msg(f"[ERROR] No se pudo actualizar el Excel: {e}", "ERROR")
+                    self.log_msg(f"[ERROR] No se pudo actualizar el Excel: {e}", "ERROR")
 
             return
         

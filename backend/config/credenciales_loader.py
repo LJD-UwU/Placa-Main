@@ -12,7 +12,11 @@ def cargar_credenciales():
         credenciales_vacias = {
             "SAP_SYSTEM_NAME": "",
             "SAP_USER": "",
-            "SAP_PASSWORD": ""
+            "SAP_PASSWORD": "",
+            "SAP_HQ": "",
+            "SAP_HQ_CLIENT": "",
+            "SAP_MX": "",
+            "SAP_MX_CLIENT": ""
         }
         with open(RUTA_CREDENCIALES, "w", encoding="utf-8") as f:
             json.dump(credenciales_vacias, f, indent=2)

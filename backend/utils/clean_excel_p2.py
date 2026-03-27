@@ -480,6 +480,18 @@ def procesar_archivo_principal_mainboard_2(
 
     #! 🔥 FIX FINAL - COLOREAR FILA Y LIMPIAR SOLO EL CHINO
     colorear_chino(ws)
+    
+    # Limpiar texto_modelo para nombre de archivo
+    modelo_clean = str(texto_modelo).strip().replace(" ", "").replace("\\", "").replace("/", "")
+
+    # Nuevo nombre
+    nuevo_nombre = f"MB-BMM-{modelo_clean}.xlsx"
+
+    # Nueva ruta
+    ruta_salida_principal = os.path.join(
+        os.path.dirname(ruta_salida_principal),
+        nuevo_nombre
+    )
 
     wb.save(ruta_salida_principal)
     print(f"[OK] Proceso completo {ruta_salida_principal}")

@@ -28,29 +28,7 @@ def contiene_chino(texto):
     return any('\u3400' <= c <= '\u9FFF' for c in texto)
 
 
-def extraer_codigo_pcb(texto, siguiente_celda=None):
-    if isinstance(texto, str) and re.search(r'[A-Za-z].*\d|\d.*[A-Za-z]', texto):
-        if siguiente_celda:
-            match = re.search(r"\.(\d+)(\\|$)", str(siguiente_celda))
-            if match:
-                return match.group(1)
-    return None
-
-
 def colorear_chino(ws):
-    """
-    ✅ COMPORTAMIENTO FINAL:
-    - Detecta si LINE 1 o LINE 2 contienen caracteres chinos
-    - Si contiene chino: 
-      * Colorea TODA LA FILA en amarillo
-      * ELIMINA SOLO el contenido con chino (vacía la celda)
-      * Conserva todo lo demás de la fila
-    
-    Ejemplos:
-    - "U11涂完硅脂后安装" en LINE 1 → Fila amarilla, celda vacía, resto conservado
-    - "点胶固定,上件XP1005" en LINE 2 → Fila amarilla, celda vacía, resto conservado
-    - "SMT-123" (sin chino) → Sin cambios
-    """
     amarillo = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
 
     col_indices = {
@@ -62,26 +40,30 @@ def colorear_chino(ws):
     col_line2 = col_indices.get("LINE 2")
 
     for row in range(2, ws.max_row + 1):
-        tiene_chino = False
-        celdas_con_chino = []
-        
-        # Verificar si LINE 1 o LINE 2 contienen chino
+        valores = []
+
         for col in [col_line1, col_line2]:
             if col:
-                valor = ws.cell(row=row, column=col).value
-                if valor and contiene_chino(valor):
-                    tiene_chino = True
-                    celdas_con_chino.append(col)
-        
-        # Si la fila tiene chino
-        if tiene_chino:
-            # 1️⃣ Colorear TODA la fila en amarillo
+                valores.append(ws.cell(row=row, column=col).value)
+
+        contiene = any(contiene_chino(v) for v in valores if v)
+
+        if contiene:
+            for col in [col_line1, col_line2]:
+                if col:
+                    ws.cell(row=row, column=col).value = None
+
             for col in range(1, ws.max_column + 1):
                 ws.cell(row=row, column=col).fill = amarillo
-            
-            # 2️⃣ SOLO vaciar las celdas que contienen chino
-            for col in celdas_con_chino:
-                ws.cell(row=row, column=col).value = None
+
+
+def extraer_codigo_pcb(texto, siguiente_celda=None):
+    if isinstance(texto, str) and re.search(r'[A-Za-z].*\d|\d.*[A-Za-z]', texto):
+        if siguiente_celda:
+            match = re.search(r"\.(\d+)(\\|$)", str(siguiente_celda))
+            if match:
+                return match.group(1)
+    return None
 
 
 def aplicar_logica_x(ws):
@@ -205,15 +187,9 @@ def agregar_submateriales(df_main, ws):
 
     df_filtrado = df_bom[df_bom["PCB_clean"].isin(lista_pcb)][cols_interes].reset_index(drop=True)
 
-    df_filtrado["Part #"] = (
-    df_filtrado["Part #"]
-    .astype(str)
-    .str.strip()
-    .str.replace(".0", "", regex=False)
-    .str.upper()
-)
-
-    finales = {"L600022", "1063182"}
+    #! Separar finales y normales
+    finales = {"L600022","1063182"}
+    df_filtrado["Part #"] = df_filtrado["Part #"].astype(str)
 
     df_finales = df_filtrado[df_filtrado["Part #"].isin(finales)]
     df_normales = df_filtrado[~df_filtrado["Part #"].isin(finales)]
@@ -303,20 +279,50 @@ def agregar_submateriales(df_main, ws):
 
     return df_main
 
+def colorear_chino(ws):
+    amarillo = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
+
+    col_indices = {
+        str(ws.cell(row=1, column=c).value).strip(): c
+        for c in range(1, ws.max_column + 1)
+    }
+
+    col_line1 = col_indices.get("LINE 1")
+    col_line2 = col_indices.get("LINE 2")
+
+    for row in range(2, ws.max_row + 1):
+        valores = []
+
+        for col in [col_line1, col_line2]:
+            if col:
+                valores.append(ws.cell(row=row, column=col).value)
+
+        # detectar sin modificar
+        contiene = any(contiene_chino(v) for v in valores if v)
+
+        if contiene:
+            # limpiar columnas específicas
+            for col in [col_line1, col_line2]:
+                if col:
+                    ws.cell(row=row, column=col).value = None
+
+            # colorear fila completa
+            for col in range(1, ws.max_column + 1):
+                ws.cell(row=row, column=col).fill = amarillo
 
 #!  PROCESO PRINCIPAL 
-
 def procesar_archivo_principal_mainboard_2(
-    ruta_excel_principal: str,
+    ruta_excel_principal: str, 
     ruta_salida_principal: str,
     internal_model: str = "",
     plantas: str = "",
     df_no_procesadas: pd.DataFrame = None
 ):
-
+    ...
     wb = openpyxl.load_workbook(ruta_excel_principal)
     ws = wb.active
 
+    #! Limpiar columnas y filas innecesarias
     ws.delete_cols(1)
     ws.delete_cols(9, 26)
     ws.delete_rows(1, 9)
@@ -326,13 +332,11 @@ def procesar_archivo_principal_mainboard_2(
         "DESCRIPTION IN CHINESE", "DESCRIPTION IN ENGLISH",
         "QTY", "UN", "LINE 1", "LINE 2", "SORTSTRNG"
     ]
-
     ws.insert_cols(1)
     for col, header in enumerate(headers, start=1):
         ws.cell(row=1, column=col).value = header
 
     nombre_archivo = os.path.splitext(os.path.basename(ruta_excel_principal))[0]
-
     ws.insert_rows(2, 2)
     ws["B2"] = "X"
     ws["C2"] = "3TE"
@@ -346,10 +350,29 @@ def procesar_archivo_principal_mainboard_2(
     aplicar_logica_x(ws)
     time.sleep(0.5)
 
+    #! Detectar chino y colorear amarillo
+    amarillo = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
+    col_indices = {ws.cell(row=1, column=c).value: c for c in range(1, ws.max_column + 1)}
+    for row in range(2, ws.max_row + 1):
+        fila_colorear = False
+        for col_name in ["LINE 1", "LINE 2"]:
+            col = col_indices.get(col_name)
+            if col:
+                val = ws.cell(row=row, column=col).value
+                if val and contiene_chino(val):
+                    ws.cell(row=row, column=col).value = None
+                    fila_colorear = True
+        if fila_colorear:
+            for col in range(1, ws.max_column + 1):
+                ws.cell(row=row, column=col).fill = amarillo
+
+    #! Convertir a DataFrame
     df_main = pd.DataFrame(ws.values)
     df_main.columns = df_main.iloc[0]
     df_main = df_main[1:].reset_index(drop=True)
+    
 
+    #! Agregar submateriales
     df_main = agregar_submateriales(df_main, ws)
     time.sleep(0.5)
 
@@ -357,6 +380,7 @@ def procesar_archivo_principal_mainboard_2(
     df_main["ITEM"] = df_main["ITEM"].apply(lambda v: str(v).strip() if v else "")
     df_main.loc[~df_main.index.isin(filas_protegidas), "LEVEL"] = 0
 
+    #! Numeración por bloques
     contador_bloque = 10
     for i, val in df_main["ITEM"].items():
         if i in filas_protegidas:
@@ -367,6 +391,7 @@ def procesar_archivo_principal_mainboard_2(
         df_main.at[i, "ITEM"] = str(contador_bloque)
         contador_bloque += 10
 
+    #! LEVEL jerárquico
     nivel_actual = 1
     for i in range(len(df_main)):
         if i in filas_protegidas:
@@ -394,26 +419,26 @@ def procesar_archivo_principal_mainboard_2(
     if "_SUBMATERIAL" in df_main.columns:
         df_main.drop(columns=["_SUBMATERIAL"], inplace=True)
 
-    #! ✅ NEGRITAS EN X (SE QUEDA)
+    #! Negritas en X
     bold_font = Font(bold=True)
     col_indices = {ws.cell(row=1, column=c).value: c for c in range(1, ws.max_column + 1)}
     col_item = col_indices.get("ITEM")
-
     if col_item:
         for row in range(2, ws.max_row + 1):
             if str(ws.cell(row=row, column=col_item).value).strip() == "X":
                 for col in range(1, ws.max_column + 1):
                     ws.cell(row=row, column=col).font = bold_font
 
-    #! 🔽 TODO TU BLOQUE ORIGINAL (SIN CAMBIOS)
     ws.title = "BOMList"
     ws["A2"] = "0"
     ws["F3"] = "1000"
     ws["J3"] = "HIMEX"
     ws["G3"] = "PC"
 
+    #! Obtener Mainboard Part Number desde el Excel
     mainboard_num = str(ws["C3"].value).strip().upper()
 
+    #! Limpiar la columna del dataframe
     df_no_procesadas["MAINBOARD PART NUMBER"] = (
         df_no_procesadas["MAINBOARD PART NUMBER"]
         .astype(str)
@@ -421,20 +446,25 @@ def procesar_archivo_principal_mainboard_2(
         .str.upper()
     )
 
+    #! Buscar coincidencia
     fila_match = df_no_procesadas[
-        df_no_procesadas["MAINBOARD PART NUMBER"].str.startswith(mainboard_num)
+    df_no_procesadas["MAINBOARD PART NUMBER"].str.startswith(mainboard_num)
     ]
 
+    #! Obtener INTERNAL MODEL
     texto_modelo = ""
     if not fila_match.empty:
         texto_modelo = str(fila_match.iloc[0]["INTERNAL MODEL"]).strip()
+        print(f"[OK] INTERNAL MODEL encontrado: {texto_modelo}")
     else:
         print(f"[WARNING] No se encontró INTERNAL MODEL para {mainboard_num}")
 
+    #! Insertar en Excel
     ws["E3"] = f"MAIN BOARD\\{texto_modelo}\\ROH"
     ws["E4"] = f"MAIN BOARD\\{texto_modelo}\\ROH"
     ws["D3"] = plantas.strip() if plantas else ""
 
+    #! Ajuste D5/E5
     valor = ws["D5"].value
     if valor and "\\" in valor:
         parte = valor.split("\\", 1)[1]
@@ -442,13 +472,12 @@ def procesar_archivo_principal_mainboard_2(
     else:
         ws["E5"] = "MAIN BOARD SMT PART\\"
 
-    #! Crear hojas
+    #! Crear hojas BOMHeader y BOMItem si no existen
     if "BOMHeader" not in wb.sheetnames:
         ws_header = wb.create_sheet("BOMHeader")
         encabezados_header = ["BOMID","MATNR","WERKS","STLAN","STLAL","ZTEXT","BMENG","STKTX"]
         for col, header in enumerate(encabezados_header, start=1):
             ws_header.cell(row=1, column=col).value = header
-
     if "BOMItem" not in wb.sheetnames:
         ws_item = wb.create_sheet("BOMItem")
         encabezados_item = ["BOMID","POSNR","POSTP","IDNRK","MENGE","MEINS","SORTF","POTX1","POTX2"]
@@ -457,11 +486,9 @@ def procesar_archivo_principal_mainboard_2(
 
     #! Columnas numéricas
     columnas_numericas = ["LEVEL", "ITEM", "QTY","MATERIAL","DESCRIPTION IN CHINESE"]
-    mapa_columnas = {
-        str(ws.cell(row=1, column=c).value).strip().upper(): openpyxl.utils.get_column_letter(c)
-        for c in range(1, ws.max_column + 1)
-        if str(ws.cell(row=1, column=c).value).strip().upper() in columnas_numericas
-    }
+    mapa_columnas = {str(ws.cell(row=1, column=c).value).strip().upper(): openpyxl.utils.get_column_letter(c)
+                     for c in range(1, ws.max_column + 1)
+                     if str(ws.cell(row=1, column=c).value).strip().upper() in columnas_numericas}
 
     for nombre, letra in mapa_columnas.items():
         for cell in ws[letra][1:]:
@@ -473,13 +500,26 @@ def procesar_archivo_principal_mainboard_2(
                     except:
                         pass
 
-    #! Alinear texto
+    #! Alinear texto a la izquierda
     for fila in ws.iter_rows():
         for celda in fila:
             celda.alignment = Alignment(horizontal="left")
 
-    #! 🔥 FIX FINAL - COLOREAR FILA Y LIMPIAR SOLO EL CHINO
-    colorear_chino(ws)
-
     wb.save(ruta_salida_principal)
     print(f"[OK] Proceso completo {ruta_salida_principal}")
+    
+# Limpiar espacios y normalizar
+df_filtrado["Part #"] = df_filtrado["Part #"].astype(str).str.strip().str.upper()
+
+# Buscar cada valor con OR lógico explícito
+mascara_1063182 = df_filtrado["Part #"] == "1063182"
+mascara_L600022 = df_filtrado["Part #"] == "L600022"
+mascara_finales = mascara_1063182 | mascara_L600022
+
+# Resultado
+df_finales = df_filtrado[mascara_finales]
+df_normales = df_filtrado[~mascara_finales]
+
+# Ver resultados
+print(f"[DEBUG] Encontrados 1063182: {mascara_1063182.sum()} filas")
+print(f"[DEBUG] Encontrados L600022: {mascara_L600022.sum()} filas")

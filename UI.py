@@ -78,20 +78,20 @@ class SAPApp:
         fila_btn = ttk.Frame(main)
         fila_btn.pack(pady=6)
 
-        self.btn_mainboard = ttk.Button(fila_btn, text="🖥 Motherboard", command=self.abrir_app_mainboard, state="disabled")
-        self.btn_mainboard.pack(side="left", padx=4)
-
-        self.btn_procesar = ttk.Button(fila_btn, text="▶ Procesar 1TE", command=self.iniciar, state="disabled")
-        self.btn_procesar.pack(side="left", padx=4)
-
-        self.btn_limpiar = ttk.Button(fila_btn, text="🧹 Porcesar Archivos", command=self.limpiar_datos)
-        self.btn_limpiar.pack(side="left", padx=4)
-
-        self.btn_open = ttk.Button(fila_btn, text="📁 Resultados", command=self.abrir_resultados, state="disabled")
-        self.btn_open.pack(side="left", padx=4)
-
         self.btn_credenciales = ttk.Button(fila_btn, text="🔐 Login SAP", command=self.abrir_credenciales)
         self.btn_credenciales.pack(side="left", padx=4)
+        
+        self.btn_procesar = ttk.Button(fila_btn, text="▶ Procesar 1TE", command=self.iniciar, state="disabled")
+        self.btn_procesar.pack(side="left", padx=4)
+        
+        self.btn_limpiar = ttk.Button(fila_btn, text="🧹 Procesar Archivos", command=self.limpiar_datos)
+        self.btn_limpiar.pack(side="left", padx=4)
+        
+        self.btn_open = ttk.Button(fila_btn, text="📁 Resultados", command=self.abrir_resultados, state="disabled")
+        self.btn_open.pack(side="left", padx=4)
+        
+        self.btn_mainboard = ttk.Button(fila_btn, text="🖥 Motherboard", command=self.abrir_app_mainboard, state="disabled")
+        self.btn_mainboard.pack(side="left", padx=4)
 
         #! CONSOLA DE PROCESOS
         frame_log = ttk.LabelFrame(main, text="CONSOLA")
@@ -370,7 +370,7 @@ class SAPApp:
         if not cred.get("SAP_SYSTEM_NAME") or not cred.get("SAP_USER") or not cred.get("SAP_PASSWORD"):
             messagebox.showerror(
                 "Credenciales incompletas",
-                "No se han iniciado sesionn en SAP.\n"
+                "No se han iniciado sesion en la app para el SAP.\n"
                 "Por favor ve a 🔐 usuario y contraseña e ingrésalas antes de continuar."
             )
             return  #! NO CONTUNUAR HASTA QUE SE COMPLETE
@@ -721,7 +721,7 @@ if __name__ == "__main__":
     if not cred.get("SAP_SYSTEM_NAME") or not cred.get("SAP_USER") or not cred.get("SAP_PASSWORD"):
         messagebox.showinfo(
             "Atención",
-            "No se han iniciado sesionn en SAP.\n"
+            "No se han iniciado sesion en la app para el SAP.\n"
             "Ve a 🔐 inicar sesion para habilitar cualquier proceso."
         )
 

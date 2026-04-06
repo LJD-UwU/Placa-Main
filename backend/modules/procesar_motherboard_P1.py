@@ -124,7 +124,7 @@ def procesar_number_mainboard(session, number, capid):
 
     raise Exception(f"No se pudo acceder al BOM de {number} en ninguna planta")
 
-def actualizar_excel_mainboard_1(ruta_excel, modelo, number):
+def actualizar_excel_mainboard_1(ruta_excel, modelo, number, descripcion=""):
     import xlwings as xw
     app = xw.App(visible=False)
     try:
@@ -139,7 +139,12 @@ def actualizar_excel_mainboard_1(ruta_excel, modelo, number):
         header = [str(h).strip().upper() for h in data[0]]
         try:
             col_material = header.index("MATERIAL") + 1
-            col_mainboard = header.index("MOTHERBOARD PART NUMBER") + 1
+            col_motherboard_pn = header.index("MOTHERBOARD PART NUMBER") + 1
+            # Se busca Motherboard descr, si no existe no se actualiza
+            try:
+                col_motherboard_descr = header.index("MOTHERBOARD DESCR") + 1
+            except ValueError:
+                col_motherboard_descr = None
         except ValueError:
             raise ValueError("No se encontraron columnas 'MATERIAL' o 'MOTHERBOARD PART NUMBER'")
 
@@ -147,7 +152,7 @@ def actualizar_excel_mainboard_1(ruta_excel, modelo, number):
         # Buscar fila vacía del mismo modelo
         for i, row in enumerate(data[1:], start=2):
             material = str(row[col_material - 1]).strip()
-            valor_actual = row[col_mainboard - 1]
+            valor_actual = row[col_motherboard_pn - 1]
 
             if material == str(modelo).strip():
                 if not valor_actual:
@@ -159,9 +164,11 @@ def actualizar_excel_mainboard_1(ruta_excel, modelo, number):
             raise Exception(f"No hay fila disponible para {modelo}")
 
         if number:
-            sheet.cells(fila_objetivo, col_mainboard).value = ", ".join(number)
+            sheet.cells(fila_objetivo, col_motherboard_pn).value = ", ".join(number)
+            if col_motherboard_descr and descripcion:
+                sheet.cells(fila_objetivo, col_motherboard_descr).value = descripcion
         else:
-            sheet.cells(fila_objetivo, col_mainboard).value = "NOT FOUND"
+            sheet.cells(fila_objetivo, col_motherboard_pn).value = "NOT FOUND"
 
         wb.save()
         wb.close()

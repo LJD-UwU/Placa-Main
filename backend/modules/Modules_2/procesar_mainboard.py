@@ -18,7 +18,7 @@ def limpiar_valor(valor):
     return valor
 
 
-def actualizar_excel_mainboard(mother, materiales, ruta_excel, app=None):
+def actualizar_excel_mainboard(mother, materiales, ruta_excel, app=None, desc_mother="", desc_main=""):
     import xlwings as xw
 
     cerrar_app = False
@@ -43,8 +43,19 @@ def actualizar_excel_mainboard(mother, materiales, ruta_excel, app=None):
         header = [limpiar_valor(h).upper() for h in data[0]]
 
         try:
-            col_material = header.index("MOTHERBOARD PART NUMBER") + 1
-            col_mainboard = header.index("MAINBOARD PART NUMBER") + 1
+            col_mother_pn = header.index("MOTHERBOARD PART NUMBER") + 1
+            col_main_pn = header.index("MAINBOARD PART NUMBER") + 1
+            
+            try:
+                col_mother_desc = header.index("MOTHERBOARD DESCR") + 1
+            except ValueError:
+                col_mother_desc = None
+                
+            try:
+                col_main_desc = header.index("MAINBOARD DESCR") + 1
+            except ValueError:
+                col_main_desc = None
+                
         except ValueError:
             raise Exception("No se encontraron las columnas necesarias.")
 
@@ -54,8 +65,8 @@ def actualizar_excel_mainboard(mother, materiales, ruta_excel, app=None):
             if not row:
                 continue
 
-            material = limpiar_valor(row[col_material - 1])
-            valor_actual = row[col_mainboard - 1]
+            material = limpiar_valor(row[col_mother_pn - 1])
+            valor_actual = row[col_main_pn - 1]
 
             if material == limpiar_valor(mother):
                 if not valor_actual:
@@ -67,7 +78,13 @@ def actualizar_excel_mainboard(mother, materiales, ruta_excel, app=None):
 
         #! Escritura optimizada
         resultado = ", ".join(materiales) if materiales else "NOT FOUND"
-        sheet.cells(fila_objetivo, col_mainboard).value = resultado
+        sheet.cells(fila_objetivo, col_main_pn).value = resultado
+        
+        if col_mother_desc and desc_mother:
+            sheet.cells(fila_objetivo, col_mother_desc).value = desc_mother
+            
+        if col_main_desc and desc_main:
+            sheet.cells(fila_objetivo, col_main_desc).value = desc_main
 
         wb.save()
         wb.close()
@@ -113,7 +130,12 @@ def procesar_material_desde_mainboard(session, ruta_mainboard_xlsx, uso, planta,
     if not columna_material:
         raise Exception("No se encontró columna MATERIAL en el mainboard")
 
-    material = str(df[columna_material].dropna().iloc[0]).strip()
+    material_row = df[df[columna_material].notna()].iloc[0]
+    material = str(material_row[columna_material]).strip()
+
+    posibles_desc = ["DESCRIPTION IN CHINESE", "DESCRIPCION", "MAKTX", "Description"]
+    columna_desc = next((c for c in posibles_desc if c in df.columns), None)
+    descripcion = str(material_row[columna_desc]).strip() if columna_desc else ""
 
     if not material:
         raise Exception("Material detectado vacío")
@@ -168,7 +190,11 @@ def procesar_material_desde_mainboard(session, ruta_mainboard_xlsx, uso, planta,
         except Exception as e:
             print(f"[WARNING] No se pudieron extraer materiales: {e}")
 
-        return ruta_xlsx, material
+        return ruta_xlsx, material, descripcion
+
+    except Exception as e:
+        print(f"[ERROR] Planta {planta}: {e}")
+        return None
 
     except Exception as e:
         print(f"[ERROR] Planta {planta}: {e}")

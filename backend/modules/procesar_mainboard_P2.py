@@ -23,7 +23,7 @@ def leer_excel_sap_fallback(ruta_xls):
                 print(f"[WARNING] No se pudo leer XLS original: {e}")
                 return pd.DataFrame()
 
-def actualizar_excel_mainboard_2(ruta_excel, modelo, materiales):
+def actualizar_excel_mainboard_2(ruta_excel, modelo, materiales, descripcion=""):
     import xlwings as xw
     app = xw.App(visible=False)
     try:
@@ -38,7 +38,12 @@ def actualizar_excel_mainboard_2(ruta_excel, modelo, materiales):
         header = [str(h).strip().upper() for h in data[0]]
         try:
             col_material = header.index("MATERIAL") + 1
-            col_mainboard = header.index("MAINBOARD PART NUMBER") + 1
+            col_mainboard_pn = header.index("MAINBOARD PART NUMBER") + 1
+            # Se busca Mainboard descr, si no existe no se actualiza
+            try:
+                col_mainboard_descr = header.index("MAINBOARD DESCR") + 1
+            except ValueError:
+                col_mainboard_descr = None
         except ValueError:
             raise ValueError("No se encontraron columnas 'MATERIAL' o 'MAINBOARD PART NUMBER'")
 
@@ -47,7 +52,7 @@ def actualizar_excel_mainboard_2(ruta_excel, modelo, materiales):
         for i, row in enumerate(data[1:], start=2):
             material = str(row[col_material - 1]).strip()
             # row index matches enumerate start=2
-            valor_actual = row[col_mainboard - 1]
+            valor_actual = row[col_mainboard_pn - 1]
 
             if material == str(modelo).strip():
                 if not valor_actual:
@@ -59,9 +64,11 @@ def actualizar_excel_mainboard_2(ruta_excel, modelo, materiales):
             raise Exception(f"No hay fila disponible para {modelo}")
 
         if materiales:
-            sheet.cells(fila_objetivo, col_mainboard).value = ", ".join(materiales)
+            sheet.cells(fila_objetivo, col_mainboard_pn).value = ", ".join(materiales)
+            if col_mainboard_descr and descripcion:
+                sheet.cells(fila_objetivo, col_mainboard_descr).value = descripcion
         else:
-            sheet.cells(fila_objetivo, col_mainboard).value = "NOT FOUND"
+            sheet.cells(fila_objetivo, col_mainboard_pn).value = "NOT FOUND"
 
         wb.save()
         wb.close()
@@ -89,7 +96,13 @@ def procesar_material_desde_mainboard(session, ruta_mainboard_xlsx, uso, planta)
     if not columna_material:
         raise Exception("No se encontró columna MATERIAL en el mainboard")
 
-    material = str(df[columna_material].dropna().iloc[0]).strip()
+    material_row = df[df[columna_material].notna()].iloc[0]
+    material = str(material_row[columna_material]).strip()
+
+    posibles_desc = ["DESCRIPTION IN CHINESE", "DESCRIPCION", "MAKTX", "Description"]
+    columna_desc = next((c for c in posibles_desc if c in df.columns), None)
+    descripcion = str(material_row[columna_desc]).strip() if columna_desc else ""
+
     if not material:
         raise Exception("Material detectado vacío")
 
@@ -155,7 +168,7 @@ def procesar_material_desde_mainboard(session, ruta_mainboard_xlsx, uso, planta)
             df_temp.to_excel(ruta_xlsx, index=False)
 
         print(f"[INFO] BOM procesado correctamente: {ruta_xlsx}")
-        return material
+        return material, descripcion
 
     except Exception as e:
         print(f"[ERROR] Planta {planta}: {e}")

@@ -572,6 +572,7 @@ class SAPApp:
                 self.log_msg("    ✓ BOM exportado")
 
                 fecha = datetime.now().strftime("%Y-%m-%d")
+                time = datetime.now().strftime("%H-%M-%S")
                 nombre_base = os.path.splitext(os.path.basename(ruta_xls))[0]
                 nombre_base = re.sub(r'[\\/*?:"<>|]', "_", nombre_base)
                 nombre_base = re.sub(r'^(?:\d+-)+', '', nombre_base)
@@ -580,7 +581,7 @@ class SAPApp:
 
                 ruta_xlsx = os.path.join(
                     MODEL_FILES_FOLDER,
-                    f"{fecha}-{nombre_base}-ALTBOM{altboms}.xlsx"
+                    f"{fecha}_{time}_{nombre_base}_ALT{altboms}.xlsx"
                 )
 
                 if os.path.exists(ruta_xlsx):
@@ -628,6 +629,7 @@ class SAPApp:
         for _, row in self.df_todos.iterrows():
             number = str(row["Number"]).strip().replace(".0", "")
             modelo = str(row["Modelo"]).strip()
+            descripcion_mother = str(row["Descripcion"]).strip()
 
             if any(number in f for f in os.listdir(MAINBOARD_1_FILES_FOLDER)):
                 continue
@@ -661,24 +663,29 @@ class SAPApp:
                     actualizar_excel_mainboard_1(
                         self.excel_path.get(),
                         modelo,
-                        [number]
+                        [number],
+                        descripcion=descripcion_mother
                     )
                 except Exception as e:
                     self.log_msg(f"[ERROR] No se pudo actualizar Excel mainboard 1: {e}", "ERROR")
 
                 #! PROCESAR MAINBOARD
                 materiales_detectados = []
+                descripcion_mainboard = ""
 
                 for planta in set(self.plantas):
-                    material = procesar_material_desde_mainboard(
+                    res = procesar_material_desde_mainboard(
                         session=self.session,
                         ruta_mainboard_xlsx=ruta_xlsx,
                         uso=FILTRO,
                         planta=planta
                     )
 
-                    if material:
+                    if res:
+                        material, desc = res
                         materiales_detectados.append(str(material).strip())
+                        if desc:
+                            descripcion_mainboard = desc
                         
                 materiales_detectados = list(set(materiales_detectados))
 
@@ -689,7 +696,8 @@ class SAPApp:
                         actualizar_excel_mainboard_2(
                             self.excel_path.get(),
                             modelo,
-                            materiales_detectados
+                            materiales_detectados,
+                            descripcion=descripcion_mainboard
                         )
                     except Exception as e:
                         self.log_msg(f"[ERROR] No se pudo actualizar Excel mainboard 2: {e}", "ERROR")

@@ -38,19 +38,6 @@ def extraer_codigo_pcb(texto, siguiente_celda=None):
 
 
 def colorear_chino(ws):
-    """
-    ✅ COMPORTAMIENTO FINAL:
-    - Detecta si LINE 1 o LINE 2 contienen caracteres chinos
-    - Si contiene chino: 
-      * Colorea TODA LA FILA en amarillo
-      * ELIMINA SOLO el contenido con chino (vacía la celda)
-      * Conserva todo lo demás de la fila
-    
-    Ejemplos:
-    - "U11涂完硅脂后安装" en LINE 1 → Fila amarilla, celda vacía, resto conservado
-    - "点胶固定,上件XP1005" en LINE 2 → Fila amarilla, celda vacía, resto conservado
-    - "SMT-123" (sin chino) → Sin cambios
-    """
     amarillo = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
 
     col_indices = {

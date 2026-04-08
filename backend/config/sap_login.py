@@ -62,7 +62,7 @@ def abrir_sap_y_login(timeout=60, max_intentos=3):
             sap_gui_auto = None
             application = None
 
-            # 🔎 1. INTENTAR REUTILIZAR SESIÓN EXISTENTE (CORRECTA)
+            # INTENTAR REUTILIZAR SESIÓN EXISTENTE (CORRECTA)
             try:
                 sap_gui_auto = win32com.client.GetObject("SAPGUI")
 
@@ -102,12 +102,24 @@ def abrir_sap_y_login(timeout=60, max_intentos=3):
             session = connection.Children(0)
             session.findById("wnd[0]").maximize()
 
-            # 🔑 4. LOGIN (SI ES NECESARIO)
+           # 🔑 4. LOGIN (SI ES NECESARIO) + INGRSO SIN CERRAR LA SESSION DE LOS DEMAS USUARIOS
             try:
                 escribir_campo(session, "wnd[0]/usr/txtRSYST-BNAME", SAP_USER)
                 escribir_campo(session, "wnd[0]/usr/pwdRSYST-BCODE", SAP_PASSWORD)
                 session.findById("wnd[0]").sendVKey(0)
                 esperar_sap(session)
+
+
+                try:
+                    popup = session.findById("wnd[1]")
+
+                    popup.findById("usr/radMULTI_LOGON_OPT2").select()
+                    popup.findById("tbar[0]/btn[0]").press()
+
+                    print("[INFO] Multi-logon detectado, opción seleccionada ✅")
+
+                except Exception:
+                    pass
 
                 print("[INFO] Login SAP exitoso ✅")
 
@@ -117,11 +129,11 @@ def abrir_sap_y_login(timeout=60, max_intentos=3):
             return session
 
         except Exception as e:
-            print(f"[ERROR] Intento {intento} falló: {e}")
+                print(f"[ERROR] Intento {intento} falló: {e}")
 
-            if intento < max_intentos:
-                print("[INFO] Reintentando en 5 segundos...")
-                time.sleep(5)
-            else:
-                print("[ERROR] Se agotaron los intentos para iniciar SAP.")
-                sys.exit(1)
+                if intento < max_intentos:
+                    print("[INFO] Reintentando en 5 segundos...")
+                    time.sleep(5)
+                else:
+                    print("[ERROR] Se agotaron los intentos para iniciar SAP.")
+                    sys.exit(1)

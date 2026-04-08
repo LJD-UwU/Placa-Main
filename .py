@@ -1,19 +1,22 @@
-from backend.config.credenciales_loader import cargar_credenciales, guardar_credenciales
-from backend.modules.procesar_mainboard_P2 import procesar_material_desde_mainboard
-from backend.modules.extract_mainboard import extract_descripcion_numbers
-from backend.modules.procesar_motherboard_P1 import procesar_number
-from backend.utils.clean_excel import limpiar_excel_mainboard
-from backend.config.sap_login import abrir_sap_y_login
-from tkinter import ttk, filedialog, messagebox, scrolledtext
-from PIL import Image, ImageTk
-import os, re, time, sys,subprocess
-from openpyxl import load_workbook
+import pandas as pd
 import tkinter as tk
 import xlwings as xw
-import pandas as pd
 from datetime import datetime
-from backend.Helpers.helper import cargar_archivos_procesados,guardar_archivo_procesado
+from PIL import Image, ImageTk
+import os, re, time, sys,subprocess
+from tkinter import ttk, filedialog, messagebox, scrolledtext
+
 from backend.modules.cs11 import ejecutar_cs11
+from backend.config.sap_login import abrir_sap_y_login
+from backend.utils.clean_excel import limpiar_excel_mainboard
+from backend.modules.procesar_motherboard_P1 import procesar_number
+from backend.modules.extract_mainboard import extract_descripcion_numbers
+from backend.modules.procesar_mainboard_P2 import actualizar_excel_mainboard_2
+from backend.modules.procesar_motherboard_P1 import actualizar_excel_mainboard_1
+from backend.modules.procesar_mainboard_P2 import procesar_material_desde_mainboard
+from backend.Helpers.helper import cargar_archivos_procesados,guardar_archivo_procesado
+from backend.config.credenciales_loader import cargar_credenciales, guardar_credenciales
+
 from backend.utils.txt_to_xlsx import(
     exportar_bom_a_xls,
     convertir_xls_a_xlsx,
@@ -22,8 +25,7 @@ from backend.utils.txt_to_xlsx import(
     MAINBOARD_1_FILES_FOLDER,
     MAINBOARD_2_FILES_FOLDER,
 )
-from backend.modules.procesar_motherboard_P1 import actualizar_excel_mainboard_1
-from backend.modules.procesar_mainboard_P2 import actualizar_excel_mainboard_2
+
 from backend.config.sap_config import (
     DESCRIPCIONES,
     FILTRO,
@@ -32,100 +34,220 @@ from backend.config.sap_config import (
 class SAPApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("MBAutomator")
-        self.root.geometry("570x480") 
+        self.root.title("MBAutomator • System Online ⚡")
+        self.root.geometry("589x480")
         self.root.resizable(False, False)
 
-        #! LOGO DE LA UI
+        #! FONDO ANIME
         try:
-            img = Image.open("backend/IMG/logo.png") 
-            img = img.resize((64, 64))  
+            bg_img = Image.open("")
+            bg_img = bg_img.resize((570, 480))
+            self.bg_photo = ImageTk.PhotoImage(bg_img)
+
+            bg_label = tk.Label(self.root, image=self.bg_photo)
+            bg_label.place(x=0, y=0, relwidth=1, relheight=1)
+        except:
+            self.root.configure(bg="#020617")
+
+        #! ICONO
+        try:
+            img = Image.open("backend/IMG/logo.png")
+            img = img.resize((64, 64))
             icon = ImageTk.PhotoImage(img)
             self.root.iconphoto(True, icon)
-        except Exception as e:
-            print(f"No se pudo cargar el icono: {e}")
+        except:
+            pass
 
-        #! ANIMACIONES
+        #! ⚡ ANIMACIONES
         self.animando = False
         self.anim_dots = 0
         self.start_time = None
 
-        #! ESTILOS
         style = ttk.Style()
         style.theme_use("clam")
-        style.configure("Title.TLabel", font=("Segoe UI", 14, "bold"))
-        style.configure("TProgressbar", thickness=12)
 
-        #! ENCABESADOS
-        ttk.Label(root, text="Automatización SAP", style="Title.TLabel").pack(pady=(8, 0))
-        ttk.Label(root, text="Procesamiento automático para el BOM", foreground="gray").pack(pady=(0, 8))
+        BG = "#020617"
+        CARD = "#0f172a"
+        ACCENT = "#39A758"
+        CYAN = "#39A758"
 
-        main = ttk.Frame(root, padding=6)
-        main.pack(fill="both", expand=True)
+        style.configure("Title.TLabel",
+                        font=("Segoe UI", 18, "bold"),
+                        foreground=ACCENT,
+                        background=BG)
 
-        #!  CAMPO DE SELECCION DEL EXCEL
+        style.configure("Sub.TLabel",
+                        font=("Segoe UI", 10),
+                        foreground="#94a3b8",
+                        background=BG)
+
+        style.configure("Card.TFrame", background=CARD)
+
+        style.configure("Anime.TButton",
+                        font=("Segoe UI", 10, "bold"),
+                        foreground="white",
+                        background=ACCENT,
+                        padding=8,
+                        borderwidth=0)
+
+        style.map("Anime.TButton",
+                background=[("active", CYAN)])
+
+        style.configure("Anime.Horizontal.TProgressbar",
+                        troughcolor="#020617",
+                        background=CYAN,
+                        thickness=12)
+
+        #! HEADER
+        ttk.Label(root, text="⚡ MBAutomator", style="Title.TLabel").pack(pady=(10, 0))
+        ttk.Label(root, text="SAP System • Automator", style="Sub.TLabel").pack()
+
+        #! FRAME PRINCIPAL
+        main = ttk.Frame(root, style="Card.TFrame", padding=12)
+        main.pack(fill="both", expand=True, padx=15, pady=10)
+
+        #! EXCEL
         fila_file = ttk.Frame(main)
         fila_file.pack(fill="x", pady=4)
+
         self.excel_path = tk.StringVar()
         ttk.Entry(fila_file, textvariable=self.excel_path).pack(side="left", fill="x", expand=True)
-        ttk.Button(fila_file, text="📂", width=3, command=self.seleccionar_excel).pack(side="left", padx=4)
 
-        #! BARRA DE PROGRESO (NO FUNCIONA)
-        self.progress = ttk.Progressbar(main, mode="determinate")
+        #! CARGAR EXCEL 
+        ttk.Button(
+            fila_file,
+            text="📂",
+            width=3,
+            command=self.seleccionar_excel,
+            style="Anime.TButton"
+        ).pack(side="left", padx=4)
+
+        #! PROGRESSBAR
+        self.progress = ttk.Progressbar(
+            main,
+            mode="indeterminate",
+            style="Anime.Horizontal.TProgressbar"
+        )
         self.progress.pack(fill="x", pady=6)
-
-        #!  BOTONES DE LA UI 
+        
+        #! BOTONES
         fila_btn = ttk.Frame(main)
         fila_btn.pack(pady=6)
-
-        self.btn_credenciales = ttk.Button(fila_btn, text="🔐 Login SAP", command=self.abrir_credenciales)
+        
+        self.btn_credenciales = ttk.Button(
+            fila_btn, text="🔑 Login",
+            command=self.abrir_credenciales,
+            style="Anime.TButton"
+        )
         self.btn_credenciales.pack(side="left", padx=4)
         
-        self.btn_procesar = ttk.Button(fila_btn, text="▶ Procesar 1TE", command=self.iniciar, state="disabled")
+        self.btn_procesar = ttk.Button(
+            fila_btn, text="⚡ Procesar",
+            command=self.iniciar,
+            style="Anime.TButton",
+            state="disabled"
+        )
         self.btn_procesar.pack(side="left", padx=4)
         
-        self.btn_limpiar = ttk.Button(fila_btn, text="🧹 Procesar Archivos", command=self.limpiar_datos)
+        self.btn_limpiar = ttk.Button(
+            fila_btn, text="✦ Limpiar",
+            command=self.limpiar_datos,
+            style="Anime.TButton"
+        )
         self.btn_limpiar.pack(side="left", padx=4)
         
-        self.btn_open = ttk.Button(fila_btn, text="📁 Resultados", command=self.abrir_resultados, state="disabled")
+        self.btn_open = ttk.Button(
+            fila_btn, text="📂 Resultados",
+            command=self.abrir_resultados,
+            style="Anime.TButton",
+            state="disabled"
+        )
         self.btn_open.pack(side="left", padx=4)
+
         
-        self.btn_mainboard = ttk.Button(fila_btn, text="🖥 Motherboard", command=self.abrir_app_mainboard, state="disabled")
+        self.btn_mainboard = ttk.Button(
+            fila_btn, text="⚙ Motherboard",
+            command=self.abrir_app_mainboard,
+            style="Anime.TButton",
+            state="disabled"
+        )
         self.btn_mainboard.pack(side="left", padx=4)
-
-        #! CONSOLA DE PROCESOS
-        frame_log = ttk.LabelFrame(main, text="CONSOLA")
+        
+        #! CONSOLA
+        frame_log = ttk.LabelFrame(main, text="CONSOLA ")
         frame_log.pack(fill="both", expand=True, pady=(6, 0))
-        self.log = scrolledtext.ScrolledText(frame_log, height=10, font=("Consolas", 10))
-        self.log.pack(fill="both", expand=True, padx=5, pady=5)
-        self.log.config(state="disabled")
-        self.log.tag_config("INFO", foreground="blue")
-        self.log.tag_config("OK", foreground="green", font=("Consolas", 10, "bold"))
-        self.log.tag_config("ERROR", foreground="red", font=("Consolas", 10, "bold"))
-        self.log.tag_config("WARNING", foreground="orange", font=("Consolas", 10, "italic"))
 
-        #!  ESTADO DE LA UI
-        self.status = tk.StringVar(value="Estado: Listo")
+        self.log = scrolledtext.ScrolledText(
+            frame_log,
+            height=10,
+            font=("Consolas", 10),
+            bg="#010409",
+            fg="#22d3ee",
+            insertbackground="#22d3ee",
+            borderwidth=0
+        )
+        self.log.pack(fill="both", expand=True, padx=5, pady=5)
+
+        self.log.tag_config("INFO", foreground="#38bdf8")
+        self.log.tag_config("OK", foreground="#4ade80")
+        self.log.tag_config("ERROR", foreground="#f87171")
+        self.log.tag_config("WARNING", foreground="#facc15")
+
+        self.log.config(state="disabled")
+
+        #! STATUS HUD
+        self.status = tk.StringVar(value="⚡ System Ready")
         self.progress_label = ttk.Label(root, textvariable=self.status, anchor="w")
         self.progress_label.pack(fill="x", side="bottom", padx=6, pady=4)
 
+        #! DATA
         self.modelos = []
         self.idx = 0
         self.session = None
         self.df_todos = pd.DataFrame(columns=["Modelo", "Planta", "Number", "Descripcion"])
         self.materiales_procesados_ok = []
 
-        #!  VIGILAR LOS CAMBIOS 
+        #! WATCHER
         self.excel_path.trace_add("write", lambda *args: self.verificar_habilitar_botones())
         self.verificar_habilitar_botones()
 
         self._crear_tooltips()
         
+    #! Definir función para animar botones
+    def agregar_hover(self, btn, color_hover="#22d3ee", color_normal="#39A758"):
+        style_name = f"{btn}_hover.TButton"  #! estilo único por botón
+        style = ttk.Style()
+        style.configure(style_name, background=color_normal, foreground="white")
+
+        btn.config(style=style_name)
+
+        def on_enter(e):
+            style.configure(style_name, background=color_hover)
+        def on_leave(e):
+            style.configure(style_name, background=color_normal)
+
+        btn.bind("<Enter>", on_enter)
+        btn.bind("<Leave>", on_leave)
+
+        # Empaquetar botones (solo una vez)
+        self.btn_mainboard.pack(side="left", padx=4)
+        self.btn_procesar.pack(side="left", padx=4)
+        self.btn_limpiar.pack(side="left", padx=4)
+        self.btn_open.pack(side="left", padx=4)
+        self.btn_credenciales.pack(side="left", padx=4)
+
+        # Aplicar hover a cada botón
+        self.agregar_hover(self.btn_mainboard)
+        self.agregar_hover(self.btn_procesar)
+        self.agregar_hover(self.btn_limpiar)
+        self.agregar_hover(self.btn_open)
+        self.agregar_hover(self.btn_credenciales)  
+        
     def _crear_tooltips(self):
             tooltips = {
                 self.btn_mainboard: "Procesar archivo desde las motherboard",
                 self.btn_procesar: "Procesar archivo con 1TE",
-                self.btn_limpiar: "Limpiar la consola y archivos exportados",
+                self.btn_limpiar: "Limpiar la consola y archivos finales",
                 self.btn_open: "Abrir carpeta de los archivo",
                 self.btn_credenciales: "Iniciar sesion para SAP"
             }
@@ -155,7 +277,7 @@ class SAPApp:
             #! EJECUTAR VENTANA SECUNDARIA
             self._mainboard_proc = subprocess.Popen([
                 sys.executable,
-                "-m", "backend.UI.motherboard_app"
+                "-m", "backend.UI.Mother"
             ])
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo abrir la app:\n{e}")
@@ -272,49 +394,100 @@ class SAPApp:
         self.btn_open.config(state="disabled")
 
 
-    #!  CREDENCIALES 
+    #!  CREDENCIALES
     def abrir_credenciales(self):
         cred = cargar_credenciales()
+
         win = tk.Toplevel(self.root)
-        win.title("Credenciales SAP")
-        win.geometry("320x240")
+        win.title("🔑 SAP Login • Secure Access")
+        win.geometry("360x320")
         win.resizable(False, False)
         win.transient(self.root)
         win.grab_set()
 
+        #! FONDO
         try:
-            img = Image.open("backend/IMG/logo.png")
-            img = img.resize((256, 256))
-            icon = ImageTk.PhotoImage(img)
-            win.iconphoto(True, icon)
-        except Exception as e:
-                print(f"No se pudo cambiar el icono: {e}")
+            bg_img = Image.open("")
+            bg_img = bg_img.resize((360, 320))
+            bg_photo = ImageTk.PhotoImage(bg_img)
 
-        ttk.Label(win, text="Sistema SAP").pack(pady=(12, 0))
+            bg_label = tk.Label(win, image=bg_photo)
+            bg_label.image = bg_photo
+            bg_label.place(x=0, y=0, relwidth=1, relheight=1)
+        except:
+            win.configure(bg="#020617")
+
+        #! COLORES (
+        BG = "#020617"
+        CARD = "#0f172a"
+        ACCENT = "#02B03E"
+        TEXT = "#94a3b8"
+
+        style = ttk.Style()
+        style.theme_use("clam")
+
+        style.configure("Login.TFrame", background=CARD)
+
+        style.configure("Login.TLabel",
+                        font=("Segoe UI", 10),
+                        foreground=TEXT,
+                        background=CARD)
+
+        style.configure("TitleLogin.TLabel",
+                        font=("Segoe UI", 14, "bold"),
+                        foreground=ACCENT,
+                        background=BG)
+
+        style.configure("Login.TButton",
+                        font=("Segoe UI", 10, "bold"),
+                        foreground="white",
+                        background=ACCENT,
+                        padding=6,
+                        borderwidth=0)
+
+        style.map("Login.TButton",
+                background=[("active", "#16a34a")])
+
+        #! HEADER
+        ttk.Label(win, text="🔑 SAP LOGIN", style="TitleLogin.TLabel").pack(pady=(10, 2))
+        ttk.Label(win, text="Secure Access Panel", foreground=TEXT, background=BG).pack()
+
+        #! CARD CENTRAL
+        frame = ttk.Frame(win, style="Login.TFrame", padding=12)
+        frame.pack(fill="both", expand=True, padx=15, pady=10)
+
+        #! VARIABLES
         sistema = tk.StringVar(value=cred.get("SAP_SYSTEM_NAME", ""))
-        ttk.Entry(win, textvariable=sistema).pack(fill="x", padx=20)
-
-        ttk.Label(win, text="Usuario").pack(pady=(10, 0))
         usuario = tk.StringVar(value=cred.get("SAP_USER", ""))
-        ttk.Entry(win, textvariable=usuario).pack(fill="x", padx=20)
-
-        ttk.Label(win, text="Contraseña").pack(pady=(10, 0))
         password = tk.StringVar(value=cred.get("SAP_PASSWORD", ""))
-        ttk.Entry(win, textvariable=password, show="*").pack(fill="x", padx=20)
 
+        #!CAMPOS
+        ttk.Label(frame, text="Sistema SAP", style="Login.TLabel").pack(anchor="w")
+        ttk.Entry(frame, textvariable=sistema).pack(fill="x", pady=4)
+
+        ttk.Label(frame, text="Usuario", style="Login.TLabel").pack(anchor="w", pady=(6, 0))
+        ttk.Entry(frame, textvariable=usuario).pack(fill="x", pady=4)
+
+        ttk.Label(frame, text="Contraseña", style="Login.TLabel").pack(anchor="w", pady=(6, 0))
+        ttk.Entry(frame, textvariable=password, show="*").pack(fill="x", pady=4)
+
+        #! GUARDAR
         def guardar():
             if not sistema.get() or not usuario.get() or not password.get():
                 messagebox.showwarning("Atención", "Todos los campos son obligatorios")
                 return
+
             guardar_credenciales({
                 "SAP_SYSTEM_NAME": sistema.get().strip(),
                 "SAP_USER": usuario.get().strip(),
                 "SAP_PASSWORD": password.get()
             })
-            messagebox.showinfo("OK", "Credenciales guardadas correctamente")
+
+            self.log_msg("[OK] Credenciales guardadas correctamente", "OK")
             win.destroy()
             self.verificar_habilitar_botones()
-        ttk.Button(win, text="Guardar", command=guardar).pack(pady=18)
+
+        ttk.Button(frame, text="💾 Guardar", command=guardar, style="Login.TButton").pack(pady=12)
 
     #!  LOG 
     def log_msg(self, msg, tag="INFO"):
@@ -339,8 +512,9 @@ class SAPApp:
         if not self.animando:
             return
         self.anim_dots = (self.anim_dots + 1) % 4
-        self.status.set(f"Estado: {texto}{'.' * self.anim_dots}")
-        self.root.after(500, lambda: self.animar_estado(texto))
+        simbolos = ["✦", "✧", "✦", "✧"]
+        self.status.set(f"⚡ {texto} {simbolos[self.anim_dots]}")
+        self.root.after(400, lambda: self.animar_estado(texto))
 
     def actualizar_tiempo(self):
         if not self.start_time:
@@ -365,6 +539,7 @@ class SAPApp:
 
     #! FLUJO 
     def iniciar(self):
+        self.progress.start(10)
         #! VALIDAR EL INICIO DE SESION
         cred = cargar_credenciales()
         if not cred.get("SAP_SYSTEM_NAME") or not cred.get("SAP_USER") or not cred.get("SAP_PASSWORD"):
@@ -391,6 +566,7 @@ class SAPApp:
         self.log_msg("[INFO] Automatización iniciada")
         self.set_status("Cargando Excel", animar=True)
         self.root.after(100, self.flujo_procesar)
+        self.progress.stop()
         
         
     def flujo_procesar(self):
@@ -572,7 +748,6 @@ class SAPApp:
                 self.log_msg("    ✓ BOM exportado")
 
                 fecha = datetime.now().strftime("%Y-%m-%d")
-                time = datetime.now().strftime("%H-%M-%S")
                 nombre_base = os.path.splitext(os.path.basename(ruta_xls))[0]
                 nombre_base = re.sub(r'[\\/*?:"<>|]', "_", nombre_base)
                 nombre_base = re.sub(r'^(?:\d+-)+', '', nombre_base)
@@ -581,7 +756,7 @@ class SAPApp:
 
                 ruta_xlsx = os.path.join(
                     MODEL_FILES_FOLDER,
-                    f"{fecha}_{time}_{nombre_base}_ALT{altboms}.xlsx"
+                    f"{fecha}-{nombre_base}-ALTBOM{altboms}.xlsx"
                 )
 
                 if os.path.exists(ruta_xlsx):
@@ -617,7 +792,6 @@ class SAPApp:
         #! INCREMNETAR EL INDICE PARA CONTINUAR
         self.idx += 1
         self.root.after(200, self.procesar_modelo)
-        
     def guardar_excel_final(self):
         self.set_status("Procesando mainboards")
 
@@ -630,7 +804,6 @@ class SAPApp:
         for _, row in self.df_todos.iterrows():
             number = str(row["Number"]).strip().replace(".0", "")
             modelo = str(row["Modelo"]).strip()
-            descripcion_mother = str(row["Descripcion"]).strip()
 
             if any(number in f for f in os.listdir(MAINBOARD_1_FILES_FOLDER)):
                 continue
@@ -664,29 +837,24 @@ class SAPApp:
                     actualizar_excel_mainboard_1(
                         self.excel_path.get(),
                         modelo,
-                        [number],
-                        descripcion=descripcion_mother
+                        [number]
                     )
                 except Exception as e:
                     self.log_msg(f"[ERROR] No se pudo actualizar Excel mainboard 1: {e}", "ERROR")
 
                 #! PROCESAR MAINBOARD
                 materiales_detectados = []
-                descripcion_mainboard = ""
 
                 for planta in set(self.plantas):
-                    res = procesar_material_desde_mainboard(
+                    material = procesar_material_desde_mainboard(
                         session=self.session,
                         ruta_mainboard_xlsx=ruta_xlsx,
                         uso=FILTRO,
                         planta=planta
                     )
 
-                    if res:
-                        material, desc = res
+                    if material:
                         materiales_detectados.append(str(material).strip())
-                        if desc:
-                            descripcion_mainboard = desc
                         
                 materiales_detectados = list(set(materiales_detectados))
 
@@ -697,8 +865,7 @@ class SAPApp:
                         actualizar_excel_mainboard_2(
                             self.excel_path.get(),
                             modelo,
-                            materiales_detectados,
-                            descripcion=descripcion_mainboard
+                            materiales_detectados
                         )
                     except Exception as e:
                         self.log_msg(f"[ERROR] No se pudo actualizar Excel mainboard 2: {e}", "ERROR")

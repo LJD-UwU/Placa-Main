@@ -2,14 +2,13 @@ import os
 import shutil
 import pandas as pd
 import xlwings as xw
-from tkinter import filedialog
 from openpyxl import load_workbook
 from backend.config.sap_config import TRANSACCION
 from backend.utils.sap_utils import acceso_bom_exitoso
-from backend.utils.txt_to_xlsx import (exportar_bom_a_xls,convertir_xls_a_xlsx,MAINBOARD_2_FILES_FOLDER)
+from backend.utils.txt_to_xlsx import (exportar_bom_a_xls, convertir_xls_a_xlsx, MAINBOARD_2_FILES_FOLDER)
+
 
 def limpiar_valor(valor):
-    
     if valor is None:
         return ""
     valor = str(valor).strip()
@@ -18,7 +17,7 @@ def limpiar_valor(valor):
     return valor
 
 
-def actualizar_excel_mainboard(mother, materiales, ruta_excel, app=None, desc_mother="", desc_main=""):
+def actualizar_excel_mainboard(mother, materiales, ruta_excel, descripcion="", app=None):
     import xlwings as xw
 
     cerrar_app = False
@@ -43,21 +42,16 @@ def actualizar_excel_mainboard(mother, materiales, ruta_excel, app=None, desc_mo
         header = [limpiar_valor(h).upper() for h in data[0]]
 
         try:
-            col_mother_pn = header.index("MOTHERBOARD PART NUMBER") + 1
-            col_main_pn = header.index("MAINBOARD PART NUMBER") + 1
-            
-            try:
-                col_mother_desc = header.index("MOTHERBOARD DESCR") + 1
-            except ValueError:
-                col_mother_desc = None
-                
-            try:
-                col_main_desc = header.index("MAINBOARD DESCR") + 1
-            except ValueError:
-                col_main_desc = None
-                
+            col_material = header.index("MOTHERBOARD PART NUMBER") + 1
+            col_mainboard = header.index("MAINBOARD PART NUMBER") + 1
         except ValueError:
             raise Exception("No se encontraron las columnas necesarias.")
+
+        #! Columna descripción opcional
+        try:
+            col_descr = header.index("MAINBOARD DESCR") + 1
+        except ValueError:
+            col_descr = None
 
         fila_objetivo = None
 
@@ -65,26 +59,32 @@ def actualizar_excel_mainboard(mother, materiales, ruta_excel, app=None, desc_mo
             if not row:
                 continue
 
-            material = limpiar_valor(row[col_mother_pn - 1])
-            valor_actual = row[col_main_pn - 1]
+            material = limpiar_valor(row[col_material - 1])
+            valor_actual = row[col_mainboard - 1]
 
             if material == limpiar_valor(mother):
-                if not valor_actual:
+                valor_vacio = (
+                    valor_actual is None or
+                    str(valor_actual).strip() in ("", "None", "nan", "NaN")
+                )
+                if valor_vacio:
                     fila_objetivo = i
                     break
 
         if not fila_objetivo:
             raise Exception(f"No hay fila disponible para el modelo '{mother}'.")
 
-        #! Escritura optimizada
+        #! Escribir MAINBOARD PART NUMBER
         resultado = ", ".join(materiales) if materiales else "NOT FOUND"
-        sheet.cells(fila_objetivo, col_main_pn).value = resultado
-        
-        if col_mother_desc and desc_mother:
-            sheet.cells(fila_objetivo, col_mother_desc).value = desc_mother
-            
-        if col_main_desc and desc_main:
-            sheet.cells(fila_objetivo, col_main_desc).value = desc_main
+        sheet.cells(fila_objetivo, col_mainboard).value = resultado
+
+        #! Escribir MAINBOARD DESCR si existe la columna y hay descripción válida
+        if col_descr:
+            if descripcion and descripcion.strip().lower() not in ("", "nan", "none"):
+                sheet.cells(fila_objetivo, col_descr).value = descripcion.strip()
+                print(f"[OK] Descripción MB escrita: '{descripcion.strip()}'")
+            else:
+                print(f"[WARNING] Descripción vacía para {mother}, no se escribe")
 
         wb.save()
         wb.close()
@@ -94,6 +94,7 @@ def actualizar_excel_mainboard(mother, materiales, ruta_excel, app=None, desc_mo
     finally:
         if cerrar_app:
             app.quit()
+
 
 def leer_excel_sap_fallback(ruta_xls):
     """
@@ -124,12 +125,14 @@ def procesar_material_desde_mainboard(session, ruta_mainboard_xlsx, uso, planta,
     if df.empty:
         raise Exception("El archivo mainboard está vacío")
 
+    #! Detectar columna de material
     posibles_columnas = ["MATERIAL", "Material", "MATNR", "Component", "Componente"]
     columna_material = next((c for c in posibles_columnas if c in df.columns), None)
 
     if not columna_material:
         raise Exception("No se encontró columna MATERIAL en el mainboard")
 
+    #! Extraer material y descripción de la primera fila válida
     material_row = df[df[columna_material].notna()].iloc[0]
     material = str(material_row[columna_material]).strip()
 
@@ -141,6 +144,7 @@ def procesar_material_desde_mainboard(session, ruta_mainboard_xlsx, uso, planta,
         raise Exception("Material detectado vacío")
 
     print(f"[INFO] Material detectado: {material} | Planta: {planta}")
+    print(f"[INFO] Descripción detectada: '{descripcion}'")
     print(f"[DEBUG] Archivo cargado: {ruta_mainboard_xlsx}")
 
     try:
@@ -190,11 +194,8 @@ def procesar_material_desde_mainboard(session, ruta_mainboard_xlsx, uso, planta,
         except Exception as e:
             print(f"[WARNING] No se pudieron extraer materiales: {e}")
 
+        #! Retornar ruta, material y descripción
         return ruta_xlsx, material, descripcion
-
-    except Exception as e:
-        print(f"[ERROR] Planta {planta}: {e}")
-        return None
 
     except Exception as e:
         print(f"[ERROR] Planta {planta}: {e}")

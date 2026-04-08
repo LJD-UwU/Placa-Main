@@ -4,49 +4,62 @@ import openpyxl
 from backend.utils.txt_to_xlsx import MAINBOARD_1_FILES_FOLDER
 
 
-def mover_columnas_completas(ws, columnas_originales, nueva_pos):
-    n = len(columnas_originales)
+def mover_columnas_por_nombre(ws, columnas_a_mover, antes_de):
+    headers = [ws.cell(row=1, column=c).value for c in range(1, ws.max_column + 1)]
+    col_index = {str(name).strip(): i + 1 for i, name in enumerate(headers) if name}
 
-    #! Guardar todos los datos de las columnas
-    datos = [[ws.cell(row=r, column=c).value for r in range(1, ws.max_row + 1)]
-    for c in columnas_originales]
+    for col in columnas_a_mover + [antes_de]:
+        if col not in col_index:
+            print(f"[WARNING] Columna no encontrada: {col}")
+            return
 
-    #! Eliminar columnas originales (de mayor a menor para no desordenar)
-    for c in sorted(columnas_originales, reverse=True):
-        ws.delete_cols(c)
+    destino = col_index[antes_de]
 
-    #! Insertar columnas en la nueva posición
-    ws.insert_cols(nueva_pos, n)
+    data_cols = []
+    for col in columnas_a_mover:
+        idx = col_index[col]
+        data = [ws.cell(row=r, column=idx).value for r in range(1, ws.max_row + 1)]
+        data_cols.append((col, data))
 
-    #! Colocar los datos en las nuevas columnas
-    for i, col_data in enumerate(datos):
-        for r in range(1, ws.max_row + 1):
-            ws.cell(row=r, column=nueva_pos + i).value = col_data[r - 1]
+    for col in sorted(columnas_a_mover, key=lambda x: col_index[x], reverse=True):
+        ws.delete_cols(col_index[col])
+
+    for i, (nombre, data) in enumerate(data_cols):
+        ws.insert_cols(destino + i)
+        for r, val in enumerate(data, start=1):
+            ws.cell(row=r, column=destino + i).value = val
 
 
 def limpiar_excel_mainboard(ruta_xlsx: str):
     wb = openpyxl.load_workbook(ruta_xlsx)
     ws = wb.active
 
-    #! Eliminar columnas y filas según tu lógica original
-    ws.delete_cols(1)
-    ws.delete_cols(9,26)
+    #! LIMPIEZA BASE
+    ws.delete_cols(1,2)
+    ws.delete_cols(7)
+    ws.delete_cols(10)
     ws.delete_rows(1, 9)
 
-    #! Insertar cabeceras
-    ws.insert_cols(1, 1)
-    ws.cell(row=1, column=1).value = "LEVEL"
-    ws.cell(row=1, column=2).value = "ITEM"
-    ws.cell(row=1, column=3).value = "MATERIAL"
-    ws.cell(row=1, column=4).value = "DESCRIPTION IN CHINESE"
-    ws.cell(row=1, column=5).value = "DESCRIPTION IN ENGLISH"
-    ws.cell(row=1, column=6).value = "QTY"
-    ws.cell(row=1, column=7).value = "UN"
-    ws.cell(row=1, column=8).value = "LINE 1"
-    ws.cell(row=1, column=9).value = "LINE 2"
-    ws.cell(row=1, column=10).value = "SORT STRING"
+    #! MOVER COLUMNAS (tu lógica integrada)
+    mover_columnas_por_nombre(
+        ws,
+        columnas_a_mover=["组件数量", "Un"],
+        antes_de="项目文本行 1"
+    )
+
+    #! HEADERS
+    headers = [
+        "LEVEL", "ITEM", "MATERIAL",
+        "DESCRIPTION IN CHINESE", "DESCRIPTION IN ENGLISH",
+        "QTY", "UN", "LINE 1", "LINE 2", "SORT STRING"
+    ]
+
+    ws.insert_cols(1)
+    for col, header in enumerate(headers, start=1):
+        ws.cell(row=1, column=col).value = header
 
     wb.save(ruta_xlsx)
+
 
 def limpiar_todos_los_mainboard():
     for archivo in os.listdir(MAINBOARD_1_FILES_FOLDER):
@@ -56,6 +69,6 @@ def limpiar_todos_los_mainboard():
             try:
                 limpiar_excel_mainboard(ruta)
                 print(f"[OK] Limpio: {archivo}\n")
-                time.sleep(1)  #! espera entre archivos
+                time.sleep(1)
             except Exception as e:
                 print(f"[ERROR] {archivo} → {e}")

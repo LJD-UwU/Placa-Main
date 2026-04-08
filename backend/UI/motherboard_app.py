@@ -15,7 +15,7 @@ from backend.utils.clean_excel import limpiar_excel_mainboard
 from backend.utils.utils_2.xlsx_m2 import convertir_xls_a_xlsx
 from backend.modules.Modules_2.procesar_mainboard import actualizar_excel_mainboard
 from backend.modules.Modules_2.procesar_motherboard import procesar_numbers_desde_listas
-from backend.utils.txt_to_xlsx import (MAINBOARD_1_FILES_FOLDER,MAINBOARD_2_FILES_FOLDER)
+from backend.utils.txt_to_xlsx import (MAINBOARD_1_FILES_FOLDER, MAINBOARD_2_FILES_FOLDER)
 from backend.modules.Modules_2.procesar_mainboard import procesar_material_desde_mainboard
 
 
@@ -27,6 +27,7 @@ def limpiar_valor(valor):
         valor = valor[:-2]
     return valor
 
+
 def abrir_excel_seguro(path_excel):
     """
     Abre Excel con fallback:
@@ -37,7 +38,6 @@ def abrir_excel_seguro(path_excel):
         wb = load_workbook(path_excel)
         return wb, "openpyxl"
     except Exception:
-        # fallback a xlwings
         app = xw.App(visible=False)
         app.display_alerts = False
         app.screen_updating = False
@@ -49,7 +49,8 @@ def abrir_excel_seguro(path_excel):
             app.quit()
             raise Exception(f"No se pudo abrir el archivo (ni openpyxl ni xlwings): {e}")
 
-#!  FILTRO POR COLOR 
+
+#! FILTRO POR COLOR
 def es_amarillo(celda):
     if not celda.fill:
         return False
@@ -65,6 +66,7 @@ def es_amarillo(celda):
         pass
     return False
 
+
 def leer_filas_amarillas(path_excel):
 
     obj, engine = abrir_excel_seguro(path_excel)
@@ -72,7 +74,7 @@ def leer_filas_amarillas(path_excel):
     mothers, plants, internals = [], [], []
 
     try:
-        # 🔹 OPENPYXL (rápido)
+        # OPENPYXL (rápido)
         if engine == "openpyxl":
             wb = obj
             ws = wb.active
@@ -100,7 +102,7 @@ def leer_filas_amarillas(path_excel):
                     plants.append(limpiar_valor(ws.cell(row=row, column=col_plant).value))
                     internals.append(limpiar_valor(ws.cell(row=row, column=col_internal).value))
 
-        # 🔹 XLWINGS (cifrado)
+        # XLWINGS (cifrado)
         else:
             app, wb = obj
             sheet = wb.sheets[0]
@@ -120,11 +122,9 @@ def leer_filas_amarillas(path_excel):
             col_plant = col_idx("PLANT")
             col_internal = col_idx("INTERNAL MODEL")
 
-            # Leer colores con xlwings
             for i in range(2, len(data) + 1):
                 celda = sheet.cells(i, col_mother + 1)
-
-                color = celda.color  # RGB tuple
+                color = celda.color
 
                 es_amarillo_xw = color and (
                     (color[0] > 200 and color[1] > 200 and color[2] < 100)
@@ -132,7 +132,6 @@ def leer_filas_amarillas(path_excel):
 
                 if es_amarillo_xw:
                     row = data[i - 1]
-
                     mother = limpiar_valor(row[col_mother])
                     plant = limpiar_valor(row[col_plant])
                     internal = limpiar_valor(row[col_internal])
@@ -143,7 +142,6 @@ def leer_filas_amarillas(path_excel):
                         internals.append(internal)
 
     finally:
-        #  limpieza segura
         if engine == "openpyxl":
             obj.close()
         else:
@@ -156,7 +154,8 @@ def leer_filas_amarillas(path_excel):
 
     return mothers, plants, internals
 
-#!  MARCAR MOTHERBOARD PROCESADA 
+
+#! MARCAR MOTHERBOARD PROCESADA
 def marcar_procesado(path_excel, mother_name):
     try:
         app = xw.App(visible=False)
@@ -172,7 +171,6 @@ def marcar_procesado(path_excel, mother_name):
             celda = sheet.cells(i, col_mother + 1)
 
             if limpiar_valor(celda.value) == limpiar_valor(mother_name):
-                
                 #! VERDE CORRECTO
                 celda.color = (198, 224, 180)
                 break
@@ -184,7 +182,8 @@ def marcar_procesado(path_excel, mother_name):
     except Exception as e:
         print(f"[ERROR] {e}")
 
-#!  ELIMINAR ARCHIVOS XLS 
+
+#! ELIMINAR ARCHIVOS XLS
 def eliminar_xls_carpeta(carpeta):
     for f in os.listdir(carpeta):
         if f.lower().endswith(".xls"):
@@ -195,7 +194,8 @@ def eliminar_xls_carpeta(carpeta):
             except Exception as e:
                 print(f"[ERROR] No se pudo eliminar {ruta}: {e}")
 
-#!  MAINBOARD APP 
+
+#! MAINBOARD APP
 class MainboardApp:
     def __init__(self, root):
         self.root = root
@@ -347,13 +347,15 @@ class MainboardApp:
                         self.log_msg(f"    [ERROR] No se pudo generar BOM para {mother}\n", "ERROR")
                         continue
 
-                    ruta_xlsx, material_detectado = resultado
+                    #! Desempaquetar también la descripción
+                    ruta_xlsx, material_detectado, descripcion_detectada = resultado
 
                     try:
                         actualizar_excel_mainboard(
                             mother,
                             [material_detectado],
-                            ruta_excel=excel_file
+                            ruta_excel=excel_file,
+                            descripcion=descripcion_detectada   #! pasar descripción
                         )
                         self.log_msg(f"    ✓ Excel actualizado con materiales de {mother}", "OK")
                     except Exception as e:
@@ -388,6 +390,7 @@ class MainboardApp:
             "Siguiente paso",
             "Cargar archivo procesado en la ventana principal y dar clic en el botón 'Limpiar'"
         )
+
 
 if __name__ == "__main__":
     root = tk.Tk()

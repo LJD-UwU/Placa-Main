@@ -130,17 +130,15 @@ def actualizar_excel_mainboard_1(ruta_excel, modelo, number, descripcion=""):
     try:
         wb = app.books.open(ruta_excel)
         sheet = wb.sheets.active
-        
-        # Leer datos para buscar columnas
+
         data = sheet.used_range.value
         if not data:
             raise ValueError("El archivo Excel está vacío")
-            
+
         header = [str(h).strip().upper() for h in data[0]]
         try:
             col_material = header.index("MATERIAL") + 1
             col_motherboard_pn = header.index("MOTHERBOARD PART NUMBER") + 1
-            # Se busca Motherboard descr, si no existe no se actualiza
             try:
                 col_motherboard_descr = header.index("MOTHERBOARD DESCR") + 1
             except ValueError:
@@ -148,33 +146,50 @@ def actualizar_excel_mainboard_1(ruta_excel, modelo, number, descripcion=""):
         except ValueError:
             raise ValueError("No se encontraron columnas 'MATERIAL' o 'MOTHERBOARD PART NUMBER'")
 
+        print(f"[DEBUG] Buscando fila para modelo='{modelo}', number={number}, descripcion='{descripcion}'")
+        print(f"[DEBUG] Columnas encontradas: MATERIAL={col_material}, MB_PN={col_motherboard_pn}, MB_DESCR={col_motherboard_descr}")
+
         fila_objetivo = None
-        # Buscar fila vacía del mismo modelo
         for i, row in enumerate(data[1:], start=2):
             material = str(row[col_material - 1]).strip()
             valor_actual = row[col_motherboard_pn - 1]
 
             if material == str(modelo).strip():
-                if not valor_actual:
+                # ✅ BUG FIX: Aceptar None, "None", "nan", "" como vacío
+                valor_vacio = (
+                    valor_actual is None or
+                    str(valor_actual).strip() in ("", "None", "nan", "NaN")
+                )
+                if valor_vacio:
                     fila_objetivo = i
                     break
 
         if not fila_objetivo:
-            app.quit()
-            raise Exception(f"No hay fila disponible para {modelo}")
+            # ✅ BUG FIX: Mensaje más claro del motivo
+            raise Exception(
+                f"No hay fila vacía disponible para modelo '{modelo}'. "
+                f"Puede que ya esté llena o el modelo no exista en el Excel."
+            )
+
+        print(f"[DEBUG] Escribiendo en fila {fila_objetivo}: PN={number}, DESCR='{descripcion}'")
 
         if number:
             sheet.cells(fila_objetivo, col_motherboard_pn).value = ", ".join(number)
-            if col_motherboard_descr and descripcion:
-                sheet.cells(fila_objetivo, col_motherboard_descr).value = descripcion
         else:
             sheet.cells(fila_objetivo, col_motherboard_pn).value = "NOT FOUND"
 
+        if col_motherboard_descr:
+            if descripcion and descripcion.strip() and descripcion.strip().lower() not in ("nan", "none", ""):
+                sheet.cells(fila_objetivo, col_motherboard_descr).value = descripcion.strip()
+                print(f"[OK] Descripción MB1 escrita: '{descripcion.strip()}'")
+            else:
+                print(f"[WARNING] Descripción MB1 vacía para {modelo}, no se escribe")
+
         wb.save()
         wb.close()
+        print(f"[OK] Excel MB1 actualizado para {modelo}")
     finally:
         app.quit()
-
 
 #! FUNCION PARA PROCESAR EXCEL COMPLETO
 def procesar_numbers_desde_excel(session, excel_input, excel_output, plantas=None, capid=FILTRO):

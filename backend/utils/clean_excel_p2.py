@@ -8,7 +8,6 @@ from glob import glob
 from backend.config.sap_config import EXTRAER_ARCHIVO
 from openpyxl.styles import PatternFill, Font, Alignment
 
-
 def limpiar_valor(valor):
     if pd.isna(valor):
         return ""
@@ -306,6 +305,32 @@ def agregar_submateriales(df_main, ws):
 
 #!  PROCESO PRINCIPAL 
 
+def mover_columnas_por_nombre(ws, columnas_a_mover, antes_de):
+    headers = [ws.cell(row=1, column=c).value for c in range(1, ws.max_column + 1)]
+    col_index = {str(name).strip(): i+1 for i, name in enumerate(headers) if name}
+
+    for col in columnas_a_mover + [antes_de]:
+        if col not in col_index:
+            print(f"[WARNING] Columna no encontrada: {col}")
+            return
+
+    destino = col_index[antes_de]
+
+    data_cols = []
+    for col in columnas_a_mover:
+        idx = col_index[col]
+        data = [ws.cell(row=r, column=idx).value for r in range(1, ws.max_row + 1)]
+        data_cols.append((col, data))
+
+    for col in sorted(columnas_a_mover, key=lambda x: col_index[x], reverse=True):
+        ws.delete_cols(col_index[col])
+
+    for i, (nombre, data) in enumerate(data_cols):
+        ws.insert_cols(destino + i)
+        for r, val in enumerate(data, start=1):
+            ws.cell(row=r, column=destino + i).value = val
+
+
 def procesar_archivo_principal_mainboard_2(
     ruta_excel_principal: str,
     ruta_salida_principal: str,
@@ -317,10 +342,20 @@ def procesar_archivo_principal_mainboard_2(
     wb = openpyxl.load_workbook(ruta_excel_principal)
     ws = wb.active
 
-    ws.delete_cols(1)
-    ws.delete_cols(9, 26)
+    #! LIMPIEZA BASE
+    ws.delete_cols(1,2)
+    ws.delete_cols(7)
+    ws.delete_cols(10)
     ws.delete_rows(1, 9)
 
+    #! LÓGICA: MOVER COLUMNAS
+    mover_columnas_por_nombre(
+        ws,
+        columnas_a_mover=["组件数量", "Un"],
+        antes_de="项目文本行 1"
+    )
+
+    #! HEADERS 
     headers = [
         "LEVEL", "ITEM", "MATERIAL",
         "DESCRIPTION IN CHINESE", "DESCRIPTION IN ENGLISH",
@@ -382,7 +417,6 @@ def procesar_archivo_principal_mainboard_2(
         if df_main.at[i, "LEVEL"] == 0:
             df_main.at[i, "LEVEL"] = df_main.at[i - 1, "LEVEL"]
 
-    #! Aplicar submaterial gris
     gris_submaterial = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
     for r_idx, fila in enumerate(df_main.itertuples(index=False), start=2):
         is_submaterial = getattr(fila, "_SUBMATERIAL", False)
@@ -394,7 +428,6 @@ def procesar_archivo_principal_mainboard_2(
     if "_SUBMATERIAL" in df_main.columns:
         df_main.drop(columns=["_SUBMATERIAL"], inplace=True)
 
-    #! ✅ NEGRITAS EN X (SE QUEDA)
     bold_font = Font(bold=True)
     col_indices = {ws.cell(row=1, column=c).value: c for c in range(1, ws.max_column + 1)}
     col_item = col_indices.get("ITEM")
@@ -405,7 +438,6 @@ def procesar_archivo_principal_mainboard_2(
                 for col in range(1, ws.max_column + 1):
                     ws.cell(row=row, column=col).font = bold_font
 
-    #! 🔽 TODO TU BLOQUE ORIGINAL (SIN CAMBIOS)
     ws.title = "BOMList"
     ws["A2"] = "0"
     ws["F3"] = "1000"
@@ -442,7 +474,6 @@ def procesar_archivo_principal_mainboard_2(
     else:
         ws["E5"] = "MAIN BOARD SMT PART\\"
 
-    #! Crear hojas
     if "BOMHeader" not in wb.sheetnames:
         ws_header = wb.create_sheet("BOMHeader")
         encabezados_header = ["BOMID","MATNR","WERKS","STLAN","STLAL","ZTEXT","BMENG","STKTX"]
@@ -455,7 +486,6 @@ def procesar_archivo_principal_mainboard_2(
         for col, header in enumerate(encabezados_item, start=1):
             ws_item.cell(row=1, column=col).value = header
 
-    #! Columnas numéricas
     columnas_numericas = ["LEVEL", "ITEM", "QTY","MATERIAL","DESCRIPTION IN CHINESE"]
     mapa_columnas = {
         str(ws.cell(row=1, column=c).value).strip().upper(): openpyxl.utils.get_column_letter(c)
@@ -473,21 +503,15 @@ def procesar_archivo_principal_mainboard_2(
                     except:
                         pass
 
-    #! Alinear texto
     for fila in ws.iter_rows():
         for celda in fila:
             celda.alignment = Alignment(horizontal="left")
 
-    #! 🔥 FIX FINAL - COLOREAR FILA Y LIMPIAR SOLO EL CHINO
     colorear_chino(ws)
-    
-    # Limpiar texto_modelo para nombre de archivo
-    modelo_clean = str(texto_modelo).strip().replace(" ", "").replace("\\", "").replace("/", "")
 
-    # Nuevo nombre
+    modelo_clean = str(texto_modelo).strip().replace(" ", "").replace("\\", "").replace("/", "")
     nuevo_nombre = f"MB-BMM-{modelo_clean}.xlsx"
 
-    # Nueva ruta
     ruta_salida_principal = os.path.join(
         os.path.dirname(ruta_salida_principal),
         nuevo_nombre

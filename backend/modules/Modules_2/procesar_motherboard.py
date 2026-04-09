@@ -8,7 +8,7 @@ from backend.utils.utils_2.xlsx_m2 import exportar_bom_a_xls, convertir_xls_a_xl
 
 
 def procesar_numbers_desde_listas(session, mother_list, plant_list, excel_output, capid=FILTRO, loop_multiple=False):
-    
+
     #! Detectar si es lista de listas
     if loop_multiple:
         for i, (m_list, p_list) in enumerate(zip(mother_list, plant_list)):
@@ -52,18 +52,14 @@ def procesar_numbers_desde_listas(session, mother_list, plant_list, excel_output
 
             #! Validación BOM
             if not acceso_bom_exitoso(session):
-
                 print(f"[INFO] No se accedió al BOM para {mother} en planta {plant}")
-
                 continue
 
-            #! Exportar BOM (ya guarda en MAINBOARD_2_FILES_FOLDER)
+            #! Exportar BOM
             ruta_xls = exportar_bom_a_xls(session, mother)
 
             if not ruta_xls or not os.path.exists(ruta_xls):
-
                 print(f"[WARNING] No se generó XLS para {mother} en planta {plant}")
-
                 continue
 
             #! Convertir a XLSX
@@ -72,14 +68,12 @@ def procesar_numbers_desde_listas(session, mother_list, plant_list, excel_output
 
             convertir_xls_a_xlsx(ruta_xls, ruta_xlsx)
             print(f"[OK] Mainboard procesado: {mother} | XLSX: {ruta_xlsx}")
-        except Exception as e:
 
+        except Exception as e:
             print(f"[ERROR] Error procesando {mother} en planta {plant}: {e}")
 
     #! Guardar Excel final
     if not df_final.empty:
-
         df_final.to_excel(excel_output, index=False, engine="openpyxl")
-
         print(f"\n[INFO] Procesamiento completado ✅")
         print(f"Archivo final guardado en: {excel_output}")

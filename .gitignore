@@ -1,5 +1,33 @@
-*__pycache__
-*.venv
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Excel files
+*.xlsx
+*.xls
+*.csv
+# Temporary Excel files
+~$*.xlsx
+~$*.xls
+
+# Credentials and sensitive config
+PRUEVAS.py
 sap_config.py
 Credenciales.json
-.py
+backend/config/Credenciales.json
+
+# Better app tests at work
+Mother.py
+PRUEVAS.py

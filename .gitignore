@@ -1,6 +1,7 @@
 *__pycache__
 *IMG
 *.venv
+.env
 
 P.py
 sap_config.py

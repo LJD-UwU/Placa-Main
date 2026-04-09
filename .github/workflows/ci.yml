@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install linter
+        run: pip install ruff
+
+      - name: Ruff check
+        run: ruff check backend/config/sap_config.py
+
+  env-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify .env.example contains SAP logon path
+        run: grep -q "SAP_LOGON_PATH" .env.example
+
+      - name: Verify .env.example contains export path
+        run: grep -q "SAP_EXPORT_PATH" .env.example
+
+      - name: Verify .env.example contains extraction path
+        run: grep -q "SAP_EXTRAER_ARCHIVO" .env.example
+
+      - name: Verify docker-compose references SAP logon path
+        run: grep -q "SAP_LOGON_PATH" docker-compose.yml
+
+      - name: Verify docker-compose references export path
+        run: grep -q "SAP_EXPORT_PATH" docker-compose.yml
+
+      - name: Verify docker-compose references extraction path
+        run: grep -q "SAP_EXTRAER_ARCHIVO" docker-compose.yml
+
+      - name: Verify sap_config.py reads SAP_LOGON_PATH from env
+        run: grep -q 'SAP_LOGON_PATH' backend/config/sap_config.py && grep -q 'os.environ.get' backend/config/sap_config.py
+
+      - name: Verify sap_config.py reads SAP_EXPORT_PATH from env
+        run: grep -q 'SAP_EXPORT_PATH' backend/config/sap_config.py
+
+      - name: Verify sap_config.py reads SAP_EXTRAER_ARCHIVO from env
+        run: grep -q 'SAP_EXTRAER_ARCHIVO' backend/config/sap_config.py

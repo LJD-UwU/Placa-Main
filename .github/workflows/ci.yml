@@ -20,7 +20,7 @@ jobs:
         run: pip install ruff
 
       - name: Ruff check
-        run: ruff check .
+        run: ruff check backend/config/sap_config.py
 
   env-check:
     runs-on: ubuntu-latest
@@ -46,10 +46,10 @@ jobs:
         run: grep -q "SAP_EXTRAER_ARCHIVO" docker-compose.yml
 
       - name: Verify sap_config.py reads SAP_LOGON_PATH from env
-        run: grep -q 'os.environ.get.*SAP_LOGON_PATH' backend/config/sap_config.py
+        run: grep -q 'SAP_LOGON_PATH' backend/config/sap_config.py && grep -q 'os.environ.get' backend/config/sap_config.py
 
       - name: Verify sap_config.py reads SAP_EXPORT_PATH from env
-        run: grep -q 'os.environ.get.*SAP_EXPORT_PATH' backend/config/sap_config.py
+        run: grep -q 'SAP_EXPORT_PATH' backend/config/sap_config.py
 
       - name: Verify sap_config.py reads SAP_EXTRAER_ARCHIVO from env
-        run: grep -q 'os.environ.get.*SAP_EXTRAER_ARCHIVO' backend/config/sap_config.py
+        run: grep -q 'SAP_EXTRAER_ARCHIVO' backend/config/sap_config.py

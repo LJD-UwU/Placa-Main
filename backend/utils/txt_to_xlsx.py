@@ -3,23 +3,46 @@ import re
 import time
 import pandas as pd
 import xlwings as xw
+import win32com.client
 from datetime import datetime
 from backend.config.sap_config import EXPORT_FINAL_PATH
 
 #! CARPETA ORIGINAL
 BASE_BOM_FOLDER = os.path.join(EXPORT_FINAL_PATH, "BOM_FILES")
-#! CARPETAS PRINCIPALES
 
 #! CARPETAS SECUNDARIAS
 MODEL_FILES_FOLDER = os.path.join(BASE_BOM_FOLDER, "1TE_FILES")
 MAINBOARD_1_FILES_FOLDER = os.path.join(BASE_BOM_FOLDER, "MOTHERBOARD")
 MAINBOARD_2_FILES_FOLDER = os.path.join(BASE_BOM_FOLDER, "MAIN_BOARD_FINAL")
 
+#! CREAR UN ACCEDO DIRECTO AL DESKTOP PARA BOM FILES
 
-os.makedirs(MODEL_FILES_FOLDER, exist_ok=True)
-os.makedirs(MAINBOARD_1_FILES_FOLDER, exist_ok=True)
-os.makedirs(MAINBOARD_2_FILES_FOLDER, exist_ok=True)
+def crear_estructura_y_acceso_directo():
+    #!Crear carpetas
+    os.makedirs(MODEL_FILES_FOLDER, exist_ok=True)
+    os.makedirs(MAINBOARD_1_FILES_FOLDER, exist_ok=True)
+    os.makedirs(MAINBOARD_2_FILES_FOLDER, exist_ok=True)
 
+    print("[INFO] Carpetas creadas correctamente")
+
+    #! Crear acceso directo en el escritorio
+    escritorio = os.path.join(os.path.expanduser("~"), "Desktop")
+    ruta_acceso = os.path.join(escritorio, "BOM_FILES.lnk")
+
+    #! Evitar duplicados
+    if not os.path.exists(ruta_acceso):
+        shell = win32com.client.Dispatch("WScript.Shell")
+        acceso = shell.CreateShortCut(ruta_acceso)
+        acceso.TargetPath = BASE_BOM_FOLDER
+        acceso.WorkingDirectory = BASE_BOM_FOLDER
+        acceso.IconLocation = "shell32.dll, 3"  #! icono de carpeta
+        acceso.save()
+
+        print("[INFO] Acceso directo creado en el escritorio")
+    else:
+        print("[INFO] El acceso directo ya existe")
+        
+crear_estructura_y_acceso_directo()
 
 def convertir_xls_a_xlsx(ruta_xls: str, ruta_xlsx: str):
     if not os.path.exists(ruta_xls):

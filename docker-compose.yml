@@ -1,0 +1,21 @@
+version: "3.9"
+
+services:
+  sap-app:
+    build: .
+    env_file:
+      - .env
+    environment:
+      # SAP Logon executable path
+      - SAP_LOGON_PATH=${SAP_LOGON_PATH}
+      # Directory for SAP BOM exports (default: ~/Desktop)
+      - SAP_EXPORT_PATH=${SAP_EXPORT_PATH}
+      # UNC/local path to submaterial usage files
+      - SAP_EXTRAER_ARCHIVO=${SAP_EXTRAER_ARCHIVO}
+      # SAP credentials
+      - SAP_SYSTEM_NAME=${SAP_SYSTEM_NAME}
+      - SAP_USER=${SAP_USER}
+      - SAP_PASSWORD=${SAP_PASSWORD}
+    volumes:
+      - .:/app
+    working_dir: /app

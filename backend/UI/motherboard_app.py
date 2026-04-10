@@ -27,15 +27,6 @@ from backend.modules.Modules_2.procesar_motherboard import procesar_numbers_desd
 from backend.utils.txt_to_xlsx import (MAINBOARD_1_FILES_FOLDER, MAINBOARD_2_FILES_FOLDER)
 from backend.modules.Modules_2.procesar_mainboard import procesar_material_desde_mainboard
 
-# ─── Logging ─────────────────────────────────────────────────────────────────
-logging.basicConfig(
-    filename="motherboard_debug.log",
-    level=logging.DEBUG,
-    format="%(asctime)s [%(threadName)s] %(levelname)s — %(message)s",
-    encoding="utf-8",
-)
-
-
 # ─── COM helpers (SAP GUI y xlwings usan COM en Windows) ─────────────────────
 
 def _coinit():

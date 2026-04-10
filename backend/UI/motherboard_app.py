@@ -27,7 +27,7 @@ from backend.modules.Modules_2.procesar_motherboard import procesar_numbers_desd
 from backend.utils.txt_to_xlsx import (MAINBOARD_1_FILES_FOLDER, MAINBOARD_2_FILES_FOLDER)
 from backend.modules.Modules_2.procesar_mainboard import procesar_material_desde_mainboard
 
-# ─── COM helpers (SAP GUI y xlwings usan COM en Windows) ─────────────────────
+#! helpers (SAP GUI y xlwings usan COM en Windows) 
 
 def _coinit():
     """
@@ -45,7 +45,7 @@ def _couninit():
         pythoncom.CoUninitialize()
 
 
-# ─── Helpers de Excel ────────────────────────────────────────────────────────
+#! Helpers de Excel 
 
 def limpiar_valor(valor):
     if valor is None:
@@ -212,7 +212,7 @@ def eliminar_xls_carpeta(carpeta):
                 logging.error(f"No se pudo eliminar {ruta}: {e}")
 
 
-# ─── Aplicación ──────────────────────────────────────────────────────────────
+#! Aplicación 
 
 class MainboardApp:
     def __init__(self, root: tk.Tk):
@@ -267,7 +267,7 @@ class MainboardApp:
         self.plants        = []
         self.internal_models = []
 
-    # ─── LOGGING THREAD-SAFE ─────────────────────────────────────────────────
+    #! LOGGING THREAD-SAFE 
 
     def log_msg(self, msg: str, tag: str = "INFO"):
         """
@@ -288,7 +288,7 @@ class MainboardApp:
         """Thread-safe: actualiza la etiqueta de estado."""
         self.root.after(0, lambda: self.status.set(f"Estado: {msg}"))
 
-    # ─── UI ──────────────────────────────────────────────────────────────────
+    #! UI 
 
     def seleccionar_excel(self):
         files = filedialog.askopenfilenames(filetypes=[("Excel", "*.xlsx")])
@@ -296,14 +296,14 @@ class MainboardApp:
             self.excel_paths = list(files)
             self.log_msg(f"[OK] {len(files)} archivo(s) seleccionado(s)", "OK")
 
-    # ─── INICIO (hilo principal) ──────────────────────────────────────────────
+    #! INICIO 
 
     def iniciar_procesamiento(self):
         if not self.excel_paths:
             messagebox.showwarning("Atención", "Selecciona al menos un archivo Excel primero.")
             return
 
-        # Deshabilitar botón para evitar doble clic
+        #! Deshabilitar botón para evitar doble clic
         self.btn_procesar.config(state="disabled")
         self.log_msg("[INFO] Automatización iniciada\n", "INFO")
         self.set_status("Procesando...")
@@ -311,7 +311,7 @@ class MainboardApp:
         # Todo el trabajo pesado en un hilo secundario
         threading.Thread(target=self._worker, daemon=True).start()
 
-    # ─── WORKER (hilo secundario) ─────────────────────────────────────────────
+    #! WORKER 
 
     def _worker(self):
         """
@@ -330,11 +330,11 @@ class MainboardApp:
             for excel_file in self.excel_paths:
                 self._procesar_archivo(excel_file)
 
-            # Finalización
+            #! Finalización
             self.log_msg("[INFO] Todas las motherboards se procesaron", "INFO")
             self.log_msg("[OK] Proceso completo", "OK")
 
-            # messagebox siempre en el hilo principal
+            #! messagebox siempre en el hilo principal
             self.root.after(0, self._on_proceso_completado)
 
         except Exception as e:
@@ -342,7 +342,7 @@ class MainboardApp:
             logging.exception("Error fatal en _worker")
         finally:
             _couninit()
-            # Re-habilitar botón siempre, incluso si hubo error
+            #! Re-habilitar botón siempre, incluso si hubo error
             self.root.after(0, lambda: self.btn_procesar.config(state="normal"))
             self.set_status("Listo")
 
@@ -399,7 +399,7 @@ class MainboardApp:
 
                 ruta_xls = os.path.join(MAINBOARD_1_FILES_FOLDER, f"{fecha}-{mother}.XLS")
 
-                # Esperar hasta 20 s a que SAP genere el XLS
+                #! Esperar hasta 20 s a que SAP genere el XLS
                 for _ in range(20):
                     if os.path.exists(ruta_xls):
                         break
@@ -435,7 +435,7 @@ class MainboardApp:
                 except Exception as e:
                     self.log_msg(f"    [ERROR] No se pudo actualizar Excel: {e}", "ERROR")
 
-                # marcar_procesado también usa xlwings → COM ya inicializado en este hilo
+                #! marcar_procesado también usa xlwings → COM ya inicializado en este hilo
                 marcar_procesado(excel_file, mother)
                 self.log_msg(f"    ✓ BOM generado correctamente\n", "OK")
 
@@ -453,7 +453,7 @@ class MainboardApp:
             "El proceso de Motherboard ha finalizado correctamente",
         )
 
-        # Limpieza final de XLS (no hace COM — solo os.remove)
+        #! Limpieza final de XLS (no hace COM — solo os.remove)
         self.log_msg("[INFO] Limpiando archivos XLS antes de cerrar...", "INFO")
         try:
             eliminar_xls_carpeta(MAINBOARD_1_FILES_FOLDER)
@@ -468,9 +468,6 @@ class MainboardApp:
         )
 
         self.root.destroy()
-
-
-# ─── ENTRY POINT ─────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     root = tk.Tk()

@@ -18,14 +18,6 @@ except ImportError:
 
 
 def _coinit():
-    """
-    Inicializa COM en el hilo actual si pythoncom está disponible.
-    SAP GUI usa COM (win32com). Sin esto, cualquier llamada desde un hilo
-    secundario lanza: (-2147417842) 'La aplicación llamó a una interfaz
-    que se aplanó para un diferente subproceso.'
-    Debe llamarse AL INICIO de cada función que corra en un hilo secundario
-    y que interactúe con SAP o xlwings.
-    """
     if _PYTHONCOM_AVAILABLE:
         pythoncom.CoInitialize()
 
@@ -179,7 +171,7 @@ class SAPApp:
         self.verificar_habilitar_botones()
         self._crear_tooltips()
 
-    # ─── TOOLTIPS ────────────────────────────────────────────────────────────
+    #  TOOLTIPS 
 
     def _crear_tooltips(self):
         tooltips = {
@@ -208,7 +200,7 @@ class SAPApp:
         widget.bind("<Enter>", enter)
         widget.bind("<Leave>", leave)
 
-    # ─── LOGGING THREAD-SAFE ─────────────────────────────────────────────────
+    #  LOGGING THREAD-SAFE 
 
     def log_msg(self, msg: str, tag: str = "INFO"):
         """
@@ -225,7 +217,7 @@ class SAPApp:
         self.log.see(tk.END)
         self.log.config(state="disabled")
 
-    # ─── STATUS THREAD-SAFE ──────────────────────────────────────────────────
+    #  STATUS THREAD-SAFE 
 
     def set_status(self, msg: str, animar: bool = False):
         """Thread-safe: delega al hilo principal."""
@@ -257,7 +249,7 @@ class SAPApp:
         if self.btn_procesar["state"] == "disabled":
             self.root.after(1000, self.actualizar_tiempo)
 
-    # ─── UI ──────────────────────────────────────────────────────────────────
+    #  UI 
 
     def seleccionar_excel(self):
         f = filedialog.askopenfilename(filetypes=[("Excel", "*")])
@@ -279,7 +271,7 @@ class SAPApp:
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo abrir la app:\n{e}")
 
-    # ─── VALIDACIÓN DE BOTONES ───────────────────────────────────────────────
+    #  VALIDACIÓN DE BOTONES 
 
     def verificar_habilitar_botones(self):
         cred = cargar_credenciales()
@@ -298,12 +290,12 @@ class SAPApp:
             self.btn_procesar.config(state="normal" if excel else "disabled")
         self.btn_open.config(state="disabled")
 
-    # ─── CREDENCIALES ────────────────────────────────────────────────────────
+    #  CREDENCIALES 
 
     def abrir_credenciales(self):
         cred = cargar_credenciales()
         win = tk.Toplevel(self.root)
-        win.title("Credenciales SAP")
+        win.title("MBAutomator - Credenciales SAP")
         win.geometry("320x240")
         win.resizable(False, False)
         win.transient(self.root)
@@ -336,7 +328,7 @@ class SAPApp:
 
         ttk.Button(win, text="Guardar", command=guardar).pack(pady=18)
 
-    # ─── LIMPIAR / PROCESAR ARCHIVOS ─────────────────────────────────────────
+    #  LIMPIAR / PROCESAR ARCHIVOS 
 
     def limpiar_datos(self):
         # Limpiar consola en el hilo principal (estamos en UI thread aquí)
@@ -440,7 +432,7 @@ class SAPApp:
             self.root.after(0, lambda: self.btn_limpiar.config(state="normal"))
             _couninit()
 
-    # ─── CARGA DE EXCEL ──────────────────────────────────────────────────────
+    #  CARGA DE EXCEL 
 
     def cargar_excel_datos(self, ignorar_process: bool = False) -> bool:
         """
@@ -505,7 +497,7 @@ class SAPApp:
             self.log_msg(f"[ERROR] {e}", "ERROR")
             return False
 
-    # ─── FLUJO PRINCIPAL ─────────────────────────────────────────────────────
+    #  FLUJO PRINCIPAL 
 
     def iniciar(self):
         cred = cargar_credenciales()
@@ -660,7 +652,7 @@ class SAPApp:
             "El Excel se ha actualizado correctamente ✅",
         )
 
-    # ─── GUARDAR EXCEL FINAL (hilo secundario) ───────────────────────────────
+    #  GUARDAR EXCEL FINAL (hilo secundario) 
 
     def _guardar_excel_final_sync(self):
         """
@@ -759,7 +751,7 @@ class SAPApp:
                         except Exception as e:
                             self.log_msg(f"[ERROR] No se pudo eliminar {f}: {e}", "ERROR")
 
-    # ─── ACTUALIZAR COLUMNA PROCESS ──────────────────────────────────────────
+    # ACTUALIZAR COLUMNA PROCESS 
 
     def _actualizar_process_excel(self):
         """Actualiza la columna PROCESS en el Excel original. Corre en hilo secundario."""
@@ -801,14 +793,14 @@ class SAPApp:
             self.log_msg(f"[ERROR] No se pudo actualizar el Excel: {e}", "ERROR")
             logging.exception("Error actualizando columna PROCESS")
 
-    # ─── ALIAS para compatibilidad si algo interno llama al nombre anterior ──
+    #  ALIAS para compatibilidad si algo interno llama al nombre anterior 
 
     def guardar_excel_final(self):
         """Alias público — delega a la versión sync (debe llamarse desde hilo secundario)."""
         self._guardar_excel_final_sync()
 
 
-# ─── ENTRY POINT ─────────────────────────────────────────────────────────────
+
 
 if __name__ == "__main__":
     root = tk.Tk()
@@ -821,8 +813,5 @@ if __name__ == "__main__":
             "No se han ingresado credenciales para SAP.\n"
             "Ve a 🔐 Login SAP para habilitar cualquier proceso.",
         )
-
     root.mainloop()
-
-    # Cancelar el dump automático al cerrar normalmente
     faulthandler.cancel_dump_traceback_later()

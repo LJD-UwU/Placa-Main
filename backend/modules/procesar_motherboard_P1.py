@@ -1,22 +1,13 @@
 import os
 import time
 import pandas as pd
+from openpyxl import load_workbook
 from openpyxl.styles import PatternFill
-from backend.utils.txt_to_xlsx import exportar_bom_a_xls, convertir_xls_a_xlsx
 from backend.utils.sap_utils import acceso_bom_exitoso
-from backend.config.sap_config import (
-MENSAJE_SIN_BOM,
-RESULT_COLUMNS,
-PLANTAS,
-FILTRO,
-TRANSACCION,
-PAUSA,
-SECUENCIA
-)
+from backend.utils.txt_to_xlsx import exportar_bom_a_xls, convertir_xls_a_xlsx
+from backend.config.sap_config import (MENSAJE_SIN_BOM,RESULT_COLUMNS,FILTRO,TRANSACCION,PAUSA,SECUENCIA,)
 
-# FUNCION PARA MODELOS INTERNOS
-
-def procesar_number(session, number, planta, capid):
+def procesar_number(session, number, planta, uso):
     """
     Procesa un Number en SAP para un modelo interno.
     Retorna la ruta del XLS exportado.
@@ -27,7 +18,7 @@ def procesar_number(session, number, planta, capid):
 
         session.findById("wnd[0]/usr/ctxtRC29L-MATNR").text = number
         session.findById("wnd[0]/usr/ctxtRC29L-WERKS").text = planta
-        session.findById("wnd[0]/usr/ctxtRC29L-CAPID").text = capid
+        session.findById("wnd[0]/usr/ctxtRC29L-CAPID").text = uso
         session.findById("wnd[0]/tbar[1]/btn[8]").press()
         time.sleep(0.8)
 
@@ -45,9 +36,6 @@ def procesar_number(session, number, planta, capid):
         print(f"[ERROR] Error procesando {number} en planta {planta}: {e}")
         return None
 
-
-# FUNCION PARA MAINBOARD CON BLOQUE DINAMICO
-
 def procesar_number_mainboard(session, number, capid):
     """
     Procesa un Number para obtener su Mainboard en SAP.
@@ -59,24 +47,24 @@ def procesar_number_mainboard(session, number, capid):
         try:
             print(f"[INFO] Intentando {number} en planta {planta}")
 
-            # Abrir CS11
+            #! Abrir CS11
             session.findById("wnd[0]").maximize()
             session.findById("wnd[0]/tbar[0]/okcd").text = TRANSACCION
             session.findById("wnd[0]").sendVKey(0)
 
-            # Ingresar datos
+            #! Ingresar datos
             session.findById("wnd[0]/usr/ctxtRC29L-MATNR").text = number
             session.findById("wnd[0]/usr/ctxtRC29L-WERKS").text = planta
             session.findById("wnd[0]/usr/ctxtRC29L-CAPID").text = capid
             session.findById("wnd[0]/tbar[1]/btn[8]").press()
             time.sleep(0.8)
 
-            # Validación BOM
+            #! Validación BOM
             if not acceso_bom_exitoso(session):
                 print(f"[INFO] No se accedió al BOM en planta {planta}")
                 continue
 
-            # Exportar BOM
+            #! Exportar BOM
             ruta_xls = exportar_bom_a_xls(session, number, mainboard=True)
             if not ruta_xls or not os.path.exists(ruta_xls):
                 print(f"[WARNING] No se generó XLS para {number} en planta {planta}")
@@ -85,19 +73,19 @@ def procesar_number_mainboard(session, number, capid):
             ruta_xlsx = ruta_xls.replace(".XLS", ".xlsx")
             convertir_xls_a_xlsx(ruta_xls, ruta_xlsx)
 
-            # ==== BLOQUE ADICIONAL SAP GUI ====
+            #! ==== BLOQUE ADICIONAL SAP GUI ====
             try:
 
                 session.findById("wnd[0]/tbar[1]/btn[33]").press()
                 time.sleep(1)  
 
-                #  Acceder al grid
+                #!  Acceder al grid
                 grid = session.findById(
                     "wnd[1]/usr/ssubD0500_SUBSCREEN:SAPLSLVC_DIALOG:0501/"
                     "cntlG51_CONTAINER/shellcont/shell"
                 )
 
-                # Seleccionar fila 81 si existe, si no seleccionar última fila
+                #! Seleccionar fila 81 si existe, si no seleccionar última fila
                 fila_objetivo = 81
                 if grid.RowCount > fila_objetivo:
                     fila = fila_objetivo
@@ -105,18 +93,18 @@ def procesar_number_mainboard(session, number, capid):
                     fila = grid.RowCount - 1
                     print(f"[WARNING] La fila 81 no existe, seleccionando última fila {fila}")
 
-                # Seleccionar celda
+                #! Seleccionar celda
                 grid.currentCellRow = fila
-                grid.currentCellColumn = 0  # primera columna, ajustar si es otra columna
+                grid.currentCellColumn = 0  
                 grid.selectedRows = str(fila)
                 grid.clickCurrentCell()
                 time.sleep(PAUSA)
 
-                #  Presionar botón siguiente
+                #!  Presionar botón siguiente
                 session.findById("wnd[0]/tbar[1]/btn[45]").press()
                 time.sleep(PAUSA)
 
-                #  Seleccionar radio button y presionar OK
+                #!  Seleccionar radio button y presionar OK
                 radio = session.findById("wnd[1]/usr/sub:SAPLSPO5:0101/radSPOPLI-SELFLAG[1,0]")
                 radio.select()
                 radio.setFocus()
@@ -128,7 +116,7 @@ def procesar_number_mainboard(session, number, capid):
                 print(f"[ERROR] No se pudo ejecutar el bloque adicional: {e}")
 
 
-            # Retornar XLSX
+            #! Retornar XLSX
             return ruta_xlsx
 
         except Exception as e:
@@ -136,10 +124,78 @@ def procesar_number_mainboard(session, number, capid):
 
     raise Exception(f"No se pudo acceder al BOM de {number} en ninguna planta")
 
+def actualizar_excel_mainboard_1(ruta_excel, modelo, number, descripcion=""):
+    import xlwings as xw
+    app = xw.App(visible=False)
+    try:
+        wb = app.books.open(ruta_excel)
+        sheet = wb.sheets.active
 
-# FUNCION PARA PROCESAR EXCEL COMPLETO
+        data = sheet.used_range.value
+        if not data:
+            raise ValueError("El archivo Excel está vacío")
 
-def procesar_numbers_desde_excel(session, excel_input, excel_output, plantas=PLANTAS, capid=FILTRO):
+        header = [str(h).strip().upper() for h in data[0]]
+        try:
+            col_material = header.index("MATERIAL") + 1
+            col_motherboard_pn = header.index("MOTHERBOARD PART NUMBER") + 1
+            try:
+                col_motherboard_descr = header.index("MOTHERBOARD DESCR") + 1
+            except ValueError:
+                col_motherboard_descr = None
+        except ValueError:
+            raise ValueError("No se encontraron columnas 'MATERIAL' o 'MOTHERBOARD PART NUMBER'")
+
+        print(f"[DEBUG] Buscando fila para modelo='{modelo}', number={number}, descripcion='{descripcion}'")
+        print(f"[DEBUG] Columnas encontradas: MATERIAL={col_material}, MB_PN={col_motherboard_pn}, MB_DESCR={col_motherboard_descr}")
+
+        fila_objetivo = None
+        for i, row in enumerate(data[1:], start=2):
+            material = str(row[col_material - 1]).strip()
+            valor_actual = row[col_motherboard_pn - 1]
+
+            if material == str(modelo).strip():
+                # ✅ BUG FIX: Aceptar None, "None", "nan", "" como vacío
+                valor_vacio = (
+                    valor_actual is None or
+                    str(valor_actual).strip() in ("", "None", "nan", "NaN")
+                )
+                if valor_vacio:
+                    fila_objetivo = i
+                    break
+
+        if not fila_objetivo:
+            # ✅ BUG FIX: Mensaje más claro del motivo
+            raise Exception(
+                f"No hay fila vacía disponible para modelo '{modelo}'. "
+                f"Puede que ya esté llena o el modelo no exista en el Excel."
+            )
+
+        print(f"[DEBUG] Escribiendo en fila {fila_objetivo}: PN={number}, DESCR='{descripcion}'")
+
+        if number:
+            sheet.cells(fila_objetivo, col_motherboard_pn).value = ", ".join(number)
+        else:
+            sheet.cells(fila_objetivo, col_motherboard_pn).value = "NOT FOUND"
+
+        if col_motherboard_descr:
+            if descripcion and descripcion.strip() and descripcion.strip().lower() not in ("nan", "none", ""):
+                sheet.cells(fila_objetivo, col_motherboard_descr).value = descripcion.strip()
+                print(f"[OK] Descripción MB1 escrita: '{descripcion.strip()}'")
+            else:
+                print(f"[WARNING] Descripción MB1 vacía para {modelo}, no se escribe")
+
+        wb.save()
+        wb.close()
+        print(f"[OK] Excel MB1 actualizado para {modelo}")
+    finally:
+        app.quit()
+
+#! FUNCION PARA PROCESAR EXCEL COMPLETO
+def procesar_numbers_desde_excel(session, excel_input, excel_output, plantas=None, capid=FILTRO):
+    if plantas is None or not plantas:
+        raise ValueError("Debes pasar la lista de plantas a procesar")
+
     """
     Procesa todos los Numbers de un Excel:
     - Primero modelos internos
@@ -161,18 +217,20 @@ def procesar_numbers_desde_excel(session, excel_input, excel_output, plantas=PLA
         number = str(row["Number"]).strip()
         descripcion = row["Descripcion"]
 
-        # --- Modelos internos ---
+        #! --- Modelos internos ---
         exito = False
         for planta in plantas:
             if procesar_number(session, number, planta, capid):
                 exito = True
+
         if not exito:
             print(f"[WARNING] No se procesó ningún modelo interno para {number}")
             continue
 
-        # --- Mainboard ---
+        #! --- Mainboard ---
         try:
             ruta_xlsx = procesar_number_mainboard(session, number, capid)
+
             if not ruta_xlsx or not os.path.exists(ruta_xlsx):
                 print(f"[WARNING] No se generó Mainboard para {number}")
                 continue
@@ -184,25 +242,31 @@ def procesar_numbers_desde_excel(session, excel_input, excel_output, plantas=PLA
                 "Ruta_XLSX": ruta_xlsx
             }])], ignore_index=True)
 
-            print(f"[OK] Mainboard procesado: {number} | XLSX: {ruta_xlsx}")
+            #! Actualizar Excel original
+            try:
+                actualizar_excel_mainboard_1(excel_input, number, [number])
+            except Exception as e:
+                print(f"[WARNING] No se pudo actualizar el Excel para {number}: {e}")
+
+            print(f"[OK] Mainboard procesado y Excel actualizado: {number}")
 
         except Exception as e:
             print(f"[ERROR] No se pudo generar Mainboard para {number}: {e}")
 
-    # Guardar Excel final
+    #! Guardar Excel final
     if not df_final.empty:
         df_final.to_excel(excel_output, index=False, engine="openpyxl")
         print(f"\n[INFO] Procesamiento completado ✅\nExcel final guardado en: {excel_output}")
 
 
-# FUNCION PARA VALIDAR BOM
+#! FUNCION PARA VALIDAR BOM
 
 def acceso_bom_exitoso(session):
     """
     Determina si realmente se accedió al BOM en CS11
     """
     try:
-        # Mensaje de BOM inexistente
+        #! Mensaje de BOM inexistente
         try:
             status = session.findById("wnd[0]/sbar").Text
             if MENSAJE_SIN_BOM in status:
@@ -210,7 +274,7 @@ def acceso_bom_exitoso(session):
         except:
             pass
 
-        # Grid con filas
+        #! Grid con filas
         posibles_grids = [
             "wnd[0]/usr/cntlGRID1/shellcont/shell",
             "wnd[0]/usr/cntlGRID1/shellcont/shell/shellcont[1]/shell"

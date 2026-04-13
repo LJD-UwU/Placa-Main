@@ -7,18 +7,22 @@ RUTA_CREDENCIALES = os.path.join(
 )
 
 def cargar_credenciales():
-    # Si no existe, lo crea con la estructura requerida
+    #! Si no existe el json de credenciales de crea desde cero 
     if not os.path.exists(RUTA_CREDENCIALES):
         credenciales_vacias = {
             "SAP_SYSTEM_NAME": "",
             "SAP_USER": "",
-            "SAP_PASSWORD": ""
+            "SAP_PASSWORD": "",
+            "SAP_HQ": "",
+            "SAP_HQ_CLIENT": "",
+            "SAP_MX": "",
+            "SAP_MX_CLIENT": ""
         }
         with open(RUTA_CREDENCIALES, "w", encoding="utf-8") as f:
             json.dump(credenciales_vacias, f, indent=2)
         return credenciales_vacias
 
-    # Si existe, lo carga normal
+    #! Si existe no se crea y se usa el qeu ya esta
     with open(RUTA_CREDENCIALES, "r", encoding="utf-8") as f:
         return json.load(f)
 

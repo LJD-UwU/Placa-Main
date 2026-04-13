@@ -3,24 +3,32 @@ Practicante-Placa-Main/
 ├── backend/
 │   ├── config/
 │   │   ├── sap_config.py 
+│   │   ├── Credenciales.json
 │   │   ├── credenciales_loader.py
 │   │   └── sap_login.py
+│   ├── Helpers/
+│   │   └── helper.py
 │   ├── modules/
-│   │   ├── cs03.py
-│   │   ├── cs11_ejecuter.py
+│   │   ├── Modules_2/ 
+│   │   │   ├── procesar_motherboard.py
+│   │   │   └── prosesar_mainboard.py
 │   │   ├── cs11.py
 │   │   ├── extract_mainboard.py                       
-│   │   ├── procesar_mainboard_P1.py
-│   │   └── procesar_mainboard_P2.py
-│   ├──utils/
+│   │   ├── procesar_motherboard_P1.py
+│   │   └── prosesar_mainboard_P2.py
+│   ├── UI/
+│   │   └──motherboard_app.py
+│   ├── utils/
+│   │    ├── utils_2/ 
+│   │    │   └── xlsx_m2.py
 │   │    ├── clean_excel_p2.py
 │   │    ├── clean_excel.py
-│   │    ├── historial.py
 │   │    ├── sap_utils.py
-│   │   └── txt_to_xlsx.py
+│   │    └── txt_to_xlsx.py
 │   └── IMG/
-│        └─ logo.ico
+│        └─ logo.png
 ├── .gitignore
 ├── README.md
 ├── LICENSE
+├──motherboard_app.py
 └── UI.py

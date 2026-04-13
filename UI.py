@@ -54,7 +54,6 @@ def abrir_excel_con_timeout(ruta: str, timeout: int = 30) -> pd.DataFrame:
     evitando que la app se congele indefinidamente.
     """
     def _abrir():
-        # xlwings también usa COM — inicializar en este executor thread
         _coinit()
         app = xw.App(visible=False)
         try:
@@ -87,7 +86,7 @@ class SAPApp:
         self.root.geometry("570x480")
         self.root.resizable(False, False)
 
-        # Logo
+        #! Logo
         try:
             img = Image.open("backend/IMG/logo.png")
             img = img.resize((64, 64))
@@ -96,36 +95,36 @@ class SAPApp:
         except Exception as e:
             logging.warning(f"No se pudo cargar el icono: {e}")
 
-        # Animaciones
+        #! Animaciones
         self.animando = False
         self.anim_dots = 0
         self.start_time = None
 
-        # Estilos
+        #! Estilos
         style = ttk.Style()
         style.theme_use("clam")
         style.configure("Title.TLabel", font=("Segoe UI", 14, "bold"))
         style.configure("TProgressbar", thickness=12)
 
-        # Encabezados
+        #! Encabezados
         ttk.Label(root, text="Automatización SAP", style="Title.TLabel").pack(pady=(8, 0))
         ttk.Label(root, text="Procesamiento automático para el BOM", foreground="gray").pack(pady=(0, 8))
 
         main = ttk.Frame(root, padding=6)
         main.pack(fill="both", expand=True)
 
-        # Campo selección Excel
+        #! Campo selección Excel
         fila_file = ttk.Frame(main)
         fila_file.pack(fill="x", pady=4)
         self.excel_path = tk.StringVar()
         ttk.Entry(fila_file, textvariable=self.excel_path).pack(side="left", fill="x", expand=True)
         ttk.Button(fila_file, text="📂", width=3, command=self.seleccionar_excel).pack(side="left", padx=4)
 
-        # Barra progreso
+        #! Barra progreso
         self.progress = ttk.Progressbar(main, mode="determinate")
         self.progress.pack(fill="x", pady=6)
 
-        # Botones
+        #! Botones
         fila_btn = ttk.Frame(main)
         fila_btn.pack(pady=6)
 
@@ -144,7 +143,7 @@ class SAPApp:
         self.btn_mainboard = ttk.Button(fila_btn, text="🖥 Motherboard", command=self.abrir_app_mainboard, state="disabled")
         self.btn_mainboard.pack(side="left", padx=4)
 
-        # Consola
+        #! Consola
         frame_log = ttk.LabelFrame(main, text="CONSOLA")
         frame_log.pack(fill="both", expand=True, pady=(6, 0))
         self.log = scrolledtext.ScrolledText(frame_log, height=10, font=("Consolas", 10))
@@ -155,12 +154,12 @@ class SAPApp:
         self.log.tag_config("ERROR", foreground="red", font=("Consolas", 10, "bold"))
         self.log.tag_config("WARNING", foreground="orange", font=("Consolas", 10, "italic"))
 
-        # Estado
+        #! Estado
         self.status = tk.StringVar(value="Estado: Listo")
         self.progress_label = ttk.Label(root, textvariable=self.status, anchor="w")
         self.progress_label.pack(fill="x", side="bottom", padx=6, pady=4)
 
-        # Estado interno
+        #! Estado interno
         self.modelos: list = []
         self.idx: int = 0
         self.session = None
@@ -171,7 +170,7 @@ class SAPApp:
         self.verificar_habilitar_botones()
         self._crear_tooltips()
 
-    #  TOOLTIPS 
+    #!  TOOLTIPS 
 
     def _crear_tooltips(self):
         tooltips = {
@@ -200,7 +199,7 @@ class SAPApp:
         widget.bind("<Enter>", enter)
         widget.bind("<Leave>", leave)
 
-    #  LOGGING THREAD-SAFE 
+    #!  LOGGING THREAD-SAFE 
 
     def log_msg(self, msg: str, tag: str = "INFO"):
         """
@@ -217,7 +216,7 @@ class SAPApp:
         self.log.see(tk.END)
         self.log.config(state="disabled")
 
-    #  STATUS THREAD-SAFE 
+    #!  STATUS THREAD-SAFE 
 
     def set_status(self, msg: str, animar: bool = False):
         """Thread-safe: delega al hilo principal."""
@@ -249,7 +248,7 @@ class SAPApp:
         if self.btn_procesar["state"] == "disabled":
             self.root.after(1000, self.actualizar_tiempo)
 
-    #  UI 
+    #!  UI 
 
     def seleccionar_excel(self):
         f = filedialog.askopenfilename(filetypes=[("Excel", "*")])
@@ -271,7 +270,7 @@ class SAPApp:
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo abrir la app:\n{e}")
 
-    #  VALIDACIÓN DE BOTONES 
+    #!  VALIDACIÓN DE BOTONES 
 
     def verificar_habilitar_botones(self):
         cred = cargar_credenciales()
@@ -290,7 +289,7 @@ class SAPApp:
             self.btn_procesar.config(state="normal" if excel else "disabled")
         self.btn_open.config(state="disabled")
 
-    #  CREDENCIALES 
+    #!  CREDENCIALES 
 
     def abrir_credenciales(self):
         cred = cargar_credenciales()
@@ -328,10 +327,10 @@ class SAPApp:
 
         ttk.Button(win, text="Guardar", command=guardar).pack(pady=18)
 
-    #  LIMPIAR / PROCESAR ARCHIVOS 
+    #!  LIMPIAR / PROCESAR ARCHIVOS 
 
     def limpiar_datos(self):
-        # Limpiar consola en el hilo principal (estamos en UI thread aquí)
+        #! Limpiar consola en el hilo principal (estamos en UI thread aquí)
         self.log.config(state="normal")
         self.log.delete("1.0", tk.END)
         self.log.config(state="disabled")
@@ -351,10 +350,10 @@ class SAPApp:
         if not respuesta:
             return
 
-        # Deshabilitar botón para evitar doble clic
+        #! Deshabilitar botón para evitar doble clic
         self.btn_limpiar.config(state="disabled")
 
-        # Lanzar el trabajo pesado en un hilo secundario
+        #! Lanzar el trabajo pesado en un hilo secundario
         threading.Thread(target=self._limpiar_datos_worker, daemon=True).start()
 
     def _limpiar_datos_worker(self):
@@ -416,7 +415,7 @@ class SAPApp:
 
             self.log_msg("[INFO] Todos los archivos nuevos han sido procesados", "INFO")
 
-            # Mostrar messagebox en el hilo principal
+            #! Mostrar messagebox en el hilo principal
             self.root.after(
                 0,
                 lambda: messagebox.showinfo(
@@ -428,11 +427,11 @@ class SAPApp:
         except Exception as e:
             self.log_msg(f"[ERROR] Error inesperado en limpieza: {e}", "ERROR")
         finally:
-            # Re-habilitar botón siempre en el hilo principal
+            #! Re-habilitar botón siempre en el hilo principal
             self.root.after(0, lambda: self.btn_limpiar.config(state="normal"))
             _couninit()
 
-    #  CARGA DE EXCEL 
+    #!  CARGA DE EXCEL 
 
     def cargar_excel_datos(self, ignorar_process: bool = False) -> bool:
         """
@@ -497,7 +496,7 @@ class SAPApp:
             self.log_msg(f"[ERROR] {e}", "ERROR")
             return False
 
-    #  FLUJO PRINCIPAL 
+    #!  FLUJO PRINCIPAL 
 
     def iniciar(self):
         cred = cargar_credenciales()
@@ -525,17 +524,13 @@ class SAPApp:
         NUNCA toca widgets directamente — usa root.after() para todo.
         CoInitialize/CoUninitialize envuelven TODO el trabajo COM de este hilo.
         """
-        # ── Inicializar COM en este hilo (obligatorio para SAP GUI + xlwings) ──
         _coinit()
         try:
-            # 1. Cargar Excel
             if not self.cargar_excel_datos():
                 self.root.after(0, lambda: self.btn_procesar.config(state="normal"))
                 return
 
             self.set_status("Conectando a SAP", animar=True)
-
-            # 2. Login SAP
             try:
                 self.session = abrir_sap_y_login()
             except Exception as e:
@@ -544,8 +539,6 @@ class SAPApp:
                 return
 
             self.log_msg("[OK] Conectado a SAP", "OK")
-
-            # 3. Procesar modelos uno a uno (en hilo secundario)
             self.idx = 0
             total = len(self.modelos)
 
@@ -556,15 +549,9 @@ class SAPApp:
 
             for self.idx in range(total):
                 self._procesar_modelo_sync(self.idx, total)
-
-            # 4. Guardar resultados (también en hilo secundario — NO bloquea UI)
             self.log_msg("[INFO] Iniciando procesamiento de motherboards y mainboards", "INFO")
             self._guardar_excel_final_sync()
-
-            # 5. Actualizar columna PROCESS en el Excel original
             self._actualizar_process_excel()
-
-            # 6. Notificar al hilo principal que todo terminó
             self.root.after(0, self._on_flujo_completado)
 
         except Exception as e:
@@ -572,7 +559,6 @@ class SAPApp:
             logging.exception("Error fatal en _flujo_worker")
             self.root.after(0, lambda: self.btn_procesar.config(state="normal"))
         finally:
-            # ── Liberar COM siempre, incluso si hubo excepción ──
             _couninit()
 
     def _procesar_modelo_sync(self, idx: int, total: int):
@@ -652,7 +638,7 @@ class SAPApp:
             "El Excel se ha actualizado correctamente ✅",
         )
 
-    #  GUARDAR EXCEL FINAL (hilo secundario) 
+    #!  GUARDAR EXCEL FINAL 
 
     def _guardar_excel_final_sync(self):
         """
@@ -751,7 +737,7 @@ class SAPApp:
                         except Exception as e:
                             self.log_msg(f"[ERROR] No se pudo eliminar {f}: {e}", "ERROR")
 
-    # ACTUALIZAR COLUMNA PROCESS 
+    #! ACTUALIZAR COLUMNA PROCESS 
 
     def _actualizar_process_excel(self):
         """Actualiza la columna PROCESS en el Excel original. Corre en hilo secundario."""
@@ -793,13 +779,10 @@ class SAPApp:
             self.log_msg(f"[ERROR] No se pudo actualizar el Excel: {e}", "ERROR")
             logging.exception("Error actualizando columna PROCESS")
 
-    #  ALIAS para compatibilidad si algo interno llama al nombre anterior 
 
     def guardar_excel_final(self):
         """Alias público — delega a la versión sync (debe llamarse desde hilo secundario)."""
         self._guardar_excel_final_sync()
-
-
 
 
 if __name__ == "__main__":

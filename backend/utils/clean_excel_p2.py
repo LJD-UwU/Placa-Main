@@ -126,7 +126,7 @@ def aplicar_logica_x(ws):
     for row in range(3, ws.max_row + 1):
         if ws.cell(row=row, column=col_level).value in (None, ""):
             ws.cell(row=row, column=col_level).value = ws.cell(row=row - 1, column=col_level).value
-
+            
 #!  SUBMATERIALES 
 def agregar_submateriales(df_main, ws):
     """
@@ -425,9 +425,81 @@ def procesar_archivo_principal_mainboard_2(
             if is_submaterial:
                 ws.cell(row=r_idx, column=c_idx).fill = gris_submaterial
 
+    #! LIMPIAR PROCESO AI
+    headers = [cell.value for cell in ws[1]]
+
+    col_level = headers.index("LEVEL") + 1
+    col_sort = headers.index("SORTSTRNG") + 1 if "SORTSTRNG" in headers else None
+
+    if col_sort is None:
+        col_sort = len(headers) + 1
+        ws.cell(row=1, column=col_sort, value="SORTSTRNG")
+
+    max_row = ws.max_row
+    max_col = ws.max_column
+
+    filas_a_eliminar = set()
+
+    print("🔍 Procesando bloques...\n")
+
+    i = 2
+
+    while i <= max_row:
+        level_actual = ws.cell(row=i, column=col_level).value
+        inicio = i
+
+        while i <= max_row and ws.cell(row=i, column=col_level).value == level_actual:
+            i += 1
+
+        fin = i
+        tamaño = fin - inicio
+
+        print(f"LEVEL {level_actual} | tamaño {tamaño}")
+
+        if 3 <= tamaño <= 6:
+
+            # Buscar padre
+            fila_padre = None
+            for j in range(inicio - 1, 1, -1):
+                if ws.cell(row=j, column=col_level).value < level_actual:
+                    fila_padre = j
+                    break
+
+            if fila_padre is None:
+                print("→ No se encontró padre, se omite\n")
+                continue
+
+            # Marcar AI
+            for fila in range(inicio, fin):
+                ws.cell(row=fila, column=col_sort).value = "AI"
+
+            # Copiar padre a última fila del bloque
+            fila_destino = fin - 1
+
+            for col in range(1, max_col + 1):
+                origen = ws.cell(row=fila_padre, column=col)
+                destino = ws.cell(row=fila_destino, column=col)
+
+                destino.value = origen.value
+
+                if origen.has_style:
+                    destino._style = origen._style
+
+            ws.cell(row=fila_destino, column=col_sort).value = "AI"
+
+            filas_a_eliminar.add(fila_padre)
+            print(f"→ Bloque procesado ({inicio}-{fin-1}) | Padre en fila {fila_padre}")
+
+    # Eliminar filas padre
+    for fila in sorted(filas_a_eliminar, reverse=True):
+        print(f"🗑 Eliminando fila padre: {fila}")
+        ws.delete_rows(fila)
+
+    # Limpieza DataFrame
     if "_SUBMATERIAL" in df_main.columns:
         df_main.drop(columns=["_SUBMATERIAL"], inplace=True)
 
+    # Aplicar negritas
     bold_font = Font(bold=True)
     col_indices = {ws.cell(row=1, column=c).value: c for c in range(1, ws.max_column + 1)}
     col_item = col_indices.get("ITEM")
@@ -437,6 +509,58 @@ def procesar_archivo_principal_mainboard_2(
             if str(ws.cell(row=row, column=col_item).value).strip() == "X":
                 for col in range(1, ws.max_column + 1):
                     ws.cell(row=row, column=col).font = bold_font
+
+    print("\n✅ Proceso AI completado correctamente")
+
+    #! RECONSTRUIR ITEM Y LEVEL
+
+    headers = [cell.value for cell in ws[1]]
+    col_item = headers.index("ITEM") + 1
+    col_level = headers.index("LEVEL") + 1
+
+    filas_protegidas = {2, 3, 4}
+
+    # 🔢 RECONSTRUIR ITEM (10,20,30...)
+    contador = 10
+
+    for row in range(2, ws.max_row + 1):
+        if row in filas_protegidas:
+            continue
+
+        val = ws.cell(row=row, column=col_item).value
+
+        if str(val).strip() == "X":
+            contador = 10
+            continue
+
+        ws.cell(row=row, column=col_item).value = str(contador)
+        contador += 10
+
+
+    # 📊 RECONSTRUIR LEVEL
+    nivel_actual = 1
+
+    for row in range(2, ws.max_row + 1):
+        if row in filas_protegidas:
+            continue
+
+        val = ws.cell(row=row, column=col_item).value
+
+        if str(val).strip() == "X":
+            nivel_actual += 1
+        else:
+            ws.cell(row=row, column=col_level).value = nivel_actual + 1
+
+
+    # 🔁 RELLENAR LEVEL VACÍO
+    for row in range(3, ws.max_row + 1):
+        if row in filas_protegidas:
+            continue
+
+        val = ws.cell(row=row, column=col_level).value
+
+        if val in (None, ""):
+            ws.cell(row=row, column=col_level).value = ws.cell(row=row - 1, column=col_level).value
 
     ws.title = "BOMList"
     ws["A2"] = "0"

@@ -3,7 +3,6 @@ Practicante-Placa-Main/
 ├── backend/
 │   ├── config/
 │   │   ├── sap_config.py 
-│   │   ├── Credenciales.json
 │   │   ├── credenciales_loader.py
 │   │   └── sap_login.py
 │   ├── Helpers/

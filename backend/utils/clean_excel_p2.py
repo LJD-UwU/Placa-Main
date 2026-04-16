@@ -425,75 +425,111 @@ def procesar_archivo_principal_mainboard_2(
             if is_submaterial:
                 ws.cell(row=r_idx, column=c_idx).fill = gris_submaterial
 
-    #! LIMPIAR PROCESO AI
-    headers = [cell.value for cell in ws[1]]
+    # ─────────────────────────────────────────────────────────────────
+    #! LIMPIAR PROCESO AI  →  comportamiento según cantidad de "X"
+    # ─────────────────────────────────────────────────────────────────
 
-    col_level = headers.index("LEVEL") + 1
-    col_sort = headers.index("SORTSTRNG") + 1 if "SORTSTRNG" in headers else None
+    #! Contar cuántas "X" hay en la columna ITEM (excluyendo encabezado)
+    headers_ws = [cell.value for cell in ws[1]]
+    col_item_idx = headers_ws.index("ITEM") + 1 if "ITEM" in headers_ws else None
 
-    if col_sort is None:
-        col_sort = len(headers) + 1
-        ws.cell(row=1, column=col_sort, value="SORTSTRNG")
+    cantidad_x = 0
+    if col_item_idx:
+        for row in range(2, ws.max_row + 1):
+            val = ws.cell(row=row, column=col_item_idx).value
+            if str(val).strip() == "X":
+                cantidad_x += 1
 
-    max_row = ws.max_row
-    max_col = ws.max_column
+    print(f"\n📊 Cantidad de 'X' detectadas : {cantidad_x}")
 
-    filas_a_eliminar = set()
+    #! ── CASO: 3 X → mantener tal como salió del procesado anterior, sin limpiar AI ──
+    if cantidad_x == 3:
+        print("✅ 3 X detectadas → Se conserva el procesado estándar sin aplicar alguna logica.\n")
 
-    print("🔍 Procesando bloques...\n")
+    #! ── CASO: 4 X → aplicar lógica AI completa (comportamiento original) ──
+    elif cantidad_x == 4:
+        print("🔄 4 X detectadas → Aplicando lógica AI\n")
 
-    i = 2
+        headers = [cell.value for cell in ws[1]]
 
-    while i <= max_row:
-        level_actual = ws.cell(row=i, column=col_level).value
-        inicio = i
+        col_level = headers.index("LEVEL") + 1
+        col_sort = headers.index("SORTSTRNG") + 1 if "SORTSTRNG" in headers else None
 
-        while i <= max_row and ws.cell(row=i, column=col_level).value == level_actual:
-            i += 1
+        if col_sort is None:
+            col_sort = len(headers) + 1
+            ws.cell(row=1, column=col_sort, value="SORTSTRNG")
 
-        fin = i
-        tamaño = fin - inicio
+        max_row = ws.max_row
+        max_col = ws.max_column
 
-        print(f"LEVEL {level_actual} | tamaño {tamaño}")
+        filas_a_eliminar = set()
 
-        if 3 <= tamaño <= 6:
+        print("🔍 Procesando bloques...\n")
 
-            #! Buscar padre
-            fila_padre = None
-            for j in range(inicio - 1, 1, -1):
-                if ws.cell(row=j, column=col_level).value < level_actual:
-                    fila_padre = j
-                    break
+        i = 2
 
-            if fila_padre is None:
-                print("→ No se encontró padre, se omite\n")
-                continue
+        while i <= max_row:
+            level_actual = ws.cell(row=i, column=col_level).value
+            inicio = i
 
-            #! Marcar AI
-            for fila in range(inicio, fin):
-                ws.cell(row=fila, column=col_sort).value = "AI"
+            while i <= max_row and ws.cell(row=i, column=col_level).value == level_actual:
+                i += 1
 
-            #! Copiar padre a última fila del bloque
-            fila_destino = fin - 1
+            fin = i
+            tamaño = fin - inicio
 
-            for col in range(1, max_col + 1):
-                origen = ws.cell(row=fila_padre, column=col)
-                destino = ws.cell(row=fila_destino, column=col)
+            print(f"LEVEL {level_actual} | tamaño {tamaño}")
 
-                destino.value = origen.value
+            if 3 <= tamaño <= 6:
 
-                if origen.has_style:
-                    destino._style = origen._style
+                #! Buscar padre
+                fila_padre = None
+                for j in range(inicio - 1, 1, -1):
+                    if ws.cell(row=j, column=col_level).value < level_actual:
+                        fila_padre = j
+                        break
 
-            ws.cell(row=fila_destino, column=col_sort).value = "AI"
+                if fila_padre is None:
+                    print("→ No se encontró padre, se omite\n")
+                    continue
 
-            filas_a_eliminar.add(fila_padre)
-            print(f"→ Bloque procesado ({inicio}-{fin-1}) | Padre en fila {fila_padre}")
+                #! Marcar AI en todas las filas del bloque
+                for fila in range(inicio, fin):
+                    ws.cell(row=fila, column=col_sort).value = "AI"
 
-    #! Eliminar filas padre
-    for fila in sorted(filas_a_eliminar, reverse=True):
-        print(f"🗑 Eliminando fila padre: {fila}")
-        ws.delete_rows(fila)
+                #! Tomar la última fila del bloque como nueva referencia
+                fila_ultima_bloque = fin - 1
+
+                #! Copiar C y D de la última fila del bloque → C5 y D5
+                val_c = ws.cell(row=fila_ultima_bloque, column=3).value
+                val_d = ws.cell(row=fila_ultima_bloque, column=4).value
+                ws.cell(row=5, column=3).value = val_c
+                ws.cell(row=5, column=4).value = val_d
+
+                #! La última fila del bloque se queda en su lugar (sin modificar)
+                #! Marcar fila padre para eliminar
+                filas_a_eliminar.add(fila_padre)
+
+                #! Marcar la fila inmediatamente arriba del inicio del bloque para eliminar
+                fila_encima_inicio = inicio - 1
+                if fila_encima_inicio > 1:
+                    filas_a_eliminar.add(fila_encima_inicio)
+                    print(f"→ Bloque procesado ({inicio}-{fin-1}) | C5={val_c} | D5={val_d} | Padre fila {fila_padre} + fila encima del inicio ({fila_encima_inicio}) marcadas para eliminar")
+                else:
+                    print(f"→ Bloque procesado ({inicio}-{fin-1}) | C5={val_c} | D5={val_d} | Padre fila {fila_padre} marcado para eliminar (fila encima del inicio fuera de rango)")
+
+        #! Eliminar filas marcadas (padre + fila encima del inicio del bloque)
+        for fila in sorted(filas_a_eliminar, reverse=True):
+            print(f"🗑 Eliminando fila: {fila}")
+            ws.delete_rows(fila)
+
+    #! ── CASO: 5 X → proceso SMT A y B, sin lógica AI ──
+    elif cantidad_x == 5:
+        print("🔄  5 X detectadas → Proceso identificado como SMT A y B. Aplicando logica de SMT.\n")
+
+    #! ── CASO: cualquier otro valor → advertencia y sin acción ──
+    else:
+        print(f"⚠️  Cantidad de X no reconocida ({cantidad_x}). No se aplicó ninguna de las logicas.\n")
 
     #! Limpieza DataFrame
     if "_SUBMATERIAL" in df_main.columns:
@@ -510,7 +546,7 @@ def procesar_archivo_principal_mainboard_2(
                 for col in range(1, ws.max_column + 1):
                     ws.cell(row=row, column=col).font = bold_font
 
-    print("\n✅ Proceso AI completado correctamente")
+    print("\n✅ Proceso completado correctamente")
 
     #! RECONSTRUIR ITEM Y LEVEL
 

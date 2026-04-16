@@ -28,7 +28,7 @@ def obtener_sesion_existente(application, target_system_name):
                 system_name = str(info.SystemName).upper()
                 connection_name = str(connection.Description).upper()
 
-                # 🔥 MATCH FLEXIBLE
+                #! 🔥 MATCH FLEXIBLE
                 if (
                     target_system_name.upper() in system_name
                     or target_system_name.upper() in connection_name
@@ -50,9 +50,9 @@ def abrir_sap_y_login(timeout=60, max_intentos=3):
         try:
             print(f"[INFO] Intento {intento} de {max_intentos} para iniciar SAP...")
 
-            # 🔐 Cargar credenciales
+            #! 🔐 Cargar credenciales
             cred = cargar_credenciales()
-            SAP_SYSTEM_NAME = cred.get("SAP_SYSTEM_NAME")  # Ej: "HQ"
+            SAP_SYSTEM_NAME = cred.get("SAP_SYSTEM_NAME") 
             SAP_USER = cred.get("SAP_USER")
             SAP_PASSWORD = cred.get("SAP_PASSWORD")
 
@@ -62,7 +62,7 @@ def abrir_sap_y_login(timeout=60, max_intentos=3):
             sap_gui_auto = None
             application = None
 
-            # INTENTAR REUTILIZAR SESIÓN EXISTENTE (CORRECTA)
+            #! INTENTAR REUTILIZAR SESIÓN EXISTENTE (CORRECTA)
             try:
                 sap_gui_auto = win32com.client.GetObject("SAPGUI")
 
@@ -78,7 +78,7 @@ def abrir_sap_y_login(timeout=60, max_intentos=3):
             except Exception:
                 print("[INFO] No se detectó sesión activa válida.")
 
-            # 🚀 2. ABRIR SAP
+            #! 🚀 ABRIR SAP
             print(f"[INFO] Iniciando SAP Logon en {SAP_LOGON_PATH}...")
             subprocess.Popen(SAP_LOGON_PATH)
 
@@ -96,13 +96,13 @@ def abrir_sap_y_login(timeout=60, max_intentos=3):
 
             application = sap_gui_auto.GetScriptingEngine
 
-            # 🔌 3. CONECTAR AL SISTEMA (HQ)
+            #! 🔌 CONECTAR AL SISTEMA 
             print(f"[INFO] Conectando a: {SAP_SYSTEM_NAME}...")
             connection = application.OpenConnection(SAP_SYSTEM_NAME, True)
             session = connection.Children(0)
             session.findById("wnd[0]").maximize()
 
-           # 🔑 4. LOGIN (SI ES NECESARIO) + INGRSO SIN CERRAR LA SESSION DE LOS DEMAS USUARIOS
+           #! 🔑 LOGIN (SI ES NECESARIO) + INGRSO SIN CERRAR LA SESSION DE LOS DEMAS USUARIOS
             try:
                 escribir_campo(session, "wnd[0]/usr/txtRSYST-BNAME", SAP_USER)
                 escribir_campo(session, "wnd[0]/usr/pwdRSYST-BCODE", SAP_PASSWORD)

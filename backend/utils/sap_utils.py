@@ -37,8 +37,8 @@ def escribir_campo(session, id_campo, texto, limpiar=True):
         campo.setFocus()
         if limpiar:
             campo.text = ""
-            campo.sendVKey(4)   # Ctrl + A
-            campo.sendVKey(2)   # Delete
+            campo.sendVKey(4) 
+            campo.sendVKey(2)  
             time.sleep(0.1)
     except:
         pass

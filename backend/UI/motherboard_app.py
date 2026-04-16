@@ -128,7 +128,7 @@ def leer_filas_amarillas(path_excel):
                     plants.append(limpiar_valor(ws.cell(row=row, column=col_plant).value))
                     internals.append(limpiar_valor(ws.cell(row=row, column=col_internal).value))
 
-        else:  # xlwings
+        else:  #! xlwings
             app, wb = obj
             sheet = wb.sheets[0]
             data = sheet.used_range.value
@@ -189,7 +189,7 @@ def marcar_procesado(path_excel, mother_name):
         for i in range(2, len(data) + 1):
             celda = sheet.cells(i, col_mother + 1)
             if limpiar_valor(celda.value) == limpiar_valor(mother_name):
-                celda.color = (198, 224, 180)   # verde
+                celda.color = (198, 224, 180)
                 break
 
         wb.save()
@@ -308,7 +308,7 @@ class MainboardApp:
         self.log_msg("[INFO] Automatización iniciada\n", "INFO")
         self.set_status("Procesando...")
 
-        # Todo el trabajo pesado en un hilo secundario
+        #! Todo el trabajo pesado en un hilo secundario
         threading.Thread(target=self._worker, daemon=True).start()
 
     #! WORKER 

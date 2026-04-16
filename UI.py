@@ -622,8 +622,8 @@ class SAPApp:
         else:
             self.materiales_procesados_ok.append(modelo)
 
-        # Actualizar barra de progreso
-        pct = int(((idx + 1) / total) * 80)  # 80% para modelos, 20% para mainboards
+        #! Actualizar barra de progreso
+        pct = int(((idx + 1) / total) * 80)  #! 80% para modelos, 20% para mainboards
         self.root.after(0, lambda p=pct: self.progress.configure(value=p))
 
     def _on_flujo_completado(self):
@@ -727,7 +727,7 @@ class SAPApp:
                 self.log_msg(f"[ERROR] Mainboard {number}: {e}", "ERROR")
                 logging.exception(f"Error en mainboard {number}")
 
-            # Limpiar .xls temporales
+            #! Limpiar .xls temporales
             for folder in [MAINBOARD_1_FILES_FOLDER, MAINBOARD_2_FILES_FOLDER, MODEL_FILES_FOLDER]:
                 for f in os.listdir(folder):
                     ruta = os.path.join(folder, f)

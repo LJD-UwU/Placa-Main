@@ -155,7 +155,7 @@ def actualizar_excel_mainboard_1(ruta_excel, modelo, number, descripcion=""):
             valor_actual = row[col_motherboard_pn - 1]
 
             if material == str(modelo).strip():
-                # ✅ BUG FIX: Aceptar None, "None", "nan", "" como vacío
+                #! ✅ BUG FIX: Aceptar None, "None", "nan", "" como vacío
                 valor_vacio = (
                     valor_actual is None or
                     str(valor_actual).strip() in ("", "None", "nan", "NaN")
@@ -165,7 +165,7 @@ def actualizar_excel_mainboard_1(ruta_excel, modelo, number, descripcion=""):
                     break
 
         if not fila_objetivo:
-            # ✅ BUG FIX: Mensaje más claro del motivo
+            #! ✅ BUG FIX: Mensaje más claro del motivo
             raise Exception(
                 f"No hay fila vacía disponible para modelo '{modelo}'. "
                 f"Puede que ya esté llena o el modelo no exista en el Excel."

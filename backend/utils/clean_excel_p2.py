@@ -64,7 +64,7 @@ def colorear_chino(ws):
         tiene_chino = False
         celdas_con_chino = []
         
-        # Verificar si LINE 1 o LINE 2 contienen chino
+        #! Verificar si LINE 1 o LINE 2 contienen chino
         for col in [col_line1, col_line2]:
             if col:
                 valor = ws.cell(row=row, column=col).value
@@ -72,13 +72,13 @@ def colorear_chino(ws):
                     tiene_chino = True
                     celdas_con_chino.append(col)
         
-        # Si la fila tiene chino
+        #! Si la fila tiene chino
         if tiene_chino:
-            # 1️⃣ Colorear TODA la fila en amarillo
+            #! Colorear TODA la fila en amarillo
             for col in range(1, ws.max_column + 1):
                 ws.cell(row=row, column=col).fill = amarillo
             
-            # 2️⃣ SOLO vaciar las celdas que contienen chino
+            #! SOLO vaciar las celdas que contienen chino
             for col in celdas_con_chino:
                 ws.cell(row=row, column=col).value = None
 
@@ -458,7 +458,7 @@ def procesar_archivo_principal_mainboard_2(
 
         if 3 <= tamaño <= 6:
 
-            # Buscar padre
+            #! Buscar padre
             fila_padre = None
             for j in range(inicio - 1, 1, -1):
                 if ws.cell(row=j, column=col_level).value < level_actual:
@@ -469,11 +469,11 @@ def procesar_archivo_principal_mainboard_2(
                 print("→ No se encontró padre, se omite\n")
                 continue
 
-            # Marcar AI
+            #! Marcar AI
             for fila in range(inicio, fin):
                 ws.cell(row=fila, column=col_sort).value = "AI"
 
-            # Copiar padre a última fila del bloque
+            #! Copiar padre a última fila del bloque
             fila_destino = fin - 1
 
             for col in range(1, max_col + 1):
@@ -490,16 +490,16 @@ def procesar_archivo_principal_mainboard_2(
             filas_a_eliminar.add(fila_padre)
             print(f"→ Bloque procesado ({inicio}-{fin-1}) | Padre en fila {fila_padre}")
 
-    # Eliminar filas padre
+    #! Eliminar filas padre
     for fila in sorted(filas_a_eliminar, reverse=True):
         print(f"🗑 Eliminando fila padre: {fila}")
         ws.delete_rows(fila)
 
-    # Limpieza DataFrame
+    #! Limpieza DataFrame
     if "_SUBMATERIAL" in df_main.columns:
         df_main.drop(columns=["_SUBMATERIAL"], inplace=True)
 
-    # Aplicar negritas
+    #! Aplicar negritas
     bold_font = Font(bold=True)
     col_indices = {ws.cell(row=1, column=c).value: c for c in range(1, ws.max_column + 1)}
     col_item = col_indices.get("ITEM")
@@ -520,7 +520,7 @@ def procesar_archivo_principal_mainboard_2(
 
     filas_protegidas = {2, 3, 4}
 
-    # 🔢 RECONSTRUIR ITEM (10,20,30...)
+    #! RECONSTRUIR ITEM (10,20,30...)
     contador = 10
 
     for row in range(2, ws.max_row + 1):
@@ -537,7 +537,7 @@ def procesar_archivo_principal_mainboard_2(
         contador += 10
 
 
-    # 📊 RECONSTRUIR LEVEL
+    #! RECONSTRUIR LEVEL
     nivel_actual = 1
 
     for row in range(2, ws.max_row + 1):
@@ -552,7 +552,7 @@ def procesar_archivo_principal_mainboard_2(
             ws.cell(row=row, column=col_level).value = nivel_actual + 1
 
 
-    # 🔁 RELLENAR LEVEL VACÍO
+    #! RELLENAR LEVEL VACÍO
     for row in range(3, ws.max_row + 1):
         if row in filas_protegidas:
             continue

@@ -5,6 +5,7 @@ import openpyxl
 import pandas as pd
 import xlwings as xw
 from glob import glob
+from openpyxl.styles import PatternFill
 from backend.config.sap_config import EXTRAER_ARCHIVO
 from openpyxl.styles import PatternFill, Font, Alignment
 
@@ -425,9 +426,7 @@ def procesar_archivo_principal_mainboard_2(
             if is_submaterial:
                 ws.cell(row=r_idx, column=c_idx).fill = gris_submaterial
 
-    # ─────────────────────────────────────────────────────────────────
-    #! LIMPIAR PROCESO AI  →  comportamiento según cantidad de "X"
-    # ─────────────────────────────────────────────────────────────────
+    #! LIMPIAR PROCESO AI  →  comportamiento según cantidad de "X"─
 
     #! Contar cuántas "X" hay en la columna ITEM (excluyendo encabezado)
     headers_ws = [cell.value for cell in ws[1]]
@@ -442,11 +441,11 @@ def procesar_archivo_principal_mainboard_2(
 
     print(f"\n📊 Cantidad de 'X' detectadas : {cantidad_x}")
 
-    #! ── CASO: 3 X → mantener tal como salió del procesado anterior, sin limpiar AI ──
+    #! ── CASO 1 → mantener tal como salió del procesado anterior, sin limpiar AI ──
     if cantidad_x == 3:
         print("✅ 3 X detectadas → Se conserva el procesado estándar sin aplicar alguna logica.\n")
 
-    #! ── CASO: 4 X → aplicar lógica AI completa (comportamiento original) ──
+    #! ── CASO 2 → aplicar lógica AI completa (comportamiento original) ──
     elif cantidad_x == 4:
         print("🔄 4 X detectadas → Aplicando lógica AI\n")
 
@@ -523,9 +522,78 @@ def procesar_archivo_principal_mainboard_2(
             print(f"🗑 Eliminando fila: {fila}")
             ws.delete_rows(fila)
 
-    #! ── CASO: 5 X → proceso SMT A y B, sin lógica AI ──
+    #! ── CASO 3 → proceso SMT A y B ──
     elif cantidad_x == 5:
-        print("🔄  5 X detectadas → Proceso identificado como SMT A y B. Aplicando logica de SMT.\n")
+        print("🔄  5 X detectadas → Aplicando lógica SMT A/B\n")
+
+        fill_color = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid") 
+
+        headers = [cell.value for cell in ws[1]]
+
+        col_item = headers.index("ITEM") + 1
+        col_material = headers.index("MATERIAL") + 1
+
+        #! 1. Encontrar la 4ta "X"
+        contador_x = 0
+        fila_cuarta_x = None
+
+        for row in range(2, ws.max_row + 1):
+            val = ws.cell(row=row, column=col_item).value
+            if str(val).strip() == "X":
+                contador_x += 1
+                if contador_x == 4:
+                    fila_cuarta_x = row
+                    break
+
+        if not fila_cuarta_x:
+            print("⚠️ No se encontró la 4ta X")
+            return
+
+        print(f"📍 4ta X encontrada en fila: {fila_cuarta_x}")
+
+        fila_nueva = fila_cuarta_x
+
+        #! 2. Buscar filas con MATERIAL específico
+        materiales_objetivo = {"L600022", "1063182"}
+        filas_a_mover = []
+
+        for row in range(2, ws.max_row + 1):
+            val = ws.cell(row=row, column=col_material).value
+            if val and str(val).strip() in materiales_objetivo:
+                filas_a_mover.append(row)
+
+        if not filas_a_mover:
+            print("⚠️ No se encontraron materiales a mover")
+            return
+
+        print(f"📦 Filas a mover: {filas_a_mover}")
+
+        #! 3. Extraer datos
+        datos_filas = []
+        for fila in filas_a_mover:
+            datos = [ws.cell(row=fila, column=col).value for col in range(1, ws.max_column + 1)]
+            datos_filas.append(datos)
+
+        #! 4. Eliminar filas originales
+        for fila in sorted(filas_a_mover, reverse=True):
+            ws.delete_rows(fila)
+
+        #! Ajustar índice
+        filas_eliminadas_arriba = sum(1 for f in filas_a_mover if f < fila_nueva)
+        fila_nueva -= filas_eliminadas_arriba
+
+        #! 5. Insertar filas movidas (SIN fila extra)
+        for i, datos in enumerate(datos_filas):
+            ws.insert_rows(fila_nueva + i)
+
+            for col, valor in enumerate(datos, start=1):
+                cell = ws.cell(row=fila_nueva + i, column=col)
+                cell.value = valor
+
+                if col <= 10:
+                    cell.fill = fill_color
+
+        print("✅ Filas movidas correctamente debajo de la 4ta X\n")
 
     #! ── CASO: cualquier otro valor → advertencia y sin acción ──
     else:

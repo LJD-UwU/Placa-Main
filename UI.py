@@ -202,10 +202,6 @@ class SAPApp:
     #!  LOGGING THREAD-SAFE 
 
     def log_msg(self, msg: str, tag: str = "INFO"):
-        """
-        SIEMPRE thread-safe: encola la escritura en el hilo principal.
-        NUNCA llama a self.root.update() — eso causaba el congelamiento.
-        """
         logging.debug(f"[{tag}] {msg}")
         self.root.after(0, self._log_msg_ui, msg, tag)
 
@@ -425,11 +421,8 @@ class SAPApp:
             )
 
         except Exception as e:
-            self.log_msg(f"[ERROR] Error inesperado en limpieza: {e}", "ERROR")
-        finally:
-            #! Re-habilitar botón siempre en el hilo principal
-            self.root.after(0, lambda: self.btn_limpiar.config(state="normal"))
-            _couninit()
+            self.log_msg(f"[ERROR] {str(e)}", "ERROR")
+            return False
 
     #!  CARGA DE EXCEL 
 
@@ -606,6 +599,7 @@ class SAPApp:
                 convertir_xls_a_xlsx(ruta_xls, ruta_xlsx)
                 self.log_msg("    ✓ Convertido a XLSX", "OK")
                 self.log_msg("    • Buscando motherboard", "OK")
+                self.log_msg("    ✓ Motherboard encontrada", "OK")
 
                 df_modelo = extract_descripcion_numbers(ruta_xlsx, internal_models, DESCRIPCIONES)
 

@@ -299,7 +299,7 @@ def agregar_submateriales(df_main, ws):
             ws.cell(row=fila_excel, column=c).font = fuente_normal
 
     #!  Limpiar columna temporal 
-    df_main.drop(columns=["PCB_CODE"], inplace=True, errors="ignore")
+    df_main.drop(columns=["PCB_CODE","_SUBMATERIAL"], inplace=True, errors="ignore")
 
     return df_main
 
@@ -331,47 +331,6 @@ def mover_columnas_por_nombre(ws, columnas_a_mover, antes_de):
         for r, val in enumerate(data, start=1):
             ws.cell(row=r, column=destino + i).value = val
 
-def reubicar_todos_submateriales(ws):
-    headers = [cell.value for cell in ws[1]]
-
-    col_item = headers.index("ITEM") + 1
-    col_level = headers.index("LEVEL") + 1
-    col_flag = ws.max_column
-
-    sub_rows = []
-
-    for row in range(2, ws.max_row + 1):
-        if ws.cell(row=row, column=col_flag).value == "_SUB":
-            data = [ws.cell(row=row, column=c).value for c in range(1, ws.max_column + 1)]
-            sub_rows.append((row, data))
-
-    if not sub_rows:
-        print("ℹ️ No hay submateriales")
-        return
-
-    for row, _ in sorted(sub_rows, reverse=True):
-        ws.delete_rows(row)
-
-    target_row = None
-    for row in range(2, ws.max_row + 1):
-        item = str(ws.cell(row=row, column=col_item).value).strip()
-        level = ws.cell(row=row, column=col_level).value
-
-        if item == "X" and level == 2:
-            target_row = row
-            break
-
-    if not target_row:
-        print("⚠️ No se encontró LEVEL 2")
-        return
-
-    for i, (_, data) in enumerate(sub_rows):
-        ws.insert_rows(target_row + i)
-
-        for col, val in enumerate(data, start=1):
-            ws.cell(row=target_row + i, column=col).value = val
-
-    print("✅ Submateriales reubicados")
 
 def procesar_archivo_principal_mainboard_2(
     ruta_excel_principal: str,
@@ -460,21 +419,12 @@ def procesar_archivo_principal_mainboard_2(
             df_main.at[i, "LEVEL"] = df_main.at[i - 1, "LEVEL"]
 
     gris_submaterial = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
-    col_flag = ws.max_column + 1  # columna oculta para marcar
-
     for r_idx, fila in enumerate(df_main.itertuples(index=False), start=2):
         is_submaterial = getattr(fila, "_SUBMATERIAL", False)
-
         for c_idx, val in enumerate(fila, start=1):
-            cell = ws.cell(row=r_idx, column=c_idx)
-            cell.value = val
-
+            ws.cell(row=r_idx, column=c_idx).value = val
             if is_submaterial:
-                cell.fill = gris_submaterial
-
-        # 🔥 marcador limpio
-        if is_submaterial:
-            ws.cell(row=r_idx, column=col_flag).value = "_SUB"
+                ws.cell(row=r_idx, column=c_idx).fill = gris_submaterial
 
     #! LIMPIAR PROCESO AI  →  comportamiento según cantidad de "X"─
 
@@ -665,7 +615,6 @@ def procesar_archivo_principal_mainboard_2(
                     ws.cell(row=row, column=col).font = bold_font
 
     print("\n✅ Proceso completado correctamente")
-    reubicar_todos_submateriales(ws)
 
     #! RECONSTRUIR ITEM Y LEVEL
 
@@ -795,6 +744,6 @@ def procesar_archivo_principal_mainboard_2(
         os.path.dirname(ruta_salida_principal),
         nuevo_nombre
     )
-    
+
     wb.save(ruta_salida_principal)
     print(f"[OK] Proceso completo {ruta_salida_principal}")

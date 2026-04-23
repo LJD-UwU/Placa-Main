@@ -228,3 +228,8 @@ On first launch, the app will prompt for SAP credentials. Go to 🔐 SAP Login a
 ✔ Analysis-ready data
 
 ---
+
+## 🌍 Languages
+
+- [Spanish Readme](README.es.md)
+- [Chinese Readme](README.zh.md)

@@ -231,5 +231,5 @@ On first launch, the app will prompt for SAP credentials. Go to 🔐 SAP Login a
 
 ## 🌍 Languages
 
-- [Spanish Readme](README.es.md)
-- [Chinese Readme](README.zh.md)
+- [Spanish Readme](README_spa.md)
+- [Chinese Readme](README_zh.md)

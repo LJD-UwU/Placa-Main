@@ -1,230 +1,138 @@
-# 🤖 MB-Automator (SAP + Excel Automation)
+# ⚡ MBAutomator
 
-Python-based automation application designed to process **Mainboard and Motherboard data from SAP**, clean Excel files, and generate analysis-ready structures.
-
-It combines SAP automation, data processing, and a graphical interface to execute the entire workflow efficiently.
+Herramienta de automatización para el procesamiento de **BOMs (Bill of Materials)** de motherboards desde SAP, con interfaz gráfica en Tkinter.
 
 ---
 
-## 🚀 Features
+## 📋 Requisitos del sistema
 
-- 🔐 Automatic SAP login
-- 📥 Execution of transaction **CS11**
-- 📊 BOM export from SAP
-- 🔄 File conversion `.xls` → `.xlsx`
-- 🧹 Advanced Excel cleaning
-- 🧠 Processing of:
-  - Mainboard
-  - Motherboard
-- 🧩 Sub-material (BOM) integration
-- 🖥️ Graphical interface (Tkinter)
-- 📁 Automatic file organization
-- 📌 Automatic main Excel update
-
----
-
-## 🧠 System Workflow
-
-```text
-1. User loads Excel file (models)
-2. Automatic SAP login
-3. CS11 execution for each model
-4. BOM export
-5. Conversion to Excel
-6. Data cleaning
-7. Mainboard / Motherboard processing
-8. Sub-material integration
-9. Main Excel update
-10. Final results generation
-```
-
----
-
-## 📂 Estructura del proyecto
-
-```
-backend/
-│
-├── config/              # SAP configuration
-│   ├── sap_login.py
-│   ├── credenciales_loader.py
-│   └── sap_config.py
-│
-├── modules/             # Core processing logic
-│   ├── cs11.py
-│   ├── extract_mainboard.py
-│   ├── procesar_mainboard_P2.py
-│   ├── procesar_motherboard_P1.py
-│   └── Modules_2/
-│         ├── procesar_motherboard.py
-│         └── procesar_mainboard.py
-│
-├── utils/               # Utilities and data cleaning
-│   ├── clean_excel.py
-│   ├── clean_excel_p2.py
-│   ├── sap_utils.py
-│   ├── txt_to_xlsx.py
-│   └── utils_2/
-│           └── xlsx_m2.py
-│
-├── UI/                  # Secondary interface
-│   └── motherboard_app.py
-│
-├── Helpers/             # Helper functions
-│   └── helper.py
-│
-├── IMG/                 # Visual assets
-│   └── logo.png
-└── UI.py                # Main interface
-```
-
----
-
-## 🖥️ Graphical Interface
-
-The application includes a Tkinter-based UI that allows:
-
-- Selecting an Excel file
-- Running processes:
-  - Process Mainboard
-  - Process Motherboard
-  - File cleaning
-- SAP login
-- Real-time log visualization
-
----
-
-## 📋 System Requirements
-
-| Requirement | Details |
+| Requisito | Detalle |
 |-----------|---------|
-| **OS** | Windows 10 / 11 (64-bit) — required |
-| **Python** | 3.11 to 3.13 |
-| **Microsoft Excel** | Installed with active license |
-| **SAP GUI** | Installed and configured |
+| **OS** | Windows 10 / 11 (64-bit) — obligatorio |
+| **Python** | 3.11 a 3.13 |
+| **Microsoft Excel** | Instalado y con licencia activa |
+| **SAP GUI** | Instalado y configurado en el equipo |
 
-> ⚠️ This project is not compatible with Linux/macOS due to dependency on pywin32 (COM) and SAP GUI for Windows.
-
-
----
-
-## 📦 Main Dependencies
-
-| Package | Purpose |
-|---------|-----|
-| `pandas` | Tabular data manipulation |
-| `openpyxl` | Read/write `.xlsx` |
-| `xlwings` | Excel automation via COM |
-| `pywin32` | COM interface with SAP GUI and Excel (`pythoncom`) |
-| `Pillow` | LUI logo and icons |
+> ⚠️ Este proyecto **no es compatible con Linux/macOS** porque depende de `pywin32` (COM) y SAP GUI para Windows.
 
 ---
 
-## ⚙️ Installation
+## 🗂️ Estructura del proyecto
 
-### 1. Clone the repository
+```
+Practicante-Placa-Main/
+├── backend/
+│   ├── config/
+│   │   ├── sap_config.py           # Constantes SAP (DESCRIPCIONES, FILTRO)
+│   │   ├── credenciales_loader.py  # Carga y guarda credenciales SAP
+│   │   └── sap_login.py            # Abre SAP y hace login automático
+│   ├── Helpers/
+│   │   └── helper.py               # Registro de archivos procesados
+│   ├── modules/
+│   │   ├── Modules_2/
+│   │   │   ├── procesar_motherboard.py
+│   │   │   └── procesar_mainboard.py
+│   │   ├── cs11.py                         # Transacción CS11 en SAP
+│   │   ├── extract_mainboard.py            # Extrae números de descripción
+│   │   ├── procesar_motherboard_P1.py      # Procesamiento Fase 1
+│   │   └── procesar_mainboard_P2.py        # Procesamiento Fase 2
+│   ├── UI/
+│   │   └── motherboard_app.py      # Ventana secundaria de motherboards
+│   ├── utils/
+│   │   ├── utils_2/
+│   │   │   └── xlsx_m2.py
+│   │   ├── clean_excel_p2.py
+│   │   ├── clean_excel.py          # Limpieza de Excel mainboard
+│   │   ├── sap_utils.py
+│   │   └── txt_to_xlsx.py          # Conversión TXT/XLS → XLSX y rutas base
+│   └── IMG/
+│       ├── logo.png                # Ícono de la app
+│       └── bg.png                  # Fondo de la ventana (opcional)
+├── .gitignore
+├── README.md
+├── LICENSE
+├── UI.py                           # Punto de entrada principal (UI estándar)
+├── PRUEVAS.py                      # Versión alternativa con tema oscuro
+└── requirements.txt
+```
+
+---
+
+## ⚙️ Instalación
+
+### 1. Clonar el repositorio
 
 ```bash
 git clone https://github.com/tu-usuario/Practicante-Placa-Main.git
 cd Practicante-Placa-Main
 ```
 
-### 2. Create virtual environment (recommended)
+### 2. Crear entorno virtual (recomendado)
 
 ```bash
 python -m venv .venv
 .venv\Scripts\activate
 ```
 
-### 3. Install dependencies
+### 3. Instalar dependencias
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4. Post-install pywin32 (required)
+### 4. Post-instalación de pywin32 (obligatorio)
 
 ```bash
 python Scripts/pywin32_postinstall.py -install
 ```
 
-> If the command fails, locate it at: `.venv\Scripts\pywin32_postinstall.py`
+> Si el comando anterior falla, búscalo en: `.venv\Scripts\pywin32_postinstall.py`
 
 ---
 
-## ▶️ Usage
+## ▶️ Uso
 
 ```bash
 python UI.py
 ```
 
-On first launch, the app will prompt for SAP credentials. Go to 🔐 SAP Login and enter them before processing.
+Al iniciar la app por primera vez, aparecerá un aviso solicitando las credenciales de SAP. Ve a **🔐 Login SAP** e ingrésalas antes de procesar.
 
-### Workflow
+### Flujo de trabajo
 
-1. **Select Exce**l — file containing materials (MATERIAL, PROCESS, etc.)
-2. **SAP Login** — enter credentials; SAP will open automatically
-3. **Process 1TE** — extract BOMs from SAP for each model
-4. **Motherboard** — process and update motherboard columns in Excel
-5. **Results** — open the folder with generated files
-
----
-
-## 📊 Data Processing
-
-### 🔹 Mainboard
-
-- Column cleaning
-- Material identification
-- LEVEL logic
-- Chinese character detection
-- PCB extraction
-- BOM integration
+1. **Seleccionar Excel** — archivo con la lista de materiales (columnas `MATERIAL`, `PROCESS`, etc.)
+2. **Login SAP** — ingresa tus credenciales; la app abre SAP automáticamente
+3. **Procesar 1TE** — extrae BOMs desde SAP para cada modelo
+4. **Motherboard** — procesa y actualiza las columnas de motherboard en el Excel
+5. **Resultados** — abre la carpeta con los archivos generados
 
 ---
 
-### 🔹 Motherboard
+## 📦 Dependencias principales
 
-- Structured model-based processing
-- Material separation
-- Business logic application
-
----
-
-### 🔹 Excel Cleaning
-
-- Removal of unnecessary rows/columns
-- Structure reorganization
-- Automatic formatting
+| Paquete | Uso |
+|---------|-----|
+| `pandas` | Manipulación de datos tabulares |
+| `openpyxl` | Lectura y escritura de `.xlsx` |
+| `xlwings` | Automatización de Excel vía COM |
+| `pywin32` | Interfaz COM con SAP GUI y Excel (`pythoncom`) |
+| `Pillow` | Logo e íconos de la interfaz gráfica |
 
 ---
 
-## ⚙️ Key Functions
+## 🪵 Logs y errores
 
-- `cs11.py` → SAP automation
-- `clean_excel_p2.py` → Advanced cleaning
-- `procesar_mainboard_P2.py` → Mainboard core logic
-- `sap_utils.py` → SAP helper functions
-- `txt_to_xlsx.py` → File conversion
+La consola integrada en la app muestra mensajes en tiempo real:
 
----
+- 🔵 `INFO` — operaciones en curso
+- 🟢 `OK` — paso completado con éxito
+- 🔴 `ERROR` — fallo en algún paso (el proceso continúa con el siguiente)
+- 🟡 `WARNING` — advertencia no crítica
 
-## 📁 Generated Output
-
-- Processed BOM files
-- Updated Excel with:
-  - MATERIAL
-  - PROCESS
-- MAINBOARD PART NUMBER
-- Automatically organized folders
+Los errores también se guardan con `logging` estándar de Python para depuración.
 
 ---
 
-## ✅ Result
+## 📄 Licencia
 
-✔ Full SAP + Excel automation
-✔ Reduced manual work
-✔ Mass model processing
-✔ Analysis-ready data
-
----
+Ver archivo [LICENSE](LICENSE).

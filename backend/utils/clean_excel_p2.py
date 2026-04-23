@@ -443,15 +443,16 @@ def procesar_archivo_principal_mainboard_2(
 
     #! ── CASO 1 → mantener tal como salió del procesado anterior, sin limpiar AI ──
     if cantidad_x == 3:
-        print("✅ 3 X detectadas → Se conserva el procesado estándar sin aplicar alguna logica.\n")
+            print("✅ 3 X detectadas → Se conserva el procesado estándar sin aplicar alguna logica.\n")
 
-    #! ── CASO 2 → aplicar lógica AI completa (comportamiento original) ──
     elif cantidad_x == 4:
-        print("🔄 4 X detectadas → Aplicando lógica AI\n")
+        print("🔄 4 X detectadas → Aplicando lógica de AI \n")
 
         headers = [cell.value for cell in ws[1]]
 
         col_level = headers.index("LEVEL") + 1
+        col_material = headers.index("MATERIAL") + 1
+
         col_sort = headers.index("SORTSTRNG") + 1 if "SORTSTRNG" in headers else None
 
         if col_sort is None:
@@ -459,11 +460,7 @@ def procesar_archivo_principal_mainboard_2(
             ws.cell(row=1, column=col_sort, value="SORTSTRNG")
 
         max_row = ws.max_row
-        max_col = ws.max_column
-
         filas_a_eliminar = set()
-
-        print("🔍 Procesando bloques...\n")
 
         i = 2
 
@@ -477,8 +474,6 @@ def procesar_archivo_principal_mainboard_2(
             fin = i
             tamaño = fin - inicio
 
-            print(f"LEVEL {level_actual} | tamaño {tamaño}")
-
             if 3 <= tamaño <= 6:
 
                 #! Buscar padre
@@ -489,37 +484,42 @@ def procesar_archivo_principal_mainboard_2(
                         break
 
                 if fila_padre is None:
-                    print("→ No se encontró padre, se omite\n")
                     continue
 
-                #! Marcar AI en todas las filas del bloque
-                for fila in range(inicio, fin):
-                    ws.cell(row=fila, column=col_sort).value = "AI"
+                #! Obtener MATERIAL del padre
+                material_padre = ws.cell(row=fila_padre, column=col_material).value
 
-                #! Tomar la última fila del bloque como nueva referencia
+                #! Reemplazar AI por MATERIAL
+                
+                for fila in range(inicio, fin - 1):
+                    ws.cell(row=fila, column=col_sort).value = material_padre
+
+                #! Última fila del bloque queda vacía
+                ws.cell(row=fin - 1, column=col_sort).value = None
+
+                # ! Copiar C y D 
                 fila_ultima_bloque = fin - 1
-
-                #! Copiar C y D de la última fila del bloque → C5 y D5
                 val_c = ws.cell(row=fila_ultima_bloque, column=3).value
                 val_d = ws.cell(row=fila_ultima_bloque, column=4).value
+
                 ws.cell(row=5, column=3).value = val_c
                 ws.cell(row=5, column=4).value = val_d
 
-                #! La última fila del bloque se queda en su lugar (sin modificar)
-                #! Marcar fila padre para eliminar
+                #! Marcar eliminaciones
                 filas_a_eliminar.add(fila_padre)
 
-                #! Marcar la fila inmediatamente arriba del inicio del bloque para eliminar
+                #! Eliminar fila debajo del padre
+                fila_debajo_padre = fila_padre + 1
+                if fila_debajo_padre <= max_row:
+                    filas_a_eliminar.add(fila_debajo_padre)
+
+                #! mMntener lógica anterior
                 fila_encima_inicio = inicio - 1
                 if fila_encima_inicio > 1:
                     filas_a_eliminar.add(fila_encima_inicio)
-                    print(f"→ Bloque procesado ({inicio}-{fin-1}) | C5={val_c} | D5={val_d} | Padre fila {fila_padre} + fila encima del inicio ({fila_encima_inicio}) marcadas para eliminar")
-                else:
-                    print(f"→ Bloque procesado ({inicio}-{fin-1}) | C5={val_c} | D5={val_d} | Padre fila {fila_padre} marcado para eliminar (fila encima del inicio fuera de rango)")
 
-        #! Eliminar filas marcadas (padre + fila encima del inicio del bloque)
+        #! Eliminar filas 
         for fila in sorted(filas_a_eliminar, reverse=True):
-            print(f"🗑 Eliminando fila: {fila}")
             ws.delete_rows(fila)
 
     #! ── CASO 3 → proceso SMT A y B ──
@@ -714,7 +714,7 @@ def procesar_archivo_principal_mainboard_2(
         for col, header in enumerate(encabezados_item, start=1):
             ws_item.cell(row=1, column=col).value = header
 
-    columnas_numericas = ["LEVEL", "ITEM", "QTY","MATERIAL","DESCRIPTION IN CHINESE"]
+    columnas_numericas = ["LEVEL", "ITEM", "QTY","MATERIAL","DESCRIPTION IN CHINESE","SORTSTRNG"]
     mapa_columnas = {
         str(ws.cell(row=1, column=c).value).strip().upper(): openpyxl.utils.get_column_letter(c)
         for c in range(1, ws.max_column + 1)

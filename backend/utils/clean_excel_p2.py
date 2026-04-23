@@ -443,11 +443,11 @@ def procesar_archivo_principal_mainboard_2(
 
     #! ── CASO 1 → mantener tal como salió del procesado anterior, sin limpiar AI ──
     if cantidad_x == 3:
-            print("✅ 3 X detectadas → Se conserva el procesado estándar sin aplicar alguna logica.\n")
-
+            print("✅ 3 X detectadas → Aplicando proceso estandar.\n")
+            
+    #! ── CASO 2 → Inicia la logica para AI ──
     elif cantidad_x == 4:
-        print("🔄 4 X detectadas → Aplicando lógica de AI \n")
-
+        print("🔄 4 X detectadas → Aplicando proceso de AI \n")
         headers = [cell.value for cell in ws[1]]
 
         col_level = headers.index("LEVEL") + 1
@@ -524,7 +524,7 @@ def procesar_archivo_principal_mainboard_2(
 
     #! ── CASO 3 → proceso SMT A y B ──
     elif cantidad_x == 5:
-        print("🔄  5 X detectadas → Aplicando lógica SMT A/B\n")
+        print("🔄  5 X detectadas → Aplicando proceso SMT A/B\n")
 
         fill_color = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid") 
 

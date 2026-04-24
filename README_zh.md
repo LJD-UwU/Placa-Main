@@ -227,3 +227,8 @@ python UI.py
 ✔ 数据即时可用于分析
 
 ---
+
+## 🌍 Languages
+
+- [Spanish Readme](README_spa.md)
+- [Inglish Readme](README.md)

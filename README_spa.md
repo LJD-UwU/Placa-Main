@@ -227,3 +227,8 @@ Al iniciar la app por primera vez, aparecerá un aviso solicitando las credencia
 ✔ Datos listos para análisis
 
 ---
+
+## 🌍 Languages
+
+- [Inglish Readme](README_zh.md)
+- [Chinese Readme](README_zh.md)

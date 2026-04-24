@@ -230,5 +230,5 @@ Al iniciar la app por primera vez, aparecerá un aviso solicitando las credencia
 
 ## 🌍 Languages
 
-- [Inglish Readme](README_zh.md)
+- [Inglish Readme](README.md)
 - [Chinese Readme](README_zh.md)

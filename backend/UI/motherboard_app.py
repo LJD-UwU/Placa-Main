@@ -233,7 +233,7 @@ class MainboardApp:
         style.configure("Title.TLabel", font=("Segoe UI", 14, "bold"))
 
         ttk.Label(root, text="Automatización SAP", style="Title.TLabel").pack(pady=(8, 0))
-        ttk.Label(root, text="Procesamiento de Excel para Mainboards", foreground="gray").pack(pady=(0, 6))
+        ttk.Label(root, text="Procesamiento de Excel para Motherboard", foreground="gray").pack(pady=(0, 6))
 
         main = ttk.Frame(root, padding=6)
         main.pack(fill="both", expand=True)

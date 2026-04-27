@@ -83,7 +83,7 @@ class SAPApp:
     def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title("MBAutomator")
-        self.root.geometry("570x480")
+        self.root.geometry("650x480")
         self.root.resizable(False, False)
 
         #! Logo
@@ -139,10 +139,13 @@ class SAPApp:
 
         self.btn_open = ttk.Button(fila_btn, text="📁 Resultados", command=self.abrir_resultados, state="disabled")
         self.btn_open.pack(side="left", padx=4)
-
+        
+        self.btn_mb_1 = ttk.Button(fila_btn, text="🖥 Mainboards", command=self.abrir_app_mb1, state="disabled")
+        self.btn_mb_1.pack(side="left", padx=4)        
+        
         self.btn_mainboard = ttk.Button(fila_btn, text="🖥 Motherboard", command=self.abrir_app_mainboard, state="disabled")
         self.btn_mainboard.pack(side="left", padx=4)
-
+        
         #! Consola
         frame_log = ttk.LabelFrame(main, text="CONSOLA")
         frame_log.pack(fill="both", expand=True, pady=(6, 0))
@@ -175,6 +178,7 @@ class SAPApp:
     def _crear_tooltips(self):
         tooltips = {
             self.btn_mainboard: "Procesar archivo desde las motherboard",
+            self.btn_mb_1: "Procesar archivo desde las Mainboard",
             self.btn_procesar: "Procesar archivo con 1TE",
             self.btn_limpiar: "Limpiar la consola y archivos exportados",
             self.btn_open: "Abrir carpeta de los archivos",
@@ -265,6 +269,16 @@ class SAPApp:
             )
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo abrir la app:\n{e}")
+            
+    def abrir_app_mb1(self):
+        if hasattr(self, "_mb1_proc") and self._mb1_proc.poll() is None:
+            return
+        try:
+            self._mb1_proc = subprocess.Popen(
+                [sys.executable, "-m", "backend.UI.mainboard_app"]
+            )
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo abrir la app:\n{e}")
 
     #!  VALIDACIÓN DE BOTONES 
 
@@ -278,8 +292,10 @@ class SAPApp:
             self.btn_procesar.config(state="disabled")
             self.btn_limpiar.config(state="disabled")
             self.btn_open.config(state="disabled")
+            self.btn_mb_1.config(state="disabled")
             self.status.set("Estado: Ingrese credenciales SAP 🔐")
         else:
+            self.btn_mb_1.config(state="normal")
             self.btn_mainboard.config(state="normal")
             self.btn_limpiar.config(state="normal")
             self.btn_procesar.config(state="normal" if excel else "disabled")

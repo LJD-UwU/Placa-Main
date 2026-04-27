@@ -27,8 +27,6 @@ PRUEVAS.py
 sap_config.py
 Credenciales.json
 backend/config/Credenciales.json
-dist
-build
 
 # Better app tests at work
 Mother.py
@@ -37,4 +35,3 @@ PRUEVAS.py
 # Bat residue
 system_block.flag
 Programas.py
-Programas.spec

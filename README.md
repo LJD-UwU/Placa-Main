@@ -57,6 +57,7 @@ backend/
 │   ├── procesar_motherboard_P1.py
 │   └── Modules_2/
 │         ├── procesar_motherboard.py
+│         ├──procesar_motherboard_2.py
 │         └── procesar_mainboard.py
 │
 ├── utils/               # Utilities and data cleaning
@@ -65,9 +66,11 @@ backend/
 │   ├── sap_utils.py
 │   ├── txt_to_xlsx.py
 │   └── utils_2/
+│           ├── xlsx_m2_1.py
 │           └── xlsx_m2.py
 │
 ├── UI/                  # Secondary interface
+│   ├── mainboard_app.py
 │   └── motherboard_app.py
 │
 ├── Helpers/             # Helper functions

@@ -31,6 +31,7 @@ backend/config/Credenciales.json
 # Better app tests at work
 Mother.py
 PRUEVAS.py
+Mainboard.py
 
 # Bat residue
 system_block.flag

@@ -5,9 +5,11 @@ import openpyxl
 import pandas as pd
 import xlwings as xw
 from glob import glob
+from tkinter import messagebox
 from openpyxl.styles import PatternFill
 from backend.config.sap_config import EXTRAER_ARCHIVO
 from openpyxl.styles import PatternFill, Font, Alignment
+SUBMATERIALES_ENCONTRADOS = True
 
 def limpiar_valor(valor):
     if pd.isna(valor):
@@ -130,6 +132,9 @@ def aplicar_logica_x(ws):
             
 #!  SUBMATERIALES 
 def agregar_submateriales(df_main, ws):
+    
+    global SUBMATERIALES_ENCONTRADOS
+    
     """
     Agrega submateriales de BOM y manuales dentro del LEVEL 2 antes de la X correspondiente.
     Aplica color gris y fuente Calibri 11 sin negrita a todos los submateriales.
@@ -205,13 +210,26 @@ def agregar_submateriales(df_main, ws):
 
     df_filtrado = df_bom[df_bom["PCB_clean"].isin(lista_pcb)][cols_interes].reset_index(drop=True)
 
+    #! VALIDAR SUBMATERIALES
+    if df_filtrado.empty:
+
+        SUBMATERIALES_ENCONTRADOS = False
+
+        mensaje = "⚠️ Submateriales no encontrados"
+
+        print(f"\n{mensaje}\n")
+
+        df_main.drop(columns=["PCB_CODE"], inplace=True, errors="ignore")
+
+        return df_main
+
     df_filtrado["Part #"] = (
-    df_filtrado["Part #"]
-    .astype(str)
-    .str.strip()
-    .str.replace(".0", "", regex=False)
-    .str.upper()
-)
+        df_filtrado["Part #"]
+        .astype(str)
+        .str.strip()
+        .str.replace(".0", "", regex=False)
+        .str.upper()
+    )
 
     finales = {"L600022", "1063182"}
 
@@ -339,7 +357,9 @@ def procesar_archivo_principal_mainboard_2(
     plantas: str = "",
     df_no_procesadas: pd.DataFrame = None
 ):
-
+    
+    global SUBMATERIALES_ENCONTRADOS
+    SUBMATERIALES_ENCONTRADOS = True
     wb = openpyxl.load_workbook(ruta_excel_principal)
     ws = wb.active
 
@@ -426,7 +446,7 @@ def procesar_archivo_principal_mainboard_2(
             if is_submaterial:
                 ws.cell(row=r_idx, column=c_idx).fill = gris_submaterial
 
-    #! LIMPIAR PROCESO AI  →  comportamiento según cantidad de "X"─
+    #! LIMPIAR PROCESO AI  →  comportamiento según cantidad de "X"
 
     #! Contar cuántas "X" hay en la columna ITEM (excluyendo encabezado)
     headers_ws = [cell.value for cell in ws[1]]
@@ -443,161 +463,166 @@ def procesar_archivo_principal_mainboard_2(
 
     #! ── CASO 1 → mantener tal como salió del procesado anterior, sin limpiar AI ──
     if cantidad_x == 3:
-            print("✅ 3 X detectadas → Aplicando proceso estandar.\n")
-            
+        print("✅ 3 X detectadas → Aplicando proceso estándar.\n")
+
     #! ── CASO 2 → Inicia la logica para AI ──
     elif cantidad_x == 4:
-        print("🔄 4 X detectadas → Aplicando proceso de AI \n")
-        headers = [cell.value for cell in ws[1]]
+        if not SUBMATERIALES_ENCONTRADOS:
+            print("⚠️  Sin submateriales detectados en CASO 2 (4 X) → Aplicando proceso estándar.\n")
+        else:
+            print("🔄 4 X detectadas → Aplicando proceso de AI\n")
+            headers = [cell.value for cell in ws[1]]
 
-        col_level = headers.index("LEVEL") + 1
-        col_material = headers.index("MATERIAL") + 1
+            col_level = headers.index("LEVEL") + 1
+            col_material = headers.index("MATERIAL") + 1
 
-        col_sort = headers.index("SORTSTRNG") + 1 if "SORTSTRNG" in headers else None
+            col_sort = headers.index("SORTSTRNG") + 1 if "SORTSTRNG" in headers else None
 
-        if col_sort is None:
-            col_sort = len(headers) + 1
-            ws.cell(row=1, column=col_sort, value="SORTSTRNG")
+            if col_sort is None:
+                col_sort = len(headers) + 1
+                ws.cell(row=1, column=col_sort, value="SORTSTRNG")
 
-        max_row = ws.max_row
-        filas_a_eliminar = set()
+            max_row = ws.max_row
+            filas_a_eliminar = set()
 
-        i = 2
+            i = 2
 
-        while i <= max_row:
-            level_actual = ws.cell(row=i, column=col_level).value
-            inicio = i
+            while i <= max_row:
+                level_actual = ws.cell(row=i, column=col_level).value
+                inicio = i
 
-            while i <= max_row and ws.cell(row=i, column=col_level).value == level_actual:
-                i += 1
+                while i <= max_row and ws.cell(row=i, column=col_level).value == level_actual:
+                    i += 1
 
-            fin = i
-            tamaño = fin - inicio
+                fin = i
+                tamaño = fin - inicio
 
-            if 3 <= tamaño <= 6:
+                if 3 <= tamaño <= 6:
 
-                #! Buscar padre
-                fila_padre = None
-                for j in range(inicio - 1, 1, -1):
-                    if ws.cell(row=j, column=col_level).value < level_actual:
-                        fila_padre = j
-                        break
+                    #! Buscar padre
+                    fila_padre = None
+                    for j in range(inicio - 1, 1, -1):
+                        if ws.cell(row=j, column=col_level).value < level_actual:
+                            fila_padre = j
+                            break
 
-                if fila_padre is None:
-                    continue
+                    if fila_padre is None:
+                        continue
 
-                #! Obtener MATERIAL del padre
-                material_padre = ws.cell(row=fila_padre, column=col_material).value
+                    #! Obtener MATERIAL del padre
+                    material_padre = ws.cell(row=fila_padre, column=col_material).value
 
-                #! Reemplazar AI por MATERIAL
-                
-                for fila in range(inicio, fin - 1):
-                    ws.cell(row=fila, column=col_sort).value = material_padre
+                    #! Reemplazar AI por MATERIAL
+                    for fila in range(inicio, fin - 1):
+                        ws.cell(row=fila, column=col_sort).value = material_padre
 
-                #! Última fila del bloque queda vacía
-                ws.cell(row=fin - 1, column=col_sort).value = None
+                    #! Última fila del bloque queda vacía
+                    ws.cell(row=fin - 1, column=col_sort).value = None
 
-                # ! Copiar C y D 
-                fila_ultima_bloque = fin - 1
-                val_c = ws.cell(row=fila_ultima_bloque, column=3).value
-                val_d = ws.cell(row=fila_ultima_bloque, column=4).value
+                    # ! Copiar C y D 
+                    fila_ultima_bloque = fin - 1
+                    val_c = ws.cell(row=fila_ultima_bloque, column=3).value
+                    val_d = ws.cell(row=fila_ultima_bloque, column=4).value
 
-                ws.cell(row=5, column=3).value = val_c
-                ws.cell(row=5, column=4).value = val_d
+                    ws.cell(row=5, column=3).value = val_c
+                    ws.cell(row=5, column=4).value = val_d
 
-                #! Marcar eliminaciones
-                filas_a_eliminar.add(fila_padre)
+                    #! Marcar eliminaciones
+                    filas_a_eliminar.add(fila_padre)
 
-                #! Eliminar fila debajo del padre
-                fila_debajo_padre = fila_padre + 1
-                if fila_debajo_padre <= max_row:
-                    filas_a_eliminar.add(fila_debajo_padre)
+                    #! Eliminar fila debajo del padre
+                    fila_debajo_padre = fila_padre + 1
+                    if fila_debajo_padre <= max_row:
+                        filas_a_eliminar.add(fila_debajo_padre)
 
-                #! mMntener lógica anterior
-                fila_encima_inicio = inicio - 1
-                if fila_encima_inicio > 1:
-                    filas_a_eliminar.add(fila_encima_inicio)
+                    #! Mantener lógica anterior
+                    fila_encima_inicio = inicio - 1
+                    if fila_encima_inicio > 1:
+                        filas_a_eliminar.add(fila_encima_inicio)
 
-        #! Eliminar filas 
-        for fila in sorted(filas_a_eliminar, reverse=True):
-            ws.delete_rows(fila)
+            #! Eliminar filas
+            for fila in sorted(filas_a_eliminar, reverse=True):
+                ws.delete_rows(fila)
 
     #! ── CASO 3 → proceso SMT A y B ──
     elif cantidad_x == 5:
-        print("🔄  5 X detectadas → Aplicando proceso SMT A/B\n")
+        if not SUBMATERIALES_ENCONTRADOS:
+            print("⚠️  Sin submateriales detectados en CASO 3 (5 X) → Aplicando proceso estándar.\n")
+        else:
+            print("🔄  5 X detectadas → Aplicando proceso SMT A/B\n")
 
-        fill_color = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid") 
+            fill_color = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
 
-        headers = [cell.value for cell in ws[1]]
+            headers = [cell.value for cell in ws[1]]
 
-        col_item = headers.index("ITEM") + 1
-        col_material = headers.index("MATERIAL") + 1
+            col_item = headers.index("ITEM") + 1
+            col_material = headers.index("MATERIAL") + 1
 
-        #! 1. Encontrar la 4ta "X"
-        contador_x = 0
-        fila_cuarta_x = None
+            #! 1. Encontrar la 4ta "X"
+            contador_x = 0
+            fila_cuarta_x = None
 
-        for row in range(2, ws.max_row + 1):
-            val = ws.cell(row=row, column=col_item).value
-            if str(val).strip() == "X":
-                contador_x += 1
-                if contador_x == 4:
-                    fila_cuarta_x = row
-                    break
+            for row in range(2, ws.max_row + 1):
+                val = ws.cell(row=row, column=col_item).value
+                if str(val).strip() == "X":
+                    contador_x += 1
+                    if contador_x == 4:
+                        fila_cuarta_x = row
+                        break
 
-        if not fila_cuarta_x:
-            print("⚠️ No se encontró la 4ta X")
-            return
+            if not fila_cuarta_x:
+                print("⚠️ No se encontró la 4ta X")
+                return
 
-        print(f"📍 4ta X encontrada en fila: {fila_cuarta_x}")
+            print(f"📍 4ta X encontrada en fila: {fila_cuarta_x}")
 
-        fila_nueva = fila_cuarta_x
+            fila_nueva = fila_cuarta_x
 
-        #! 2. Buscar filas con MATERIAL específico
-        materiales_objetivo = {"L600022", "1063182"}
-        filas_a_mover = []
+            #! 2. Buscar filas con MATERIAL específico
+            materiales_objetivo = {"L600022", "1063182"}
+            filas_a_mover = []
 
-        for row in range(2, ws.max_row + 1):
-            val = ws.cell(row=row, column=col_material).value
-            if val and str(val).strip() in materiales_objetivo:
-                filas_a_mover.append(row)
+            for row in range(2, ws.max_row + 1):
+                val = ws.cell(row=row, column=col_material).value
+                if val and str(val).strip() in materiales_objetivo:
+                    filas_a_mover.append(row)
 
-        if not filas_a_mover:
-            print("⚠️ No se encontraron materiales a mover")
-            return
+            if not filas_a_mover:
+                print("⚠️ No se encontraron materiales a mover")
+                return
 
-        print(f"📦 Filas a mover: {filas_a_mover}")
+            print(f"📦 Filas a mover: {filas_a_mover}")
 
-        #! 3. Extraer datos
-        datos_filas = []
-        for fila in filas_a_mover:
-            datos = [ws.cell(row=fila, column=col).value for col in range(1, ws.max_column + 1)]
-            datos_filas.append(datos)
+            #! 3. Extraer datos
+            datos_filas = []
+            for fila in filas_a_mover:
+                datos = [ws.cell(row=fila, column=col).value for col in range(1, ws.max_column + 1)]
+                datos_filas.append(datos)
 
-        #! 4. Eliminar filas originales
-        for fila in sorted(filas_a_mover, reverse=True):
-            ws.delete_rows(fila)
+            #! 4. Eliminar filas originales
+            for fila in sorted(filas_a_mover, reverse=True):
+                ws.delete_rows(fila)
 
-        #! Ajustar índice
-        filas_eliminadas_arriba = sum(1 for f in filas_a_mover if f < fila_nueva)
-        fila_nueva -= filas_eliminadas_arriba
+            #! Ajustar índice
+            filas_eliminadas_arriba = sum(1 for f in filas_a_mover if f < fila_nueva)
+            fila_nueva -= filas_eliminadas_arriba
 
-        #! 5. Insertar filas movidas (SIN fila extra)
-        for i, datos in enumerate(datos_filas):
-            ws.insert_rows(fila_nueva + i)
+            #! 5. Insertar filas movidas (SIN fila extra)
+            for i, datos in enumerate(datos_filas):
+                ws.insert_rows(fila_nueva + i)
 
-            for col, valor in enumerate(datos, start=1):
-                cell = ws.cell(row=fila_nueva + i, column=col)
-                cell.value = valor
+                for col, valor in enumerate(datos, start=1):
+                    cell = ws.cell(row=fila_nueva + i, column=col)
+                    cell.value = valor
 
-                if col <= 10:
-                    cell.fill = fill_color
+                    if col <= 10:
+                        cell.fill = fill_color
 
-        print("✅ Filas movidas correctamente debajo de la 4ta X\n")
+            print("✅ Filas movidas correctamente debajo de la 4ta X\n")
 
     #! ── CASO: cualquier otro valor → advertencia y sin acción ──
     else:
-        print(f"⚠️  Cantidad de X no reconocida ({cantidad_x}). No se aplicó ninguna de las logicas.\n")
+        print(f"⚠️  Cantidad de X no reconocida ({cantidad_x}). No se aplicó ninguna de las lógicas.\n")
 
     #! Limpieza DataFrame
     if "_SUBMATERIAL" in df_main.columns:
@@ -744,6 +769,24 @@ def procesar_archivo_principal_mainboard_2(
         os.path.dirname(ruta_salida_principal),
         nuevo_nombre
     )
+    #! Mostrar estado final
+    if SUBMATERIALES_ENCONTRADOS:
+
+        print("✅ Procesado con submateriales")
+
+    else:
+
+        nombre_archivo_actual = os.path.basename(ruta_excel_principal)
+        print(f"⚠️ [{nombre_archivo_actual}] Procesado SIN submateriales → Se aplicó proceso estándar")
+
+        try:
+            messagebox.showwarning(
+                "Proceso completado",
+                f"Archivo: {nombre_archivo_actual}\nProcesado SIN submateriales\nSe aplicó proceso estándar"
+            )
+
+        except Exception as e:
+            print(f"[WARNING] No disponible: {e}")
 
     wb.save(ruta_salida_principal)
     print(f"[OK] Proceso completo {ruta_salida_principal}")

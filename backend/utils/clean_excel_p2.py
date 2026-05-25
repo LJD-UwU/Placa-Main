@@ -348,6 +348,31 @@ def mover_columnas_por_nombre(ws, columnas_a_mover, antes_de):
         ws.insert_cols(destino + i)
         for r, val in enumerate(data, start=1):
             ws.cell(row=r, column=destino + i).value = val
+            
+def eliminar_columnas_despues_de_header(ws, header_objetivo: str):
+    """
+    Elimina todas las columnas a la derecha del header indicado.
+    """
+
+    headers = [
+        ws.cell(row=1, column=c).value
+        for c in range(1, ws.max_column + 1)
+    ]
+
+    headers = [str(h).strip() if h else "" for h in headers]
+
+    if header_objetivo not in headers:
+        print(f"[WARNING] No se encontró header: {header_objetivo}")
+        return
+
+    idx = headers.index(header_objetivo) + 1  # columna base
+
+    max_col = ws.max_column
+
+    if idx < max_col:
+        ws.delete_cols(idx + 1, max_col - idx)
+
+    print(f"[OK] Columnas eliminadas después de '{header_objetivo}'")
 
 
 def procesar_archivo_principal_mainboard_2(
@@ -375,8 +400,11 @@ def procesar_archivo_principal_mainboard_2(
         columnas_a_mover=["组件数量", "Un"],
         antes_de="项目文本行 1"
     )
-
+    
+    eliminar_columnas_despues_de_header(ws, "项目文本行 2")
+    
     #! HEADERS 
+    
     headers = [
         "LEVEL", "ITEM", "MATERIAL",
         "DESCRIPTION IN CHINESE", "DESCRIPTION IN ENGLISH",
@@ -739,7 +767,7 @@ def procesar_archivo_principal_mainboard_2(
         for col, header in enumerate(encabezados_item, start=1):
             ws_item.cell(row=1, column=col).value = header
 
-    columnas_numericas = ["LEVEL", "ITEM", "QTY","MATERIAL","DESCRIPTION IN CHINESE","SORTSTRNG"]
+    columnas_numericas = ["LEVEL", "ITEM", "QTY","MATERIAL","DESCRIPTION IN CHINESE","SORTSTRNG","DESCRIPTION IN ENGLISH"]
     mapa_columnas = {
         str(ws.cell(row=1, column=c).value).strip().upper(): openpyxl.utils.get_column_letter(c)
         for c in range(1, ws.max_column + 1)

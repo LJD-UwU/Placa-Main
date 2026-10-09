@@ -2,6 +2,7 @@ import os
 import re
 import time
 import openpyxl
+import unicodedata
 import pandas as pd
 import xlwings as xw
 from glob import glob
@@ -19,15 +20,53 @@ def limpiar_valor(valor):
         valor = valor[:-2]
     return valor
 
+# ── Rangos Unicode CJK completos ────────────────────────────────────────────
+_CJK_RANGES = (
+    ('\u2E80', '\u2EFF'),   # CJK Radicals Supplement
+    ('\u2F00', '\u2FDF'),   # Kangxi Radicals
+    ('\u3000', '\u303F'),   # CJK Symbols and Punctuation
+    ('\u3040', '\u309F'),   # Hiragana  (bono: evita FP con texto japonés)
+    ('\u30A0', '\u30FF'),   # Katakana
+    ('\u3100', '\u312F'),   # Bopomofo
+    ('\u3130', '\u318F'),   # Hangul Compatibility Jamo
+    ('\u3190', '\u319F'),   # Kanbun
+    ('\u31A0', '\u31BF'),   # Bopomofo Extended
+    ('\u31C0', '\u31EF'),   # CJK Strokes
+    ('\u31F0', '\u31FF'),   # Katakana Phonetic Extensions
+    ('\u3200', '\u32FF'),   # Enclosed CJK Letters and Months
+    ('\u3300', '\u33FF'),   # CJK Compatibility
+    ('\u3400', '\u4DBF'),   # CJK Unified Ideographs Extension A
+    ('\u4E00', '\u9FFF'),   # CJK Unified Ideographs  ← bloque principal
+    ('\uF900', '\uFAFF'),   # CJK Compatibility Ideographs
+    ('\uFE30', '\uFE4F'),   # CJK Compatibility Forms
+    ('\U00020000', '\U0002A6DF'),  # Extension B
+    ('\U0002A700', '\U0002B73F'),  # Extension C
+    ('\U0002B740', '\U0002B81F'),  # Extension D
+    ('\U0002B820', '\U0002CEAF'),  # Extension E
+    ('\U0002CEB0', '\U0002EBEF'),  # Extension F
+    ('\U00030000', '\U0003134F'),  # Extension G
+)
 
-def contiene_chino(texto):
+# Caracteres "invisibles" adicionales a limpiar
+_INVISIBLE = re.compile(
+    r'[\xa0\u200b\u200c\u200d\u200e\u200f\ufeff\u00ad\u2028\u2029]'
+)
+
+def contiene_chino(texto) -> bool:
+    """
+    Devuelve True si 'texto' contiene al menos un carácter CJK/chino real.
+    Cubre todos los bloques Unicode relevantes (extensiones A-G, radicales, etc.)
+    """
+    if texto is None:
+        return False
+    texto = _INVISIBLE.sub('', str(texto)).strip()
     if not texto:
         return False
-
-    texto = str(texto)
-    texto = texto.replace("\xa0", "").replace("\u200b", "").strip()
-
-    return any('\u3400' <= c <= '\u9FFF' for c in texto)
+    return any(
+        lo <= c <= hi
+        for c in texto
+        for lo, hi in _CJK_RANGES
+    )
 
 
 def extraer_codigo_pcb(texto, siguiente_celda=None):
@@ -39,53 +78,55 @@ def extraer_codigo_pcb(texto, siguiente_celda=None):
     return None
 
 
-def colorear_chino(ws):
+def colorear_chino(ws) -> None:
     """
-    ✅ COMPORTAMIENTO FINAL:
-    - Detecta si LINE 1 o LINE 2 contienen caracteres chinos
-    - Si contiene chino: 
-      * Colorea TODA LA FILA en amarillo
-      * ELIMINA SOLO el contenido con chino (vacía la celda)
-      * Conserva todo lo demás de la fila
-    
-    Ejemplos:
-    - "U11涂完硅脂后安装" en LINE 1 → Fila amarilla, celda vacía, resto conservado
-    - "点胶固定,上件XP1005" en LINE 2 → Fila amarilla, celda vacía, resto conservado
-    - "SMT-123" (sin chino) → Sin cambios
-    """
-    amarillo = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
+    ✅ COMPORTAMIENTO:
+    - Detecta si LINE 1 o LINE 2 contienen CUALQUIER carácter chino
+    - Si contiene chino (puro O mixto como "固定V702和V901"):
+        * Colorea TODA LA FILA en amarillo
+        * VACÍA LA CELDA COMPLETA (no extrae la parte no-china)
+        * Conserva todo lo demás de la fila
 
-    col_indices = {
-        str(ws.cell(row=1, column=c).value).strip(): c
-        for c in range(1, ws.max_column + 1)
-    }
+    Ejemplos:
+    - "固定V702和V901"    → celda vacía ✅  (mixto)
+    - "U11涂完硅脂后安装"  → celda vacía ✅  (mixto)
+    - "点胶固定,上件XP1005" → celda vacía ✅  (mixto)
+    - "SMT-123"           → sin cambios  ✅  (sin chino)
+    """
+    AMARILLO = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
+    MAX_COL = ws.max_column
+
+    col_indices: dict[str, int] = {}
+    for c in range(1, MAX_COL + 1):
+        header = ws.cell(row=1, column=c).value
+        if header is not None:
+            col_indices[str(header).strip().upper()] = c
 
     col_line1 = col_indices.get("LINE 1")
     col_line2 = col_indices.get("LINE 2")
 
+    if col_line1 is None and col_line2 is None:
+        return
+
+    target_cols = [c for c in (col_line1, col_line2) if c is not None]
+
     for row in range(2, ws.max_row + 1):
-        tiene_chino = False
-        celdas_con_chino = []
-        
-        #! Verificar si LINE 1 o LINE 2 contienen chino
-        for col in [col_line1, col_line2]:
-            if col:
-                valor = ws.cell(row=row, column=col).value
-                if valor and contiene_chino(valor):
-                    tiene_chino = True
-                    celdas_con_chino.append(col)
-        
-        #! Si la fila tiene chino
-        if tiene_chino:
-            #! Colorear TODA la fila en amarillo
-            for col in range(1, ws.max_column + 1):
-                ws.cell(row=row, column=col).fill = amarillo
+        celdas_con_chino = [
+            col for col in target_cols
+            if contiene_chino(ws.cell(row=row, column=col).value)
+        ]
+
+        if not celdas_con_chino:
+            continue
+
+        # Colorear TODA la fila
+        for col in range(1, MAX_COL + 1):
+            ws.cell(row=row, column=col).fill = AMARILLO
+
+        # Vaciar TODA la celda aunque sea texto mixto ("固定V702和V901" → vacío)
+        for col in celdas_con_chino:
+            ws.cell(row=row, column=col).value = None  # borra el contenido completo
             
-            #! SOLO vaciar las celdas que contienen chino
-            for col in celdas_con_chino:
-                ws.cell(row=row, column=col).value = None
-
-
 def aplicar_logica_x(ws):
     col_indices = {ws.cell(row=1, column=c).value: c for c in range(1, ws.max_column + 1)}
     col_item = col_indices.get("ITEM")
@@ -374,6 +415,22 @@ def eliminar_columnas_despues_de_header(ws, header_objetivo: str):
 
     print(f"[OK] Columnas eliminadas después de '{header_objetivo}'")
 
+def asegurar_10_columnas(ws):
+    """
+    Verifica si el Excel tiene 10 columnas.
+    Si es así, inserta una columna vacía entre C y D.
+    Solo aplica si detecta exactamente 10 columnas usadas.
+    """
+
+    max_col = ws.max_column
+
+    if max_col == 10:
+        # Insertar columna vacía en posición D (columna 4)
+        ws.insert_cols(4)
+
+        print("[OK] Se insertó columna vacía entre C y D (ajuste de 10 → 11 columnas)")
+    else:
+        print(f"[INFO] Columnas detectadas: {max_col} (sin cambios)")
 
 def procesar_archivo_principal_mainboard_2(
     ruta_excel_principal: str,
@@ -393,7 +450,7 @@ def procesar_archivo_principal_mainboard_2(
     ws.delete_cols(7)
     ws.delete_cols(10)
     ws.delete_rows(1, 9)
-
+    asegurar_10_columnas(ws)
     #! LÓGICA: MOVER COLUMNAS
     mover_columnas_por_nombre(
         ws,
